@@ -1,0 +1,211 @@
+{
+  "entities": {
+    "Agent": {
+      "title": "Agent",
+      "description": "Administrative staff, cashiers, and pedagogical managers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "username": { "type": "string", "maxLength": 100 },
+        "fullName": { "type": "string", "maxLength": 150 },
+        "role": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "format": "email", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "campus": { "type": "string", "maxLength": 150 },
+        "avatar": { "type": "string", "maxLength": 1000000 },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "username", "fullName", "role", "email", "campus", "active"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Enrolled student at Cab-Appuis tutoring center",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "matricule": { "type": "string", "maxLength": 100 },
+        "fullName": { "type": "string", "maxLength": 150 },
+        "avatar": { "type": "string", "maxLength": 1000000 },
+        "level": { "type": "string", "maxLength": 100 },
+        "stream": { "type": "string", "maxLength": 100 },
+        "subjects": { "type": "array" },
+        "guardianName": { "type": "string", "maxLength": 150 },
+        "guardianPhone": { "type": "string", "maxLength": 50 },
+        "monthlyFee": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "paymentStatus": { "type": "string", "enum": ["A jour", "En retard", "Partiel"] },
+        "tutoringStatus": { "type": "string", "enum": ["Actif", "Arrêté (À la demande)", "Arrêté (Défaut de paiement)"] },
+        "stopDate": { "type": "string", "maxLength": 100 },
+        "stopReason": { "type": "string", "maxLength": 500 },
+        "enrollmentDate": { "type": "string", "maxLength": 100 },
+        "syncStatus": { "type": "string", "maxLength": 50 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "agentId": { "type": "string", "maxLength": 128 },
+        "agentName": { "type": "string", "maxLength": 150 },
+        "agentRole": { "type": "string", "maxLength": 100 },
+        "agentAvatar": { "type": "string", "maxLength": 1000000 }
+      },
+      "required": ["id", "matricule", "fullName", "level", "stream", "monthlyFee", "paidAmount", "paymentStatus", "tutoringStatus", "agentId", "agentName", "agentRole"]
+    },
+    "PaymentReceipt": {
+      "title": "PaymentReceipt",
+      "description": "Cashier receipt for tuition, exam prep, registration, or supplies",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "receiptNumber": { "type": "string", "maxLength": 100 },
+        "studentId": { "type": "string", "maxLength": 128 },
+        "studentName": { "type": "string", "maxLength": 150 },
+        "category": { "type": "string", "maxLength": 100 },
+        "amount": { "type": "number" },
+        "paymentMethod": { "type": "string", "maxLength": 100 },
+        "paymentDate": { "type": "string", "maxLength": 100 },
+        "cashierName": { "type": "string", "maxLength": 150 },
+        "status": { "type": "string", "maxLength": 50 },
+        "syncStatus": { "type": "string", "maxLength": 50 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "agentId": { "type": "string", "maxLength": 128 },
+        "agentName": { "type": "string", "maxLength": 150 },
+        "agentRole": { "type": "string", "maxLength": 100 },
+        "agentAvatar": { "type": "string", "maxLength": 1000000 }
+      },
+      "required": ["id", "receiptNumber", "studentName", "category", "amount", "paymentMethod", "paymentDate", "status", "agentId", "agentName", "agentRole"]
+    },
+    "ExamApplication": {
+      "title": "ExamApplication",
+      "description": "Official competitive exam dossier for police, military, healthcare, or civil service",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "dossierNumber": { "type": "string", "maxLength": 100 },
+        "candidateName": { "type": "string", "maxLength": 150 },
+        "studentId": { "type": "string", "maxLength": 128 },
+        "examType": { "type": "string", "maxLength": 150 },
+        "examBatch": { "type": "string", "maxLength": 200 },
+        "requiredPieces": { "type": "array" },
+        "submittedPieces": { "type": "array" },
+        "status": { "type": "string", "maxLength": 100 },
+        "contactPhone": { "type": "string", "maxLength": 50 },
+        "submissionDate": { "type": "string", "maxLength": 100 },
+        "syncStatus": { "type": "string", "maxLength": 50 },
+        "agentId": { "type": "string", "maxLength": 128 },
+        "agentName": { "type": "string", "maxLength": 150 },
+        "agentRole": { "type": "string", "maxLength": 100 },
+        "agentAvatar": { "type": "string", "maxLength": 1000000 }
+      },
+      "required": ["id", "dossierNumber", "candidateName", "examType", "examBatch", "status", "contactPhone", "agentId", "agentName", "agentRole"]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "description": "Educational material, textbook, school supply or uniform",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "sku": { "type": "string", "maxLength": 100 },
+        "name": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string", "maxLength": 100 },
+        "unitPrice": { "type": "number" },
+        "stockQuantity": { "type": "number" },
+        "minThreshold": { "type": "number" },
+        "syncStatus": { "type": "string", "maxLength": 50 },
+        "description": { "type": "string", "maxLength": 500 },
+        "supplier": { "type": "string", "maxLength": 150 }
+      },
+      "required": ["id", "sku", "name", "category", "unitPrice", "stockQuantity", "minThreshold"]
+    },
+    "SupplySale": {
+      "title": "SupplySale",
+      "description": "Point of sale record for educational supplies",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "saleNumber": { "type": "string", "maxLength": 100 },
+        "customerName": { "type": "string", "maxLength": 150 },
+        "studentId": { "type": "string", "maxLength": 128 },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "paymentMethod": { "type": "string", "maxLength": 100 },
+        "saleDate": { "type": "string", "maxLength": 100 },
+        "syncStatus": { "type": "string", "maxLength": 50 },
+        "agentId": { "type": "string", "maxLength": 128 },
+        "agentName": { "type": "string", "maxLength": 150 },
+        "agentRole": { "type": "string", "maxLength": 100 },
+        "agentAvatar": { "type": "string", "maxLength": 1000000 }
+      },
+      "required": ["id", "saleNumber", "customerName", "totalAmount", "paymentMethod", "saleDate", "agentId", "agentName", "agentRole"]
+    },
+    "OperationItem": {
+      "title": "OperationItem",
+      "description": "Audit log and real-time activity feed of center operations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "maxLength": 50 },
+        "title": { "type": "string", "maxLength": 150 },
+        "subtitle": { "type": "string", "maxLength": 250 },
+        "referenceId": { "type": "string", "maxLength": 100 },
+        "studentId": { "type": "string", "maxLength": 128 },
+        "amount": { "type": "number" },
+        "timestamp": { "type": "string", "maxLength": 100 },
+        "syncStatus": { "type": "string", "maxLength": 50 },
+        "metaBadge": { "type": "string", "maxLength": 100 },
+        "agentId": { "type": "string", "maxLength": 128 },
+        "agentName": { "type": "string", "maxLength": 150 },
+        "agentRole": { "type": "string", "maxLength": 100 },
+        "agentAvatar": { "type": "string", "maxLength": 1000000 }
+      },
+      "required": ["id", "type", "title", "subtitle", "referenceId", "timestamp", "agentId", "agentName", "agentRole"]
+    },
+    "PriorityAlert": {
+      "title": "PriorityAlert",
+      "description": "Operational warnings and critical alerts for payments, exams, and inventory",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "pillar": { "type": "string", "maxLength": 50 },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 500 },
+        "count": { "type": "number" },
+        "urgency": { "type": "string", "maxLength": 50 },
+        "actionLabel": { "type": "string", "maxLength": 100 },
+        "actionKey": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "pillar", "title", "description", "count", "urgency", "actionLabel", "actionKey"]
+    }
+  },
+  "firestore": {
+    "/agents/{agentId}": {
+      "schema": "Agent",
+      "description": "Administrative agents and cashier accounts"
+    },
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Master student profiles and tutoring records"
+    },
+    "/payments/{paymentId}": {
+      "schema": "PaymentReceipt",
+      "description": "Receipts and payments"
+    },
+    "/exams/{examId}": {
+      "schema": "ExamApplication",
+      "description": "Competitive examination applications"
+    },
+    "/inventory/{itemId}": {
+      "schema": "InventoryItem",
+      "description": "Bookshop and educational supply stock"
+    },
+    "/supplySales/{saleId}": {
+      "schema": "SupplySale",
+      "description": "Sales records of educational supplies"
+    },
+    "/operations/{opId}": {
+      "schema": "OperationItem",
+      "description": "Operational activity stream and transaction logs"
+    },
+    "/alerts/{alertId}": {
+      "schema": "PriorityAlert",
+      "description": "Operational alerts and actionable notices"
+    }
+  }
+}

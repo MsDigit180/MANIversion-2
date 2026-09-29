@@ -1,0 +1,6 @@
+{
+  "name": "Cab-Appuis - Back-Office SaaS",
+  "description": "Tableau de bord de gestion intégrée offline-first pour cabinet d'appuis scolaires et concours professionnels.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

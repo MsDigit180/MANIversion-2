@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.size() > 0 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Default catch-all
+    match /{document=**} {
+      allow read, write: if true;
+    }
+
+    match /agents/{agentId} {
+      allow read, write: if isValidId(agentId);
+    }
+
+    match /students/{studentId} {
+      allow read, write: if isValidId(studentId);
+    }
+
+    match /payments/{paymentId} {
+      allow read, write: if isValidId(paymentId);
+    }
+
+    match /exams/{examId} {
+      allow read, write: if isValidId(examId);
+    }
+
+    match /inventory/{itemId} {
+      allow read, write: if isValidId(itemId);
+    }
+
+    match /supplySales/{saleId} {
+      allow read, write: if isValidId(saleId);
+    }
+
+    match /operations/{opId} {
+      allow read, write: if isValidId(opId);
+    }
+
+    match /alerts/{alertId} {
+      allow read, write: if isValidId(alertId);
+    }
+
+    match /test/{testId} {
+      allow read, write: if true;
+    }
+  }
+}
