@@ -20,6 +20,7 @@ import {
   Eye,
   FileSpreadsheet,
   Download,
+  Calendar,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Student } from '../../types';
@@ -40,6 +41,7 @@ export const InscriptionsTab: React.FC = () => {
   const [cycleFilter, setCycleFilter] = useState<string>('all');
   const [tutoringFilter, setTutoringFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name'>('recent');
   const [search, setSearch] = useState<string>('');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<Student | null>(null);
@@ -78,6 +80,28 @@ export const InscriptionsTab: React.FC = () => {
     }
 
     return matchesSearch && matchesCycle && matchesPaymentStatus && matchesTutoring;
+  });
+
+  const sortedStudents = [...filteredStudents].sort((a, b) => {
+    if (sortBy === 'name') {
+      return a.fullName.localeCompare(b.fullName);
+    }
+    const parseDate = (dStr: string) => {
+      if (!dStr) return 0;
+      const clean = dStr.split(' à ')[0].trim();
+      const parts = clean.split('/');
+      if (parts.length === 3) {
+        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime() || 0;
+      }
+      return new Date(dStr).getTime() || 0;
+    };
+    const timeA = parseDate(a.enrollmentDate);
+    const timeB = parseDate(b.enrollmentDate);
+    if (sortBy === 'recent') {
+      return timeB - timeA;
+    } else {
+      return timeA - timeB;
+    }
   });
 
   const handleDirectExportCSV = () => {
@@ -338,10 +362,24 @@ export const InscriptionsTab: React.FC = () => {
               <option value="En retard">En retard (Impayé)</option>
             </select>
           </div>
+
+          {/* Sorting selector */}
+          <div className="flex items-center gap-1 text-xs">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'recent' | 'oldest' | 'name')}
+              className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-2.5 py-1 text-xs text-indigo-700 dark:text-indigo-300 font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              title="Trier les inscriptions"
+            >
+              <option value="recent">Tri : Plus récents d'abord</option>
+              <option value="oldest">Tri : Plus anciens d'abord</option>
+              <option value="name">Tri : Par Nom (Alphabétique)</option>
+            </select>
+          </div>
         </div>
 
         <div className="text-xs text-slate-500 dark:text-slate-400">
-          <span className="font-semibold text-slate-800 dark:text-slate-200">{filteredStudents.length}</span> élève(s) filtré(s)
+          <span className="font-semibold text-slate-800 dark:text-slate-200">{sortedStudents.length}</span> élève(s) trié(s)
         </div>
       </div>
 
@@ -353,6 +391,7 @@ export const InscriptionsTab: React.FC = () => {
               <tr>
                 <th className="py-3 px-4">Élève & Matricule</th>
                 <th className="py-3 px-4">Niveau & Matières</th>
+                <th className="py-3 px-4">Date d'Inscription</th>
                 <th className="py-3 px-4">Tuteur Légal (Niamey)</th>
                 <th className="py-3 px-4 text-center">Encadrement</th>
                 <th className="py-3 px-4">Scolarité (FCFA)</th>
@@ -362,16 +401,16 @@ export const InscriptionsTab: React.FC = () => {
             </thead>
 
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-              {filteredStudents.length === 0 ? (
+              {sortedStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p className="font-medium text-slate-700 dark:text-slate-300">Aucun élève ne correspond aux critères.</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">Modifiez vos filtres ou effectuez une recherche.</p>
                   </td>
                 </tr>
               ) : (
-                filteredStudents.map((stu) => {
+                sortedStudents.map((stu) => {
                   const balanceDue = stu.monthlyFee - stu.paidAmount;
 
                   return (
@@ -418,6 +457,17 @@ export const InscriptionsTab: React.FC = () => {
                         <div className="font-semibold text-slate-900 dark:text-slate-100">{stu.level}</div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[180px]">
                           {stu.subjects.join(', ')}
+                        </div>
+                      </td>
+
+                      {/* Date d'Inscription */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5 font-mono text-xs text-slate-800 dark:text-slate-200 font-medium">
+                          <Calendar className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                          <span>{stu.enrollmentDate}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          Enregistré au cabinet
                         </div>
                       </td>
 

@@ -22,6 +22,7 @@ import {
   BadgeCheck,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { LiveClock } from '../common/LiveClock';
 
 export const TopBar: React.FC = () => {
   const {
@@ -136,6 +137,9 @@ export const TopBar: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Live Clock Component */}
+        <LiveClock />
       </div>
 
       {/* Zone 2: Global Search & Network State Indicator */}

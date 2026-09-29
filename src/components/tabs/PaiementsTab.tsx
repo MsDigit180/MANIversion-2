@@ -20,6 +20,7 @@ export const PaiementsTab: React.FC = () => {
   const { payments, setIsNewPaymentModalOpen, setSelectedReceipt } = useApp();
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [methodFilter, setMethodFilter] = useState<string>('all');
+  const [monthFilter, setMonthFilter] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
 
   const filteredPayments = payments.filter((pay) => {
@@ -29,8 +30,12 @@ export const PaiementsTab: React.FC = () => {
 
     const matchesCategory = categoryFilter === 'all' || pay.category === categoryFilter;
     const matchesMethod = methodFilter === 'all' || pay.paymentMethod.includes(methodFilter);
+    const matchesMonth =
+      monthFilter === 'all' ||
+      pay.paymentDate.includes(monthFilter) ||
+      (pay.notes && pay.notes.toLowerCase().includes(monthFilter.toLowerCase()));
 
-    return matchesSearch && matchesCategory && matchesMethod;
+    return matchesSearch && matchesCategory && matchesMethod && matchesMonth;
   });
 
   const totalCollected = filteredPayments.reduce((acc, p) => acc + p.amount, 0);
@@ -119,6 +124,22 @@ export const PaiementsTab: React.FC = () => {
             <option value="Airtel">Airtel Money</option>
             <option value="Flooz">Moov Flooz</option>
             <option value="Al Izza">Al Izza / Nita</option>
+          </select>
+
+          <select
+            value={monthFilter}
+            onChange={(e) => setMonthFilter(e.target.value)}
+            className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-3 py-2 text-xs text-indigo-700 dark:text-indigo-300 font-semibold focus:outline-none cursor-pointer"
+          >
+            <option value="all">Tous les mois (Filtrer par mois)</option>
+            <option value="Septembre">Septembre 2026</option>
+            <option value="Août">Août 2026</option>
+            <option value="Juillet">Juillet 2026</option>
+            <option value="Juin">Juin 2026</option>
+            <option value="Mai">Mai 2026</option>
+            <option value="Avril">Avril 2026</option>
+            <option value="Mars">Mars 2026</option>
+            <option value="09/2026">09/2026</option>
           </select>
         </div>
 

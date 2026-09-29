@@ -255,7 +255,7 @@ export const StopTutoringModal: React.FC = () => {
                 type="text"
                 value={effectiveDate}
                 onChange={(e) => setEffectiveDate(e.target.value)}
-                placeholder="ex: 29 Mars 2026"
+                placeholder="ex: 29 Septembre 2026"
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none font-mono"
               />
             </div>

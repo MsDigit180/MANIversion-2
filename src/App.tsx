@@ -61,8 +61,12 @@ const DashboardContent: React.FC = () => {
         return 'Aujourd\'hui';
       case 'week':
         return 'Cette Semaine';
-      case 'month':
-        return 'Mois de Mars 2026';
+      case 'month': {
+        const now = new Date();
+        const mName = now.toLocaleString('fr-FR', { month: 'long' });
+        const capitalized = mName.charAt(0).toUpperCase() + mName.slice(1);
+        return `Mois de ${capitalized} ${now.getFullYear()}`;
+      }
       case 'term':
         return '2ème Trimestre';
       default:

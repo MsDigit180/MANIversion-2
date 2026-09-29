@@ -18,11 +18,12 @@ export const NewPaymentModal: React.FC = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [customName, setCustomName] = useState<string>('');
   const [category, setCategory] = useState<PaymentReceipt['category']>('Scolarité Mensuelle');
+  const [targetMonth, setTargetMonth] = useState<string>('Septembre 2026');
   const [amount, setAmount] = useState<number>(35000);
   const [paymentMethod, setPaymentMethod] = useState<PaymentReceipt['paymentMethod']>('Airtel Money');
   const [cashierName, setCashierName] = useState<string>('');
   const [paymentDateInput, setPaymentDateInput] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [notes, setNotes] = useState<string>('Règlement scolarité du mois en cours');
+  const [notes, setNotes] = useState<string>('Règlement scolarité du mois');
   const [autoReactivate, setAutoReactivate] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -55,6 +56,10 @@ export const NewPaymentModal: React.FC = () => {
     const formattedPaymentDay = formatISODateToFrench(paymentDateInput);
     const fullPaymentDate = `${formattedPaymentDay} à ${timeStr}`;
 
+    const finalNotes = category === 'Scolarité Mensuelle'
+      ? `Mois de ${targetMonth} - ${notes}`
+      : notes;
+
     try {
       const createdPayment = await addPayment({
         studentId: selectedStudentId || undefined,
@@ -65,7 +70,7 @@ export const NewPaymentModal: React.FC = () => {
         paymentDate: fullPaymentDate,
         cashierName: cashierName.trim() || 'Guichet Caisse',
         status: 'Validé',
-        notes,
+        notes: finalNotes,
       });
 
       // If student tutoring was stopped and user checked reactivation
@@ -74,7 +79,7 @@ export const NewPaymentModal: React.FC = () => {
       }
 
       setIsNewPaymentModalOpen(false);
-      // Offer receipt preview immediately
+      // Automatically trigger receipt preview / download prompt upon validation
       if (createdPayment) {
         setSelectedReceipt(createdPayment);
       }
@@ -206,6 +211,49 @@ export const NewPaymentModal: React.FC = () => {
               </select>
             </div>
 
+            {category === 'Scolarité Mensuelle' ? (
+              <div>
+                <label className="block text-xs font-semibold text-emerald-400 mb-1 flex items-center gap-1">
+                  <Calendar className="h-3 w-3 text-emerald-400" />
+                  <span>Mois de scolarité concerné *</span>
+                </label>
+                <select
+                  value={targetMonth}
+                  onChange={(e) => setTargetMonth(e.target.value)}
+                  className="w-full rounded-lg border border-emerald-500/50 bg-slate-800 px-3 py-2 text-xs text-emerald-300 font-bold focus:border-emerald-500 focus:outline-none cursor-pointer"
+                >
+                  <option value="Septembre 2026">Septembre 2026</option>
+                  <option value="Octobre 2026">Octobre 2026</option>
+                  <option value="Novembre 2026">Novembre 2026</option>
+                  <option value="Décembre 2026">Décembre 2026</option>
+                  <option value="Janvier 2027">Janvier 2027</option>
+                  <option value="Février 2027">Février 2027</option>
+                  <option value="Mars 2027">Mars 2027</option>
+                  <option value="Avril 2027">Avril 2027</option>
+                  <option value="Mai 2027">Mai 2027</option>
+                  <option value="Juin 2027">Juin 2027</option>
+                  <option value="Juillet 2027">Juillet 2027</option>
+                  <option value="Août 2027">Août 2027</option>
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Montant Encaissé (FCFA) *
+                </label>
+                <input
+                  type="number"
+                  step="500"
+                  required
+                  value={amount}
+                  onChange={(e) => setAmount(Number(e.target.value))}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-500 font-mono font-bold text-white focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
                 Montant Encaissé (FCFA) *
@@ -240,8 +288,9 @@ export const NewPaymentModal: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                📅 Date du Règlement (Jour de Paiement) *
+              <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5 text-indigo-400" />
+                <span>Date du Règlement (Jour de Paiement) *</span>
               </label>
               <input
                 type="date"
@@ -275,7 +324,7 @@ export const NewPaymentModal: React.FC = () => {
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ex: Mensualité de Mars 2026..."
+                placeholder="Ex: Mensualité de Septembre 2026..."
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none"
               />
             </div>

@@ -1,15 +1,40 @@
-import React from 'react';
-import { X, Printer, CheckCircle2, Clock, ShieldCheck, Download, Calendar } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, Printer, CheckCircle2, Clock, ShieldCheck, Download, Calendar, FileText } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { formatReceiptPaymentDate } from '../../utils/dateUtils';
 
 export const ReceiptModal: React.FC = () => {
-  const { selectedReceipt, setSelectedReceipt } = useApp();
+  const { selectedReceipt, setSelectedReceipt, students } = useApp();
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedReceipt(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setSelectedReceipt]);
 
   if (!selectedReceipt) return null;
 
+  const studentRecord = students.find(
+    (s) => s.id === selectedReceipt.studentId || selectedReceipt.studentName.toLowerCase().includes(s.fullName.toLowerCase())
+  );
+  const studentEnrollmentDate = studentRecord?.enrollmentDate || '29/09/2026';
+
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleExportPDF = () => {
+    setExporting(true);
+    // Trigger window.print() which allows direct "Save as PDF" in all modern browsers
+    setTimeout(() => {
+      window.print();
+      setExporting(false);
+    }, 300);
   };
 
   const formattedPaymentDate = formatReceiptPaymentDate(selectedReceipt.paymentDate);
@@ -20,23 +45,31 @@ export const ReceiptModal: React.FC = () => {
         {/* Top bar controls (hidden in print) */}
         <div className="flex items-center justify-between border-b border-slate-800 bg-slate-850 px-6 py-3.5 print:hidden">
           <div className="flex items-center gap-2">
-            <Printer className="h-4 w-4 text-indigo-400" />
+            <FileText className="h-4 w-4 text-indigo-400" />
             <span className="text-xs font-semibold text-white">
-              Aperçu du Reçu Officiel de Caisse
+              Aperçu du Reçu Officiel & Export PDF
             </span>
           </div>
 
           <div className="flex items-center gap-2">
             <button
+              onClick={handleExportPDF}
+              disabled={exporting}
+              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors shadow cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>{exporting ? 'Génération...' : 'Exporter PDF'}</span>
+            </button>
+            <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow"
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow cursor-pointer"
             >
               <Printer className="h-3.5 w-3.5" />
-              <span>Imprimer / PDF</span>
+              <span>Imprimer</span>
             </button>
             <button
               onClick={() => setSelectedReceipt(null)}
-              className="rounded-lg p-1 text-slate-400 hover:text-white transition-colors"
+              className="rounded-lg p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
             >
               <X className="h-5 w-5" />
             </button>
@@ -82,8 +115,9 @@ export const ReceiptModal: React.FC = () => {
               <span className="inline-block bg-slate-100 text-slate-900 border-2 border-slate-900 font-mono font-bold text-xs px-3 py-1 rounded shadow-sm">
                 REÇU N° {selectedReceipt.receiptNumber}
               </span>
-              <p className="text-[10.5px] text-slate-700 mt-1.5 font-medium">
-                📅 Date de Paiement : <span className="font-bold text-slate-900">{formattedPaymentDate}</span>
+              <p className="text-[10.5px] text-slate-700 mt-1.5 font-medium flex items-center justify-end gap-1">
+                <Calendar className="h-3 w-3 text-indigo-700" />
+                <span>Date de Paiement : <span className="font-bold text-slate-900">{formattedPaymentDate}</span></span>
               </p>
               <p className="text-[9px] text-slate-500 font-mono">
                 Site : Niamey 2000
@@ -103,18 +137,30 @@ export const ReceiptModal: React.FC = () => {
               <span className="text-[11px] text-slate-600 block mt-0.5">
                 Catégorie : <span className="font-semibold text-slate-800">{selectedReceipt.category}</span>
               </span>
+              <span className="text-[10.5px] text-slate-600 block mt-0.5 font-medium">
+                Date d'inscription initiale : <span className="font-bold text-slate-900">{studentEnrollmentDate}</span>
+              </span>
             </div>
 
-            <div className="text-right">
+            <div className="text-right flex flex-col items-end">
               <span className="text-[10px] font-bold uppercase text-slate-500 block">
                 Mode de Règlement :
               </span>
               <span className="text-xs font-semibold text-slate-800 block mt-0.5">
                 {selectedReceipt.paymentMethod}
               </span>
-              <span className="text-[11px] text-slate-600 block mt-0.5">
-                Caissier / Agent : <span className="font-semibold text-slate-800">{selectedReceipt.cashierName}</span>
-              </span>
+              <div className="flex items-center gap-1.5 mt-1">
+                {selectedReceipt.agentAvatar && (
+                  <img
+                    src={selectedReceipt.agentAvatar}
+                    alt={selectedReceipt.agentName}
+                    className="h-5 w-5 rounded-full object-cover ring-1 ring-slate-300"
+                  />
+                )}
+                <span className="text-[11px] text-slate-600">
+                  Caissier : <span className="font-semibold text-slate-800">{selectedReceipt.cashierName}</span>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -191,14 +237,31 @@ export const ReceiptModal: React.FC = () => {
         </div>
 
         {/* Modal footer (hidden in print) */}
-        <div className="border-t border-slate-800 bg-slate-850 px-6 py-3 flex justify-between items-center text-xs text-slate-400 print:hidden">
-          <span>Reçu officiel généré pour impression thermique ou A4</span>
-          <button
-            onClick={() => setSelectedReceipt(null)}
-            className="text-xs text-slate-300 hover:text-white"
-          >
-            Fermer
-          </button>
+        <div className="border-t border-slate-800 bg-slate-850 px-6 py-3.5 flex justify-between items-center text-xs text-slate-400 print:hidden">
+          <span className="text-[11px] text-slate-400">Reçu officiel certifié · Prêt pour PDF ou Impression</span>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setSelectedReceipt(null)}
+              className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
+            >
+              Annuler / Fermer (Échap)
+            </button>
+            <button
+              onClick={handleExportPDF}
+              disabled={exporting}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white shadow transition-colors cursor-pointer"
+            >
+              <Download className="h-4 w-4" />
+              <span>{exporting ? 'Génération...' : 'Exporter en PDF'}</span>
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow transition-colors cursor-pointer"
+            >
+              <Printer className="h-4 w-4" />
+              <span>Imprimer</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
