@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, CreditCard, Clock, Printer, AlertTriangle, UserCheck, UserX, Loader2, Calendar } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PaymentReceipt } from '../../types';
-import { formatISODateToFrench } from '../../utils/dateUtils';
+import { formatISODateToFrench, formatYYYYMMToFrench } from '../../utils/dateUtils';
 
 export const NewPaymentModal: React.FC = () => {
   const {
@@ -18,7 +18,7 @@ export const NewPaymentModal: React.FC = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [customName, setCustomName] = useState<string>('');
   const [category, setCategory] = useState<PaymentReceipt['category']>('Scolarité Mensuelle');
-  const [targetMonth, setTargetMonth] = useState<string>('Septembre 2026');
+  const [targetMonth, setTargetMonth] = useState<string>('2026-09');
   const [amount, setAmount] = useState<number>(35000);
   const [paymentMethod, setPaymentMethod] = useState<PaymentReceipt['paymentMethod']>('Airtel Money');
   const [cashierName, setCashierName] = useState<string>('');
@@ -56,8 +56,9 @@ export const NewPaymentModal: React.FC = () => {
     const formattedPaymentDay = formatISODateToFrench(paymentDateInput);
     const fullPaymentDate = `${formattedPaymentDay} à ${timeStr}`;
 
+    const monthHuman = formatYYYYMMToFrench(targetMonth);
     const finalNotes = category === 'Scolarité Mensuelle'
-      ? `Mois de ${targetMonth} - ${notes}`
+      ? `Mois de ${monthHuman} - ${notes}`
       : notes;
 
     try {
@@ -215,26 +216,15 @@ export const NewPaymentModal: React.FC = () => {
               <div>
                 <label className="block text-xs font-semibold text-emerald-400 mb-1 flex items-center gap-1">
                   <Calendar className="h-3 w-3 text-emerald-400" />
-                  <span>Mois de scolarité concerné *</span>
+                  <span>Mois de scolarité concerné (Calendrier) *</span>
                 </label>
-                <select
+                <input
+                  type="month"
+                  required
                   value={targetMonth}
                   onChange={(e) => setTargetMonth(e.target.value)}
                   className="w-full rounded-lg border border-emerald-500/50 bg-slate-800 px-3 py-2 text-xs text-emerald-300 font-bold focus:border-emerald-500 focus:outline-none cursor-pointer"
-                >
-                  <option value="Septembre 2026">Septembre 2026</option>
-                  <option value="Octobre 2026">Octobre 2026</option>
-                  <option value="Novembre 2026">Novembre 2026</option>
-                  <option value="Décembre 2026">Décembre 2026</option>
-                  <option value="Janvier 2027">Janvier 2027</option>
-                  <option value="Février 2027">Février 2027</option>
-                  <option value="Mars 2027">Mars 2027</option>
-                  <option value="Avril 2027">Avril 2027</option>
-                  <option value="Mai 2027">Mai 2027</option>
-                  <option value="Juin 2027">Juin 2027</option>
-                  <option value="Juillet 2027">Juillet 2027</option>
-                  <option value="Août 2027">Août 2027</option>
-                </select>
+                />
               </div>
             ) : (
               <div>

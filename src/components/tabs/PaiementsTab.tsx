@@ -11,10 +11,11 @@ import {
   DollarSign,
   TrendingUp,
   BadgeCheck,
+  Calendar,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PaymentReceipt } from '../../types';
-import { formatReceiptPaymentDate } from '../../utils/dateUtils';
+import { formatReceiptPaymentDate, formatYYYYMMToFrench } from '../../utils/dateUtils';
 
 export const PaiementsTab: React.FC = () => {
   const { payments, setIsNewPaymentModalOpen, setSelectedReceipt } = useApp();
@@ -31,9 +32,19 @@ export const PaiementsTab: React.FC = () => {
     const matchesCategory = categoryFilter === 'all' || pay.category === categoryFilter;
     const matchesMethod = methodFilter === 'all' || pay.paymentMethod.includes(methodFilter);
     const matchesMonth =
-      monthFilter === 'all' ||
-      pay.paymentDate.includes(monthFilter) ||
-      (pay.notes && pay.notes.toLowerCase().includes(monthFilter.toLowerCase()));
+      monthFilter === 'all' || (() => {
+        const frenchMonth = formatYYYYMMToFrench(monthFilter);
+        const [year, monthNum] = monthFilter.split('-');
+        return (
+          pay.paymentDate.includes(monthFilter) ||
+          pay.paymentDate.includes(`${monthNum}/${year}`) ||
+          (pay.notes && (
+            pay.notes.toLowerCase().includes(frenchMonth.toLowerCase()) ||
+            pay.notes.toLowerCase().includes(monthFilter.toLowerCase()) ||
+            pay.notes.toLowerCase().includes(`${monthNum}/${year}`)
+          ))
+        );
+      })();
 
     return matchesSearch && matchesCategory && matchesMethod && matchesMonth;
   });
@@ -126,21 +137,25 @@ export const PaiementsTab: React.FC = () => {
             <option value="Al Izza">Al Izza / Nita</option>
           </select>
 
-          <select
-            value={monthFilter}
-            onChange={(e) => setMonthFilter(e.target.value)}
-            className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-3 py-2 text-xs text-indigo-700 dark:text-indigo-300 font-semibold focus:outline-none cursor-pointer"
-          >
-            <option value="all">Tous les mois (Filtrer par mois)</option>
-            <option value="Septembre">Septembre 2026</option>
-            <option value="Août">Août 2026</option>
-            <option value="Juillet">Juillet 2026</option>
-            <option value="Juin">Juin 2026</option>
-            <option value="Mai">Mai 2026</option>
-            <option value="Avril">Avril 2026</option>
-            <option value="Mars">Mars 2026</option>
-            <option value="09/2026">09/2026</option>
-          </select>
+          <div className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-3 py-1.5">
+            <Calendar className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Mois :</span>
+            <input
+              type="month"
+              value={monthFilter === 'all' ? '' : monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value ? e.target.value : 'all')}
+              className="bg-transparent text-xs text-indigo-700 dark:text-indigo-300 font-bold focus:outline-none cursor-pointer"
+              title="Filtrer par mois (Calendrier)"
+            />
+            {monthFilter !== 'all' && (
+              <button
+                onClick={() => setMonthFilter('all')}
+                className="text-[10px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 ml-1 underline cursor-pointer"
+              >
+                Tous
+              </button>
+            )}
+          </div>
         </div>
 
         <button

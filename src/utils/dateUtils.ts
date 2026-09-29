@@ -92,3 +92,31 @@ export function formatReceiptPaymentDate(rawDate?: string): string {
 
   return `${todayStr} à ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 }
+
+const FRENCH_MONTHS: Record<string, string> = {
+  '01': 'Janvier',
+  '02': 'Février',
+  '03': 'Mars',
+  '04': 'Avril',
+  '05': 'Mai',
+  '06': 'Juin',
+  '07': 'Juillet',
+  '08': 'Août',
+  '09': 'Septembre',
+  '10': 'Octobre',
+  '11': 'Novembre',
+  '12': 'Décembre',
+};
+
+export function formatYYYYMMToFrench(yyyyMm: string): string {
+  if (!yyyyMm) return 'Septembre 2026';
+  try {
+    const [year, month] = yyyyMm.split('-');
+    if (year && month && FRENCH_MONTHS[month]) {
+      return `${FRENCH_MONTHS[month]} ${year}`;
+    }
+  } catch {
+    // fallback
+  }
+  return yyyyMm;
+}
