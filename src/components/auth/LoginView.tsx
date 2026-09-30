@@ -14,6 +14,7 @@ import {
   KeyRound,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { CAB_APPUIS_LOGO } from '../../assets/logo';
 
 export const LoginView: React.FC = () => {
   const { login, theme, toggleTheme } = useApp();
@@ -56,9 +57,11 @@ export const LoginView: React.FC = () => {
       {/* Top Header bar with Theme toggle */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 font-black text-white shadow-md shadow-indigo-500/20 text-xs">
-            MANI
-          </div>
+          <img
+            src={CAB_APPUIS_LOGO}
+            alt="Logo Cabinet d'Appuis Scolaire MANI"
+            className="h-11 w-11 rounded-xl object-contain border border-slate-200 dark:border-slate-700 bg-white p-0.5 shadow-md shadow-indigo-500/10"
+          />
           <div>
             <h1 className="text-base font-bold text-slate-900 dark:text-white tracking-tight leading-none">
               Cabinet d'Appuis Scolaire MANI
@@ -105,14 +108,18 @@ export const LoginView: React.FC = () => {
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-xl dark:shadow-2xl dark:shadow-black/60 backdrop-blur">
             {/* Title & Icon */}
             <div className="text-center mb-6">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 mb-3 border border-indigo-100 dark:border-indigo-500/20 shadow-inner">
-                <Lock className="h-6 w-6" />
+              <div className="inline-flex items-center justify-center rounded-2xl bg-indigo-50/50 dark:bg-indigo-500/10 p-2 mb-3 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
+                <img
+                  src={CAB_APPUIS_LOGO}
+                  alt="Emblème Officiel Cabinet MANI"
+                  className="w-16 h-16 rounded-xl object-contain bg-white shadow-sm border border-slate-200 dark:border-slate-700"
+                />
               </div>
               <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Authentification
+                Portail d'Accès Cab-Appuis
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Accédez à l'espace d'administration du cabinet Cab-Appuis
+                Espace sécurisé · Cabinet d'Appuis Scolaire MANI (Niamey 2000)
               </p>
             </div>
 

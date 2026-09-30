@@ -16,12 +16,14 @@ import {
 } from 'lucide-react';
 import { Student } from '../../types';
 import { formatSessionHours, calculateWeeklyHours } from '../../utils/dateUtils';
+import { CAB_APPUIS_LOGO } from '../../assets/logo';
 
 interface PrintStudentListModalProps {
   isOpen: boolean;
   onClose: () => void;
   students: Student[];
   cycleFilter: string;
+  genderFilter?: string;
   statusFilter: string;
   tutoringFilter?: string;
   searchQuery: string;
@@ -35,6 +37,7 @@ export const exportStudentsToCSV = (
   const headers = [
     'Matricule',
     'Nom Complet',
+    'Sexe',
     'Niveau',
     'Cycle',
     'Matières Suivies',
@@ -63,6 +66,7 @@ export const exportStudentsToCSV = (
   const rows = students.map((s) => [
     escapeCsv(s.matricule),
     escapeCsv(s.fullName),
+    escapeCsv(s.gender || 'Masculin (M)'),
     escapeCsv(s.level),
     escapeCsv(s.stream),
     escapeCsv(s.subjects.join(', ')),
@@ -99,6 +103,7 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
   onClose,
   students,
   cycleFilter,
+  genderFilter = 'all',
   statusFilter,
   tutoringFilter,
   searchQuery,
@@ -129,6 +134,13 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
     if (cycleFilter === 'Collège') return 'Cycle Collège (6ème à 3ème - BEPC)';
     if (cycleFilter === 'Lycée') return 'Cycle Secondaire Lycée (2nde à Terminale)';
     return cycleFilter;
+  };
+
+  const getGenderFilterLabel = () => {
+    if (!genderFilter || genderFilter === 'all') return 'Tous sexes (M & F)';
+    if (genderFilter === 'Masculin (M)' || genderFilter === 'M') return 'Masculin (M) / Garçons';
+    if (genderFilter === 'Féminin (F)' || genderFilter === 'F') return 'Féminin (F) / Filles';
+    return genderFilter;
   };
 
   const getStatusLabel = () => {
@@ -194,36 +206,52 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
         </div>
 
         {/* Printable Document Sheet */}
-        <div id="printable-receipt" className="flex-1 overflow-y-auto p-8 bg-white text-slate-900 text-xs font-sans">
+        <div id="printable-receipt" className="relative flex-1 overflow-y-auto p-8 bg-white text-slate-900 text-xs font-sans">
+          {/* Subtle Watermark */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none overflow-hidden opacity-[0.04] print:opacity-[0.06]">
+            <img
+              src={CAB_APPUIS_LOGO}
+              alt="Filigrane Cabinet MANI"
+              className="w-96 h-96 object-contain filter grayscale"
+            />
+          </div>
+
           {/* Header Niger & Cabinet */}
-          <div className="border-b-2 border-slate-900 pb-4">
+          <div className="relative z-10 border-b-2 border-slate-900 pb-4">
             <div className="flex justify-between items-start">
-              <div>
-                <div className="text-[10px] uppercase font-bold tracking-widest text-slate-600">
-                  RÉPUBLIQUE DU NIGER
-                </div>
-                <div className="text-[9px] text-slate-500">
-                  Ministère de l'Éducation Nationale · Direction Régionale des Enseignements de Niamey
-                </div>
-                <div className="mt-2 flex items-center gap-2.5">
-                  <div className="bg-indigo-950 text-white font-extrabold text-sm px-2.5 py-1 rounded">
-                    CAS-MANI
+              <div className="flex items-start gap-3.5">
+                <img
+                  src={CAB_APPUIS_LOGO}
+                  alt="Logo Cabinet d'Appuis Scolaire MANI"
+                  className="w-16 h-16 rounded-xl object-contain border border-slate-200 shadow-sm shrink-0 bg-white p-0.5 print:border-slate-400"
+                />
+                <div>
+                  <div className="text-[10px] uppercase font-bold tracking-widest text-slate-600">
+                    RÉPUBLIQUE DU NIGER
                   </div>
-                  <div>
-                    <h1 className="text-base font-extrabold tracking-tight text-slate-950 uppercase">
-                      Cabinet d'Appuis Scolaire MANI
-                    </h1>
-                    <p className="text-[10px] font-semibold text-indigo-900">
-                      Encadrement Pédagogique, Cours d'Appuis & Prépa Concours
-                    </p>
-                    <p className="text-[9.5px] text-slate-600 mt-0.5">
-                      📍 Quartier Niamey 2000, Niamey (Niger) · NIF : <span className="font-mono font-bold text-slate-900">153633/P</span> · RCCM : <span className="font-mono font-bold text-slate-900">NE-NIM-A10-05126</span> · 📞 <span className="font-mono font-bold text-slate-900">+227 91 58 44 59 / 96 16 51 81</span>
-                    </p>
+                  <div className="text-[9px] text-slate-500">
+                    Ministère de l'Éducation Nationale · Direction Régionale des Enseignements de Niamey
                   </div>
+                  <div className="mt-1 flex items-center gap-2.5">
+                    <div className="bg-indigo-950 text-white font-black text-sm px-2 py-0.5 rounded">
+                      CAS-MANI
+                    </div>
+                    <div>
+                      <h1 className="text-base font-extrabold tracking-tight text-slate-950 uppercase">
+                        Cabinet d'Appuis Scolaire MANI
+                      </h1>
+                      <p className="text-[10px] font-semibold text-indigo-900">
+                        Encadrement Pédagogique, Cours d'Appuis & Prépa Concours
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-[9.5px] text-slate-600 mt-1">
+                    📍 Quartier Niamey 2000, Niamey (Niger) · NIF : <span className="font-mono font-bold text-slate-900">153633/P</span> · RCCM : <span className="font-mono font-bold text-slate-900">NE-NIM-A10-05126</span> · 📞 <span className="font-mono font-bold text-slate-900">+227 91 58 44 59 / 96 16 51 81</span>
+                  </p>
                 </div>
               </div>
 
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 <div className="inline-block rounded border border-slate-300 bg-slate-50 px-3 py-1 text-right shadow-sm">
                   <span className="text-[10px] font-semibold text-slate-500 block">Date d'édition du registre :</span>
                   <span className="font-mono font-bold text-xs text-slate-900">{currentDate}</span>
@@ -252,10 +280,14 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
             </div>
 
             {/* Active Filters Tag Pills */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px]">
               <div>
                 <span className="text-slate-500 block text-[10px]">Cycle sélectionné :</span>
                 <span className="font-semibold text-slate-800">{getCycleLabel()}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[10px]">Filtre Sexe (M/F) :</span>
+                <span className="font-semibold text-indigo-900">{getGenderFilterLabel()}</span>
               </div>
               <div>
                 <span className="text-slate-500 block text-[10px]">Statut encadrement :</span>
@@ -306,6 +338,7 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
                 <tr className="bg-slate-100 border-b border-slate-300 text-slate-800 font-bold uppercase text-[9px]">
                   <th className="py-2 px-2.5 border-r border-slate-300 w-24">Matricule</th>
                   <th className="py-2 px-2.5 border-r border-slate-300">Nom & Prénom Élève</th>
+                  <th className="py-2 px-2 border-r border-slate-300 text-center w-12">Sexe</th>
                   <th className="py-2 px-2.5 border-r border-slate-300">Niveau / Classe</th>
                   <th className="py-2 px-2.5 border-r border-slate-300">Tuteur & Téléphone</th>
                   <th className="py-2 px-2.5 border-r border-slate-300 text-center">Séances/Sem.</th>
@@ -318,7 +351,7 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
               <tbody className="divide-y divide-slate-200">
                 {students.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-6 text-center text-slate-500 italic">
+                    <td colSpan={10} className="py-6 text-center text-slate-500 italic">
                       Aucun élève ne correspond aux critères sélectionnés.
                     </td>
                   </tr>
@@ -340,6 +373,17 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
                               Inscrit par : {stu.agentName}
                             </span>
                           )}
+                        </td>
+                        <td className="py-1.5 px-2 text-center font-bold text-slate-800 border-r border-slate-200">
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] ${
+                              stu.gender === 'Féminin (F)'
+                                ? 'bg-pink-100 text-pink-700'
+                                : 'bg-blue-100 text-blue-700'
+                            }`}
+                          >
+                            {stu.gender === 'Féminin (F)' ? 'F' : 'M'}
+                          </span>
                         </td>
                         <td className="py-1.5 px-2.5 border-r border-slate-200">
                           <span className="font-medium text-slate-800">{stu.level}</span>
@@ -391,7 +435,7 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
               </tbody>
               <tfoot>
                 <tr className="bg-slate-100 border-t-2 border-slate-400 font-bold text-[11px]">
-                  <td colSpan={6} className="py-2 px-2.5 text-right uppercase text-slate-800">
+                  <td colSpan={7} className="py-2 px-2.5 text-right uppercase text-slate-800">
                     Totaux Financiers :
                   </td>
                   <td className="py-2 px-2.5 text-right font-mono text-slate-900 border-r border-slate-300">

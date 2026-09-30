@@ -9,11 +9,157 @@ export type ThemeMode = 'dark' | 'light';
 export type SyncState = 'synced' | 'pending';
 
 export type AgentRole =
-  | 'Administrateur Principal'
-  | 'Responsable Pédagogique'
-  | 'Agent de Caisse'
+  | 'Admin Principal'
+  | 'Administrateur'
+  | 'Agent Caisse'
   | 'Responsable Inscriptions'
+  // Compatibilité ascendante
+  | 'Administrateur Principal'
+  | 'Agent de Caisse'
+  | 'Responsable Pédagogique'
   | 'Secrétaire d\'Accueil';
+
+export const OFFICIAL_ROLES: AgentRole[] = [
+  'Admin Principal',
+  'Administrateur',
+  'Agent Caisse',
+  'Responsable Inscriptions',
+];
+
+export const DEFAULT_USER_ROLE: AgentRole = 'Agent Caisse';
+
+export const isSuperAdminRole = (role?: string): boolean => {
+  return role === 'Admin Principal' || role === 'Administrateur Principal';
+};
+
+export interface RoleConfig {
+  label: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  dotColor: string;
+  description: string;
+  canCreateUser: boolean;
+  canEditUserRole: boolean;
+  canResetPassword: boolean;
+  canDeleteUser: boolean;
+}
+
+export const ROLE_CONFIGS: Record<string, RoleConfig> = {
+  'Admin Principal': {
+    label: 'Admin Principal',
+    badgeBg: 'bg-purple-100 dark:bg-purple-500/20',
+    badgeText: 'text-purple-700 dark:text-purple-300',
+    badgeBorder: 'border-purple-200 dark:border-purple-500/30',
+    dotColor: 'bg-purple-500',
+    description: 'Super Administrateur — Droits complets : Création, Rôles, Mots de passe & Sécurité',
+    canCreateUser: true,
+    canEditUserRole: true,
+    canResetPassword: true,
+    canDeleteUser: true,
+  },
+  'Administrateur Principal': {
+    label: 'Admin Principal',
+    badgeBg: 'bg-purple-100 dark:bg-purple-500/20',
+    badgeText: 'text-purple-700 dark:text-purple-300',
+    badgeBorder: 'border-purple-200 dark:border-purple-500/30',
+    dotColor: 'bg-purple-500',
+    description: 'Super Administrateur — Droits complets : Création, Rôles, Mots de passe & Sécurité',
+    canCreateUser: true,
+    canEditUserRole: true,
+    canResetPassword: true,
+    canDeleteUser: true,
+  },
+  'Administrateur': {
+    label: 'Administrateur',
+    badgeBg: 'bg-blue-100 dark:bg-blue-500/20',
+    badgeText: 'text-blue-700 dark:text-blue-300',
+    badgeBorder: 'border-blue-200 dark:border-blue-500/30',
+    dotColor: 'bg-blue-500',
+    description: 'Gestion opérationnelle, registre des élèves, encadreurs & concours',
+    canCreateUser: false,
+    canEditUserRole: false,
+    canResetPassword: false,
+    canDeleteUser: false,
+  },
+  'Agent Caisse': {
+    label: 'Agent Caisse',
+    badgeBg: 'bg-emerald-100 dark:bg-emerald-500/20',
+    badgeText: 'text-emerald-700 dark:text-emerald-300',
+    badgeBorder: 'border-emerald-200 dark:border-emerald-500/30',
+    dotColor: 'bg-emerald-500',
+    description: 'Gestion des paiements, encaissements, quittances et reçus de scolarité',
+    canCreateUser: false,
+    canEditUserRole: false,
+    canResetPassword: false,
+    canDeleteUser: false,
+  },
+  'Agent de Caisse': {
+    label: 'Agent Caisse',
+    badgeBg: 'bg-emerald-100 dark:bg-emerald-500/20',
+    badgeText: 'text-emerald-700 dark:text-emerald-300',
+    badgeBorder: 'border-emerald-200 dark:border-emerald-500/30',
+    dotColor: 'bg-emerald-500',
+    description: 'Gestion des paiements, encaissements, quittances et reçus de scolarité',
+    canCreateUser: false,
+    canEditUserRole: false,
+    canResetPassword: false,
+    canDeleteUser: false,
+  },
+  'Responsable Inscriptions': {
+    label: 'Responsable Inscriptions',
+    badgeBg: 'bg-amber-100 dark:bg-amber-500/20',
+    badgeText: 'text-amber-700 dark:text-amber-300',
+    badgeBorder: 'border-amber-200 dark:border-amber-500/30',
+    dotColor: 'bg-amber-500',
+    description: 'Gestion des dossiers d\'inscriptions, fiches élèves et candidatures examens',
+    canCreateUser: false,
+    canEditUserRole: false,
+    canResetPassword: false,
+    canDeleteUser: false,
+  },
+  'Responsable Pédagogique': {
+    label: 'Responsable Inscriptions',
+    badgeBg: 'bg-amber-100 dark:bg-amber-500/20',
+    badgeText: 'text-amber-700 dark:text-amber-300',
+    badgeBorder: 'border-amber-200 dark:border-amber-500/30',
+    dotColor: 'bg-amber-500',
+    description: 'Suivi pédagogique et affectations',
+    canCreateUser: false,
+    canEditUserRole: false,
+    canResetPassword: false,
+    canDeleteUser: false,
+  },
+  'Secrétaire d\'Accueil': {
+    label: 'Secrétaire d\'Accueil',
+    badgeBg: 'bg-slate-100 dark:bg-slate-700',
+    badgeText: 'text-slate-700 dark:text-slate-300',
+    badgeBorder: 'border-slate-200 dark:border-slate-600',
+    dotColor: 'bg-slate-400',
+    description: 'Accueil, renseignements et assistance',
+    canCreateUser: false,
+    canEditUserRole: false,
+    canResetPassword: false,
+    canDeleteUser: false,
+  },
+};
+
+export const getRoleConfig = (role?: string): RoleConfig => {
+  return (
+    ROLE_CONFIGS[role || ''] || {
+      label: role || 'Utilisateur',
+      badgeBg: 'bg-slate-100 dark:bg-slate-700',
+      badgeText: 'text-slate-700 dark:text-slate-300',
+      badgeBorder: 'border-slate-200 dark:border-slate-600',
+      dotColor: 'bg-slate-400',
+      description: 'Agent du Cabinet MANI',
+      canCreateUser: false,
+      canEditUserRole: false,
+      canResetPassword: false,
+      canDeleteUser: false,
+    }
+  );
+};
 
 export interface Agent {
   id: string;

@@ -15,6 +15,7 @@ import {
   Agent,
   AgentRole,
   Tutor,
+  isSuperAdminRole,
 } from '../types';
 import { calculateMonthlyHours } from '../utils/dateUtils';
 import { validateTutorAssignment, isPrimaryStudent } from '../utils/tutorAssignmentValidation';
@@ -61,6 +62,7 @@ interface AppContextType {
   // Authentication & User Management
   isAuthenticated: boolean;
   currentUser: Agent;
+  isAdminPrincipal: boolean;
   agents: Agent[];
   setCurrentAgentId: (agentId: string) => void;
   login: (username: string, password: string) => { success: boolean; message?: string };
@@ -69,6 +71,9 @@ interface AppContextType {
   updateUserProfile: (data: Partial<Agent>) => Promise<void>;
   addAgent: (agentData: Omit<Agent, 'id' | 'active' | 'createdAt'>) => Promise<Agent>;
   deleteAgent: (agentId: string) => Promise<void>;
+  updateAgentRole: (agentId: string, newRole: AgentRole) => Promise<{ success: boolean; message?: string }>;
+  resetAgentPassword: (agentId: string, newPassword?: string) => Promise<{ success: boolean; message?: string }>;
+  toggleAgentStatus: (agentId: string) => Promise<{ success: boolean; message?: string }>;
 
   // Navigation & Filters
   currentTab: TabKey;
@@ -502,7 +507,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const isAdminPrincipal = isSuperAdminRole(currentUser.role);
+
   const addAgent = async (agentData: Omit<Agent, 'id' | 'active' | 'createdAt'>): Promise<Agent> => {
+    if (!isSuperAdminRole(currentUser.role)) {
+      showToast("Action réservée à l'Administrateur Principal", 'warning');
+      throw new Error("Action réservée à l'Administrateur Principal");
+    }
+
     let optimizedAvatar = agentData.avatar;
     if (optimizedAvatar && !optimizedAvatar.startsWith('http')) {
       optimizedAvatar = await compressImage(optimizedAvatar, { maxWidth: 400, maxHeight: 400, quality: 0.7 });
@@ -528,8 +540,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteAgent = async (agentId: string) => {
+    if (!isSuperAdminRole(currentUser.role)) {
+      showToast("Action réservée à l'Administrateur Principal", 'warning');
+      return;
+    }
+
     if (agents.length <= 1) {
       showToast('Impossible de supprimer le seul utilisateur restant.', 'warning');
+      return;
+    }
+
+    const targetAgent = agents.find((a) => a.id === agentId);
+    if (targetAgent && targetAgent.id === currentUser.id) {
+      showToast('Impossible de supprimer votre propre compte actuellement connecté.', 'warning');
       return;
     }
 
@@ -544,6 +567,87 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     await safeFirestoreWrite(deleteDoc(doc(db, COLLECTIONS.AGENTS, agentId)), 1200);
     showToast('Utilisateur supprimé de Firebase.', 'info');
+  };
+
+  const updateAgentRole = async (agentId: string, newRole: AgentRole): Promise<{ success: boolean; message?: string }> => {
+    if (!isSuperAdminRole(currentUser.role)) {
+      showToast("Action réservée à l'Administrateur Principal", 'warning');
+      return { success: false, message: "Action réservée à l'Administrateur Principal" };
+    }
+
+    const target = agents.find((a) => a.id === agentId);
+    if (!target) return { success: false, message: 'Utilisateur introuvable.' };
+
+    setAgents((prev) =>
+      prev.map((a) => (a.id === agentId ? { ...a, role: newRole } : a))
+    );
+    if (currentUser.id === agentId) {
+      setCurrentUser((prev) => ({ ...prev, role: newRole }));
+    }
+
+    await safeFirestoreWrite(
+      setDoc(doc(db, COLLECTIONS.AGENTS, agentId), sanitizeForFirestore({ role: newRole }), { merge: true }),
+      1200
+    );
+
+    showToast(`Rôle de ${target.fullName} mis à jour : ${newRole}`, 'success');
+    return { success: true };
+  };
+
+  const resetAgentPassword = async (agentId: string, newPassword?: string): Promise<{ success: boolean; message?: string }> => {
+    if (!isSuperAdminRole(currentUser.role)) {
+      showToast("Action réservée à l'Administrateur Principal", 'warning');
+      return { success: false, message: "Action réservée à l'Administrateur Principal" };
+    }
+
+    const target = agents.find((a) => a.id === agentId);
+    if (!target) return { success: false, message: 'Utilisateur introuvable.' };
+
+    const effectivePass = newPassword || '1234';
+    setAgents((prev) =>
+      prev.map((a) => (a.id === agentId ? { ...a, password: effectivePass } : a))
+    );
+
+    await safeFirestoreWrite(
+      setDoc(doc(db, COLLECTIONS.AGENTS, agentId), sanitizeForFirestore({ password: effectivePass }), { merge: true }),
+      1200
+    );
+
+    showToast(`Mot de passe de ${target.fullName} réinitialisé avec succès (${effectivePass}).`, 'success');
+    return { success: true, message: `Mot de passe réinitialisé à: ${effectivePass}` };
+  };
+
+  const toggleAgentStatus = async (agentId: string): Promise<{ success: boolean; message?: string }> => {
+    if (!isSuperAdminRole(currentUser.role)) {
+      showToast("Action réservée à l'Administrateur Principal", 'warning');
+      return { success: false, message: "Action réservée à l'Administrateur Principal" };
+    }
+
+    const target = agents.find((a) => a.id === agentId);
+    if (!target) return { success: false, message: 'Utilisateur introuvable.' };
+
+    if (currentUser.id === agentId && target.active) {
+      showToast("Impossible de désactiver votre propre compte actif.", 'warning');
+      return { success: false, message: "Impossible de désactiver votre propre compte." };
+    }
+
+    const nextActive = !target.active;
+    setAgents((prev) =>
+      prev.map((a) => (a.id === agentId ? { ...a, active: nextActive } : a))
+    );
+
+    await safeFirestoreWrite(
+      setDoc(doc(db, COLLECTIONS.AGENTS, agentId), sanitizeForFirestore({ active: nextActive }), { merge: true }),
+      1200
+    );
+
+    showToast(
+      nextActive
+        ? `Compte de ${target.fullName} réactivé.`
+        : `Compte de ${target.fullName} désactivé.`,
+      'info'
+    );
+    return { success: true };
   };
 
   const updateAgent = async (id: string, data: Partial<Agent>) => {
@@ -852,6 +956,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateUserProfile = async (data: Partial<Agent>) => {
     let sanitizedData = { ...data };
+    
+    // Protection RBAC : Seul l'Admin Principal peut modifier les rôles
+    if (sanitizedData.role && sanitizedData.role !== currentUser.role && !isSuperAdminRole(currentUser.role)) {
+      delete sanitizedData.role;
+      showToast("Action réservée à l'Administrateur Principal : modification de rôle non autorisée.", 'warning');
+    }
+
     if (sanitizedData.avatar && !sanitizedData.avatar.startsWith('http')) {
       sanitizedData.avatar = await compressImage(sanitizedData.avatar, { maxWidth: 400, maxHeight: 400, quality: 0.7 });
     }
@@ -1511,6 +1622,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastCloudSync,
         isAuthenticated,
         currentUser,
+        isAdminPrincipal,
         agents,
         setCurrentAgentId,
         login,
@@ -1519,6 +1631,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateUserProfile,
         addAgent,
         deleteAgent,
+        updateAgentRole,
+        resetAgentPassword,
+        toggleAgentStatus,
         currentTab,
         setCurrentTab,
         timePeriod,

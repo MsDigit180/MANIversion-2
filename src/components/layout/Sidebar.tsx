@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { TabKey } from '../../types';
+import { CAB_APPUIS_LOGO } from '../../assets/logo';
 
 export const Sidebar: React.FC = () => {
   const {
@@ -57,9 +58,11 @@ export const Sidebar: React.FC = () => {
       <div className="flex h-16 items-center justify-between border-b border-slate-200 dark:border-slate-700 px-4">
         {!isSidebarCollapsed ? (
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-xs font-black text-white shadow-md shadow-indigo-600/20">
-              MANI
-            </div>
+            <img
+              src={CAB_APPUIS_LOGO}
+              alt="Logo Cabinet MANI"
+              className="h-9 w-9 shrink-0 rounded-lg object-contain border border-indigo-200 dark:border-slate-700 bg-white p-0.5 shadow-sm"
+            />
             <div className="flex flex-col overflow-hidden">
               <span className="text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">
                 Cabinet MANI
@@ -70,9 +73,11 @@ export const Sidebar: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 font-black text-xs text-white shadow-md shadow-indigo-600/20">
-            MANI
-          </div>
+          <img
+            src={CAB_APPUIS_LOGO}
+            alt="Logo Cabinet MANI"
+            className="mx-auto h-8 w-8 rounded-lg object-contain border border-indigo-200 dark:border-slate-700 bg-white p-0.5 shadow-sm"
+          />
         )}
 
         <button

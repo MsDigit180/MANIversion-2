@@ -51,6 +51,7 @@ export const InscriptionsTab: React.FC = () => {
   } = useApp();
 
   const [cycleFilter, setCycleFilter] = useState<string>('all');
+  const [genderFilter, setGenderFilter] = useState<string>('all');
   const [tutoringFilter, setTutoringFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name' | 'sessions-desc' | 'sessions-asc'>('recent');
@@ -65,6 +66,8 @@ export const InscriptionsTab: React.FC = () => {
 
   // Statistics counters
   const totalStudents = students.length;
+  const maleCount = students.filter((s) => s.gender === 'Masculin (M)' || !s.gender).length;
+  const femaleCount = students.filter((s) => s.gender === 'Féminin (F)').length;
   const activeStudents = students.filter((s) => s.tutoringStatus === 'Actif').length;
   const stoppedDemand = students.filter((s) => s.tutoringStatus === 'Arrêté (À la demande)').length;
   const stoppedUnpaid = students.filter((s) => s.tutoringStatus === 'Arrêté (Défaut de paiement)').length;
@@ -86,6 +89,11 @@ export const InscriptionsTab: React.FC = () => {
       (cycleFilter === 'Lycée' && (stu.stream === 'Lycée' || stu.level.includes('Terminale') || stu.level.includes('Première') || stu.level.includes('Seconde') || stu.level.includes('Bac'))) ||
       (cycleFilter === 'Concours' && stu.stream === 'Prépa Concours');
 
+    const matchesGender =
+      genderFilter === 'all' ||
+      (genderFilter === 'Masculin (M)' && (stu.gender === 'Masculin (M)' || !stu.gender)) ||
+      (genderFilter === 'Féminin (F)' && stu.gender === 'Féminin (F)');
+
     const matchesPaymentStatus = statusFilter === 'all' || stu.paymentStatus === statusFilter;
 
     let matchesTutoring = true;
@@ -99,7 +107,7 @@ export const InscriptionsTab: React.FC = () => {
       matchesTutoring = stu.tutoringStatus !== 'Actif';
     }
 
-    return matchesSearch && matchesCycle && matchesPaymentStatus && matchesTutoring;
+    return matchesSearch && matchesCycle && matchesGender && matchesPaymentStatus && matchesTutoring;
   });
 
   const sortedStudents = [...filteredStudents].sort((a, b) => {
@@ -391,6 +399,24 @@ export const InscriptionsTab: React.FC = () => {
             >
               Lycée (Bac D/C/A)
             </button>
+          </div>
+
+          {/* Gender (Sexe M/F) filter selector */}
+          <div className="flex items-center gap-1 text-xs">
+            <select
+              value={genderFilter}
+              onChange={(e) => setGenderFilter(e.target.value)}
+              className={`rounded-xl border px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer transition-colors ${
+                genderFilter !== 'all'
+                  ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-bold'
+                  : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 text-slate-800 dark:text-slate-200'
+              }`}
+              title="Filtrer les élèves par sexe (M / F)"
+            >
+              <option value="all">Tous sexes (M & F) · {totalStudents}</option>
+              <option value="Masculin (M)">♂ Masculin (M) · {maleCount}</option>
+              <option value="Féminin (F)">♀ Féminin (F) · {femaleCount}</option>
+            </select>
           </div>
 
           {/* Tutoring Status selector */}
@@ -754,6 +780,7 @@ export const InscriptionsTab: React.FC = () => {
         onClose={() => setIsPrintModalOpen(false)}
         students={filteredStudents}
         cycleFilter={cycleFilter}
+        genderFilter={genderFilter}
         statusFilter={statusFilter}
         tutoringFilter={tutoringFilter}
         searchQuery={search}

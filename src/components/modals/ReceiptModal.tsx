@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { X, Printer, CheckCircle2, Clock, ShieldCheck, Download, Calendar, FileText } from 'lucide-react';
+import { X, Printer, CheckCircle2, Clock, ShieldCheck, Download, Calendar, FileText, Sparkles } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { formatReceiptPaymentDate } from '../../utils/dateUtils';
+import { CAB_APPUIS_LOGO } from '../../assets/logo';
 
 export const ReceiptModal: React.FC = () => {
   const { selectedReceipt, setSelectedReceipt, students } = useApp();
@@ -77,42 +78,60 @@ export const ReceiptModal: React.FC = () => {
         </div>
 
         {/* Printable Receipt Paper Container */}
-        <div id="printable-receipt" className="p-8 bg-white text-slate-900 text-xs font-sans">
+        <div id="printable-receipt" className="relative p-8 bg-white text-slate-900 text-xs font-sans overflow-hidden">
+          {/* Subtle Authentic Security Watermark */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none overflow-hidden opacity-[0.06] print:opacity-[0.08]">
+            <img
+              src={CAB_APPUIS_LOGO}
+              alt="Filigrane Cabinet d'Appuis Scolaire MANI"
+              className="w-96 h-96 object-contain filter grayscale"
+            />
+          </div>
+
           {/* Header */}
-          <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <div className="bg-indigo-900 text-white font-extrabold text-base px-2.5 py-1 rounded shadow-sm">
-                  CAS-MANI
+          <div className="relative z-10 flex justify-between items-start border-b-2 border-slate-900 pb-4">
+            <div className="flex items-start gap-3.5">
+              <img
+                src={CAB_APPUIS_LOGO}
+                alt="Logo Cabinet d'Appuis Scolaire MANI"
+                className="w-16 h-16 rounded-xl object-contain border border-slate-200 shadow-sm shrink-0 bg-white p-0.5 print:border-slate-400"
+              />
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="bg-indigo-900 text-white font-black text-sm px-2.5 py-0.5 rounded shadow-sm tracking-wide">
+                    CAS-MANI
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    Agrément & Enregistrement Officiel
+                  </span>
                 </div>
-                <div>
-                  <h1 className="text-sm font-extrabold tracking-tight uppercase text-slate-900">
-                    Cabinet d'Appuis Scolaire MANI
-                  </h1>
-                  <p className="text-[11px] font-semibold text-indigo-900">
-                    Encadrement Pédagogique, Cours d'Appuis & Prépa Concours
-                  </p>
-                </div>
-              </div>
-              
-              <div className="mt-2.5 text-[10px] text-slate-700 space-y-0.5">
-                <p className="font-medium">
-                  📍 <span className="font-semibold">Adresse :</span> Quartier Niamey 2000, Niamey (République du Niger)
+                
+                <h1 className="text-base font-black tracking-tight uppercase text-slate-950 mt-1">
+                  Cabinet d'Appuis Scolaire MANI
+                </h1>
+                <p className="text-[11px] font-bold text-indigo-950">
+                  Encadrement Pédagogique, Cours d'Appuis & Prépa Concours
                 </p>
-                <div className="flex flex-wrap items-center gap-x-3 text-[10px] font-semibold text-slate-900">
-                  <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                    NIF : <span className="font-mono font-bold text-indigo-900">153633/P</span>
-                  </span>
-                  <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                    RCCM : <span className="font-mono font-bold text-indigo-900">NE-NIM-A10-05126</span>
-                  </span>
-                  <span className="text-slate-800">📞 <span className="font-mono font-bold">+227 91 58 44 59 / 96 16 51 81</span></span>
+
+                <div className="mt-1.5 text-[9.5px] text-slate-700 space-y-0.5">
+                  <p className="font-medium">
+                    📍 <span className="font-semibold">Adresse :</span> Quartier Niamey 2000, Niamey (République du Niger)
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-3 text-[9.5px] font-semibold text-slate-900">
+                    <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                      NIF : <span className="font-mono font-bold text-indigo-900">153633/P</span>
+                    </span>
+                    <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                      RCCM : <span className="font-mono font-bold text-indigo-900">NE-NIM-A10-05126</span>
+                    </span>
+                    <span className="text-slate-800">📞 <span className="font-mono font-bold">+227 91 58 44 59 / 96 16 51 81</span></span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="text-right">
-              <span className="inline-block bg-slate-100 text-slate-900 border-2 border-slate-900 font-mono font-bold text-xs px-3 py-1 rounded shadow-sm">
+            <div className="text-right shrink-0">
+              <span className="inline-block bg-slate-100 text-slate-900 border-2 border-slate-900 font-mono font-extrabold text-xs px-3 py-1 rounded shadow-sm">
                 REÇU N° {selectedReceipt.receiptNumber}
               </span>
               <p className="text-[10.5px] text-slate-700 mt-1.5 font-medium flex items-center justify-end gap-1">
@@ -120,7 +139,7 @@ export const ReceiptModal: React.FC = () => {
                 <span>Date de Paiement : <span className="font-bold text-slate-900">{formattedPaymentDate}</span></span>
               </p>
               <p className="text-[9px] text-slate-500 font-mono">
-                Site : Niamey 2000
+                Site : Niamey 2000 · Année 2026/2027
               </p>
             </div>
           </div>
@@ -223,15 +242,22 @@ export const ReceiptModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Official Stamp */}
+            {/* Official Stamp with logo */}
             <div className="flex flex-col items-center">
-              <div className="border-2 border-indigo-900 text-indigo-900 rounded-lg p-2 text-center uppercase tracking-wider font-bold text-[8.5px] rotate-[-3deg] opacity-90 shadow-sm bg-indigo-50/40">
-                <div className="font-extrabold">CABINET D'APPUIS SCOLAIRE MANI</div>
-                <div className="text-[10px] text-emerald-700 font-black">✓ ENCAISSÉ LE {formattedPaymentDate.split(' à ')[0]}</div>
-                <div className="text-[8px] text-slate-700 font-mono">NIF: 153633/P · RCCM: NE-NIM-A10-05126</div>
-                <div className="text-[7.5px] text-slate-500">QUARTIER NIAMEY 2000</div>
+              <div className="flex items-center gap-2 border-2 border-indigo-900 text-indigo-900 rounded-lg p-2 text-center uppercase tracking-wider font-bold text-[8.5px] rotate-[-2deg] opacity-95 shadow-sm bg-indigo-50/50">
+                <img
+                  src={CAB_APPUIS_LOGO}
+                  alt="Sceau Officiel"
+                  className="w-10 h-10 rounded-full object-contain shrink-0 border border-indigo-900 bg-white"
+                />
+                <div className="text-left">
+                  <div className="font-extrabold text-[9px] text-indigo-950">CABINET D'APPUIS SCOLAIRE MANI</div>
+                  <div className="text-[10px] text-emerald-700 font-black">✓ ENCAISSÉ LE {formattedPaymentDate.split(' à ')[0]}</div>
+                  <div className="text-[8px] text-slate-700 font-mono">NIF: 153633/P · RCCM: NE-NIM-A10-05126</div>
+                  <div className="text-[7.5px] text-slate-600">CENTRE PÉDAGOGIQUE NIAMEY 2000</div>
+                </div>
               </div>
-              <span className="text-[9px] text-slate-500 mt-1">Visa & Cachet de la caisse</span>
+              <span className="text-[9px] text-slate-500 mt-1">Visa & Cachet Officiel de la Caisse</span>
             </div>
           </div>
         </div>
