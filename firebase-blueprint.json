@@ -42,6 +42,7 @@
         "enrollmentDate": { "type": "string", "maxLength": 100 },
         "syncStatus": { "type": "string", "maxLength": 50 },
         "notes": { "type": "string", "maxLength": 1000 },
+        "tutorAssignments": { "type": "array", "description": "Liste des affectations encadreurs par matière" },
         "agentId": { "type": "string", "maxLength": 128 },
         "agentName": { "type": "string", "maxLength": 150 },
         "agentRole": { "type": "string", "maxLength": 100 },

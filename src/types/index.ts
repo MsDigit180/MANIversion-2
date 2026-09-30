@@ -44,6 +44,15 @@ export interface SyncQueueItem {
 
 export type TutoringStatus = 'Actif' | 'Arrêté (À la demande)' | 'Arrêté (Défaut de paiement)';
 
+export interface StudentTutorAssignment {
+  tutorId: string;
+  tutorName: string;
+  tutorAvatar?: string;
+  tutorPhone?: string;
+  subjects: string[]; // specific subjects taught by this tutor to this student
+  assignedAt?: string;
+}
+
 export interface Student {
   id: string;
   matricule: string;
@@ -67,6 +76,7 @@ export interface Student {
   notes?: string;
   tutorId?: string; // Reference tutor for primary school (1 tutor max rule)
   tutorIds?: string[]; // Multiple tutors for college/lycée
+  tutorAssignments?: StudentTutorAssignment[]; // Rich subject-based tutor assignments
   // Relational link to staff
   agentId: string;
   agentName: string;
@@ -78,12 +88,15 @@ export interface TutoringSession {
   id: string;
   tutorId: string;
   tutorName: string;
+  tutorAvatar?: string;
   studentId: string;
   studentName: string;
+  studentLevel?: string;
   subject: string;
-  startTime: string; // e.g. "08:00"
+  dayOfWeek?: string; // e.g. "Lundi", "Mercredi", "Samedi"
+  startTime: string; // e.g. "08:30"
   endTime: string; // e.g. "10:00"
-  durationHours: number; // e.g. 2
+  durationHours: number; // e.g. 1.5 (1h 30mn)
   date: string;
   status: 'Planifiée' | 'Effectuée' | 'Annulée';
 }
@@ -99,6 +112,7 @@ export interface Tutor {
   subjects: string[];
   levels: string[]; // e.g. ["Primaire", "Collège", "Lycée", "Supérieur"]
   assignedStudentIds: string[];
+  assignedStudentSubjects?: Record<string, string[]>; // studentId -> list of subjects taught to this student
   sessions: TutoringSession[];
   totalHours: number;
   syncStatus: SyncState;

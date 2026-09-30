@@ -17,9 +17,18 @@ import {
   UserX,
   BadgeCheck,
   Edit,
+  BookOpen,
+  Lock,
+  Plus,
 } from 'lucide-react';
 import { Student } from '../../types';
 import { useApp } from '../../context/AppContext';
+import { formatSessionHours, calculateWeeklyHours } from '../../utils/dateUtils';
+import {
+  isPrimaryStudent,
+  getPrimaryTutorForStudent,
+  getStudentPedagogicalCoverage,
+} from '../../utils/tutorAssignmentValidation';
 
 interface StudentDetailModalProps {
   isOpen: boolean;
@@ -42,9 +51,12 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     setIsNewPaymentModalOpen,
     setEditingStudent,
     setIsNewStudentModalOpen,
+    tutors,
+    setIsAssignModalOpen,
+    setSelectedStudentForAssignment,
   } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState<'payments' | 'supplies' | 'exams'>('payments');
+  const [activeSubTab, setActiveSubTab] = useState<'tutors' | 'payments' | 'supplies' | 'exams'>('tutors');
 
   if (!isOpen || !student) return null;
 
@@ -52,32 +64,55 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   const studentExams = getStudentExams(student.id);
   const studentSupplies = getStudentSupplies(student.id);
 
-  const totalPaid = studentPayments.reduce((sum, p) => sum + p.amount, 0);
   const balanceDue = Math.max(0, student.monthlyFee - student.paidAmount);
+  const isStopped = student.tutoringStatus !== 'Actif';
+  const isPrimary = isPrimaryStudent(student);
+
+  // Couverture matière par matière
+  const subjectCoverage = getStudentPedagogicalCoverage(student, tutors);
+  const primaryTutor = isPrimary ? getPrimaryTutorForStudent(student, tutors) : null;
+
+  // Calcul du quota hebdomadaire
+  const weeklySessions = student.sessionsPerWeek || 3;
+  const weeklyHours = calculateWeeklyHours(weeklySessions);
+
+  const handleOpenAssignModal = () => {
+    setSelectedStudentForAssignment(student);
+    setIsAssignModalOpen(true);
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-3xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+      <div className="w-full max-w-3xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden text-slate-900 dark:text-slate-100 max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600 font-bold text-white shadow-md">
-              {student.fullName
-                .split(' ')
-                .map((n) => n[0])
-                .slice(0, 2)
-                .join('')}
+            <div className="relative h-12 w-12 rounded-full overflow-hidden bg-indigo-100 dark:bg-indigo-950/60 ring-2 ring-indigo-500/30 flex items-center justify-center shrink-0">
+              <img
+                src={student.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                alt={student.fullName}
+                className="h-full w-full object-cover"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
                   {student.fullName}
                 </h2>
-                <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-750 text-slate-700 dark:text-slate-300">
+                <span className="font-mono text-xs px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800">
                   {student.matricule}
                 </span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    student.gender === 'Féminin (F)'
+                      ? 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20'
+                      : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                  }`}
+                >
+                  {student.gender === 'Féminin (F)' ? 'F' : 'M'}
+                </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {student.level} · Cycle {student.stream}
               </p>
             </div>
@@ -85,71 +120,70 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 rounded-lg cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Status & Highlights Card */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {/* Status Highlights Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {/* Tutoring Status */}
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3.5">
               <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold block mb-1">
                 Statut Encadrement
               </span>
-              <div className="flex items-center gap-1.5 font-bold text-xs">
-                {student.tutoringStatus === 'Actif' && (
-                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                    <UserCheck className="h-4 w-4" />
-                    <span>Actif aux cours</span>
-                  </span>
-                )}
-                {student.tutoringStatus === 'Arrêté (À la demande)' && (
-                  <span className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400">
-                    <UserX className="h-4 w-4" />
-                    <span>Arrêté (À la demande)</span>
-                  </span>
-                )}
-                {student.tutoringStatus === 'Arrêté (Défaut de paiement)' && (
-                  <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
-                    <AlertTriangle className="h-4 w-4" />
-                    <span>Suspendu (Impayé)</span>
-                  </span>
+              <div className="flex items-center gap-1.5">
+                {isStopped ? (
+                  <>
+                    <UserX className="h-4 w-4 text-rose-500 shrink-0" />
+                    <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                      {student.tutoringStatus}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      Actif en cours
+                    </span>
+                  </>
                 )}
               </div>
-              {student.stopReason && (
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 italic line-clamp-1">
-                  "{student.stopReason}"
-                </p>
+              {student.stopDate && (
+                <div className="text-[10px] text-rose-500 mt-1 font-mono">
+                  Arrêté le {student.stopDate}
+                </div>
               )}
             </div>
 
-            {/* Quota Séances Hebdo */}
-            <div className="rounded-xl border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/50 dark:bg-indigo-950/40 p-3.5">
-              <span className="text-[11px] text-indigo-700 dark:text-indigo-300 uppercase tracking-wider font-semibold block mb-1">
-                Quota Séances Hebdo
+            {/* Weekly Sessions Quota */}
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3.5">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold block mb-1">
+                Quota Hebdomadaire
               </span>
-              <div className="flex items-center gap-1.5 font-mono font-bold text-sm text-indigo-900 dark:text-indigo-200">
-                <Calendar className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                <span>{student.sessionsPerWeek || 3} séances/sem.</span>
+              <div className="flex items-center gap-1.5">
+                <Calendar className="h-4 w-4 text-indigo-500 shrink-0" />
+                <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                  {weeklySessions} séance{weeklySessions > 1 ? 's' : ''}/semaine
+                </span>
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-mono">
-                ~{(student.sessionsPerWeek || 3) * 2} heures/semaine
+              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono mt-1 font-semibold">
+                = {formatSessionHours(weeklyHours)} / sem. (1h30/séance)
               </div>
             </div>
 
             {/* Financial Status */}
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3.5">
               <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold block mb-1">
-                Situation Financière
+                Paiement Mensuel
               </span>
-              <div className="font-mono font-bold text-sm text-slate-900 dark:text-white">
+              <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">
                 {student.paidAmount.toLocaleString()} / {student.monthlyFee.toLocaleString()} FCFA
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
                 {balanceDue > 0 ? (
                   <span className="text-rose-600 dark:text-rose-400 font-semibold">
                     Reste dû : {balanceDue.toLocaleString()} FCFA
@@ -169,12 +203,139 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               </span>
               <div className="flex items-center gap-1 text-xs font-semibold text-slate-800 dark:text-slate-200">
                 <BadgeCheck className="h-3.5 w-3.5 text-indigo-500" />
-                <span>{student.agentName}</span>
+                <span className="truncate">{student.agentName}</span>
               </div>
-              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                {student.agentRole} · {student.enrollmentDate}
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                {student.agentRole}
               </div>
             </div>
+          </div>
+
+          {/* USER REQUIREMENT: ENCADREMENT & MATIÈRES ATTRIBUÉES AVEC NOM ET PHOTO */}
+          <div className="rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/40 dark:bg-indigo-950/20 p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-indigo-100 dark:border-indigo-900/50">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-lg bg-indigo-600 text-white">
+                  <GraduationCap className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-950 dark:text-indigo-200">
+                    Encadrement Pédagogique & Matières Attribuées
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {isPrimary
+                      ? 'Niveau Primaire : 1 seul et unique encadreur référent'
+                      : 'Niveau Collège & Lycée : Matières distinctes par encadreur'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenAssignModal}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Gérer les Affectations</span>
+              </button>
+            </div>
+
+            {/* CAS 1 : PRIMAIRE -> ENCADREUR UNIQUE RÉFÉRENT */}
+            {isPrimary ? (
+              <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                {primaryTutor ? (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={primaryTutor.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'}
+                        alt={primaryTutor.fullName}
+                        className="h-11 w-11 rounded-full object-cover ring-2 ring-indigo-500/30"
+                      />
+                      <div>
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider block">
+                          Encadreur Référent Unique
+                        </span>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                          {primaryTutor.fullName}
+                        </h4>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                          {primaryTutor.matricule} · <a href={`tel:${primaryTutor.phone}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">{primaryTutor.phone}</a>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold border border-emerald-200 dark:border-emerald-800">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Toutes matières couvertes
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-3 text-xs text-slate-400">
+                    <span className="block font-medium text-amber-600 dark:text-amber-400 mb-1">
+                      Aucun encadreur référent attribué pour le moment.
+                    </span>
+                    Cliquez sur "Gérer les Affectations" pour attribuer un encadreur unique.
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* CAS 2 : COLLÈGE & LYCÉE -> TABLEAU PAR MATIÈRE AVEC NOM ET PHOTO */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {subjectCoverage.map((item) => (
+                  <div
+                    key={item.subject}
+                    className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 transition-colors ${
+                      item.isAssigned
+                        ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                        : 'bg-amber-50/50 dark:bg-amber-950/20 border-dashed border-amber-300 dark:border-amber-800/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {item.isAssigned && item.tutorAvatar ? (
+                        <img
+                          src={item.tutorAvatar}
+                          alt={item.tutorName}
+                          className="h-9 w-9 rounded-full object-cover ring-1 ring-indigo-500 shrink-0"
+                        />
+                      ) : (
+                        <div className="h-9 w-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center shrink-0 text-slate-400">
+                          <BookOpen className="h-4 w-4" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <span className="font-bold text-xs text-slate-900 dark:text-white block truncate">
+                          {item.subject}
+                        </span>
+                        {item.isAssigned ? (
+                          <div className="text-[11px] text-slate-600 dark:text-slate-300 truncate">
+                            {item.tutorName}{' '}
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              ({item.tutorMatricule})
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 italic">
+                            Non attribué
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                        item.isAssigned
+                          ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                      }`}
+                    >
+                      {item.isAssigned ? 'Attribué' : 'À planifier'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Guardian & Details */}
@@ -192,7 +353,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               </div>
             </div>
             <div>
-              <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Matières suivies :</span>
+              <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Toutes les Matières inscrites :</span>
               <div className="flex flex-wrap gap-1.5 mt-1">
                 {student.subjects.map((subj, idx) => (
                   <span key={idx} className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded text-[11px]">
@@ -207,10 +368,20 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
           <div>
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                Historique Chaîné de l'Élève (Liaisons Relationnelles)
+                Historique Chaîné & Suivi Relationnel
               </h3>
 
               <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs">
+                <button
+                  onClick={() => setActiveSubTab('tutors')}
+                  className={`px-3 py-1 rounded-md font-medium transition-colors ${
+                    activeSubTab === 'tutors'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Encadreurs ({isPrimary ? (primaryTutor ? 1 : 0) : subjectCoverage.filter((s) => s.isAssigned).length})
+                </button>
                 <button
                   onClick={() => setActiveSubTab('payments')}
                   className={`px-3 py-1 rounded-md font-medium transition-colors ${
@@ -245,6 +416,78 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
             </div>
 
             <div className="mt-3">
+              {/* Tutors Planning SubTab */}
+              {activeSubTab === 'tutors' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pb-1">
+                    <span>
+                      Charge d'encadrement : <strong>{weeklySessions} séances par semaine</strong> (1h 30mn par séance = {formatSessionHours(weeklyHours)}/sem.)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleOpenAssignModal}
+                      className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    >
+                      + Nouvelle affectation
+                    </button>
+                  </div>
+
+                  <div className="divide-y divide-slate-200 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-850 overflow-hidden">
+                    {subjectCoverage.map((item) => (
+                      <div
+                        key={item.subject}
+                        className="p-3 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="flex items-center gap-3">
+                          {item.tutorAvatar ? (
+                            <img
+                              src={item.tutorAvatar}
+                              alt={item.tutorName}
+                              className="h-10 w-10 rounded-full object-cover ring-2 ring-indigo-500/20"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400">
+                              <User className="h-5 w-5" />
+                            </div>
+                          )}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 dark:text-white">
+                                {item.subject}
+                              </span>
+                              <span
+                                className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                  item.isAssigned
+                                    ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                                    : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                                }`}
+                              >
+                                {item.isAssigned ? 'Couvert' : 'Non couvert'}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              {item.isAssigned ? (
+                                <>
+                                  Encadreur responsable : <strong>{item.tutorName}</strong> ({item.tutorMatricule}) · Téléphone : {item.tutorPhone}
+                                </>
+                              ) : (
+                                <span>Aucun encadreur attribué pour cette matière.</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 font-bold block">
+                            Séance = 1h 30mn
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Payments SubTab */}
               {activeSubTab === 'payments' && (
                 <div className="space-y-2">
@@ -258,29 +501,30 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                         key={p.id}
                         className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 hover:border-emerald-500/30 transition-colors"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                            <CreditCard className="h-4 w-4" />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-slate-900 dark:text-white">
+                              {p.receiptNumber}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono">
+                              {p.paymentMethod}
+                            </span>
                           </div>
-                          <div>
-                            <div className="font-semibold text-xs text-slate-900 dark:text-white">
-                              {p.receiptNumber} · {p.category}
-                            </div>
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                              {p.paymentDate} · Encaissé par : <strong className="text-slate-700 dark:text-slate-300">{p.agentName} ({p.agentRole})</strong>
-                            </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            {p.paymentDate} · Caissier : {p.cashierName}
                           </div>
                         </div>
 
                         <div className="flex items-center gap-3">
                           <span className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
-                            +{p.amount.toLocaleString()} FCFA
+                            {p.amount.toLocaleString()} FCFA
                           </span>
                           <button
                             onClick={() => setSelectedReceipt(p)}
-                            className="px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 text-[10px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                            className="p-1 rounded text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                            title="Réimprimer le reçu"
                           >
-                            Reçu
+                            <FileText className="h-4 w-4" />
                           </button>
                         </div>
                       </div>
@@ -294,7 +538,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 <div className="space-y-2">
                   {studentSupplies.length === 0 ? (
                     <div className="text-center py-6 text-xs text-slate-400">
-                      Aucun achat de fourniture lié à cet élève pour le moment.
+                      Aucun achat de fourniture enregistré pour cet élève.
                     </div>
                   ) : (
                     studentSupplies.map((sale) => (
@@ -376,10 +620,20 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
             <button
               onClick={() => {
                 onClose();
+                handleOpenAssignModal();
+              }}
+              className="px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold text-xs hover:bg-indigo-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <GraduationCap className="h-3.5 w-3.5" />
+              <span>Affecter Encadreur</span>
+            </button>
+            <button
+              onClick={() => {
+                onClose();
                 setEditingStudent(student);
                 setIsNewStudentModalOpen(true);
               }}
-              className="px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold text-xs hover:bg-indigo-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs hover:bg-slate-100 transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <Edit className="h-3.5 w-3.5" />
               <span>Modifier Dossier</span>

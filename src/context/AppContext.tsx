@@ -16,6 +16,8 @@ import {
   AgentRole,
   Tutor,
 } from '../types';
+import { calculateMonthlyHours } from '../utils/dateUtils';
+import { validateTutorAssignment, isPrimaryStudent } from '../utils/tutorAssignmentValidation';
 import {
   db,
   doc,
@@ -140,6 +142,16 @@ interface AppContextType {
   addTutor: (tutorData: Omit<Tutor, 'id' | 'matricule' | 'syncStatus' | 'agentId' | 'agentName' | 'agentRole' | 'agentAvatar'>) => Promise<Tutor>;
   updateTutor: (id: string, data: Partial<Tutor>) => Promise<void>;
   deleteTutor: (id: string) => Promise<void>;
+  assignTutorToStudent: (
+    tutorId: string,
+    studentId: string,
+    subjects: string[]
+  ) => Promise<{ success: boolean; error?: string }>;
+  unassignTutorFromStudent: (
+    tutorId: string,
+    studentId: string,
+    subjectToRemove?: string
+  ) => Promise<void>;
   updateStudent: (id: string, data: Partial<Student>) => Promise<void>;
   deleteStudent: (id: string) => Promise<void>;
   updateExam: (id: string, data: Partial<ExamApplication>) => Promise<void>;
@@ -176,6 +188,12 @@ interface AppContextType {
   setSelectedProductForRestock: (item: InventoryItem | null) => void;
   isNewExamModalOpen: boolean;
   setIsNewExamModalOpen: (b: boolean) => void;
+  isAssignModalOpen: boolean;
+  setIsAssignModalOpen: (b: boolean) => void;
+  selectedStudentForAssignment: Student | null;
+  setSelectedStudentForAssignment: (s: Student | null) => void;
+  selectedTutorForAssignment: Tutor | null;
+  setSelectedTutorForAssignment: (t: Tutor | null) => void;
   isSyncDrawerOpen: boolean;
   setIsSyncDrawerOpen: (b: boolean) => void;
   isSearchOpen: boolean;
@@ -283,6 +301,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [selectedProductForRestock, setSelectedProductForRestock] = useState<InventoryItem | null>(null);
   const [isNewExamModalOpen, setIsNewExamModalOpen] = useState(false);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [selectedStudentForAssignment, setSelectedStudentForAssignment] = useState<Student | null>(null);
+  const [selectedTutorForAssignment, setSelectedTutorForAssignment] = useState<Tutor | null>(null);
   const [isSyncDrawerOpen, setIsSyncDrawerOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceipt | null>(null);
@@ -579,6 +600,192 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteTutor = async (id: string) => {
     setTutors((prev) => prev.filter((t) => t.id !== id));
     await safeFirestoreWrite(deleteDoc(doc(db, COLLECTIONS.TUTORS, id)), 1200);
+  };
+
+  const assignTutorToStudent = async (
+    tutorId: string,
+    studentId: string,
+    subjects: string[]
+  ): Promise<{ success: boolean; error?: string }> => {
+    const student = students.find((s) => s.id === studentId);
+    const tutor = tutors.find((t) => t.id === tutorId);
+
+    if (!student || !tutor) {
+      showToast('Élève ou encadreur introuvable.', 'warning');
+      return { success: false, error: 'Élève ou encadreur introuvable.' };
+    }
+
+    // Validation des règles strictes métier :
+    // 1. Primaire : 1 seul encadreur référent
+    // 2. Collège & Lycée : deux encadreurs ne peuvent PAS encadrer pour la même matière
+    const validation = validateTutorAssignment({
+      student,
+      targetTutorId: tutorId,
+      targetSubjects: subjects,
+      allTutors: tutors,
+    });
+
+    if (!validation.valid) {
+      showToast(validation.error || "Erreur lors de l'affectation", 'warning');
+      return { success: false, error: validation.error };
+    }
+
+    const isPrimary = isPrimaryStudent(student);
+
+    // Préparation des données mises à jour pour l'encadreur
+    const nextAssignedStudentIds = Array.from(new Set([...(tutor.assignedStudentIds || []), student.id]));
+    const nextAssignedSubjects = {
+      ...(tutor.assignedStudentSubjects || {}),
+      [student.id]: isPrimary ? student.subjects : subjects,
+    };
+
+    // Calcul du volume horaire déduit (1 séance = 1h 30mn)
+    const tutorStudents = students.filter((s) => nextAssignedStudentIds.includes(s.id));
+    const totalWeeklySessions = tutorStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
+    const deducedMonthlyHours = calculateMonthlyHours(totalWeeklySessions);
+
+    const updatedTutor: Tutor = {
+      ...tutor,
+      assignedStudentIds: nextAssignedStudentIds,
+      assignedStudentSubjects: nextAssignedSubjects,
+      totalHours: deducedMonthlyHours,
+    };
+
+    // Préparation des données mises à jour pour l'élève
+    const existingAssignments = (student.tutorAssignments || []).filter((a) => a.tutorId !== tutor.id);
+    const newAssignment = {
+      tutorId: tutor.id,
+      tutorName: tutor.fullName,
+      tutorAvatar: tutor.avatar,
+      tutorPhone: tutor.phone,
+      subjects: isPrimary ? student.subjects : subjects,
+      assignedAt: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+    };
+
+    const nextTutorIds = isPrimary ? [tutor.id] : Array.from(new Set([...(student.tutorIds || []), tutor.id]));
+    const updatedStudent: Student = {
+      ...student,
+      tutorId: isPrimary ? tutor.id : student.tutorId,
+      tutorIds: nextTutorIds,
+      tutorAssignments: [...existingAssignments, newAssignment],
+    };
+
+    // Mise à jour optimiste
+    setTutors((prev) => prev.map((t) => (t.id === tutor.id ? updatedTutor : t)));
+    setStudents((prev) => prev.map((s) => (s.id === student.id ? updatedStudent : s)));
+
+    // Sauvegarde Firestore
+    await safeFirestoreWrite(
+      Promise.all([
+        setDoc(doc(db, COLLECTIONS.TUTORS, tutor.id), sanitizeForFirestore(updatedTutor), { merge: true }),
+        setDoc(doc(db, COLLECTIONS.STUDENTS, student.id), sanitizeForFirestore(updatedStudent), { merge: true }),
+      ]),
+      1200
+    );
+
+    showToast(
+      isPrimary
+        ? `Élève primaire ${student.fullName} affecté à l'encadreur référent ${tutor.fullName}.`
+        : `Affectation validée : ${tutor.fullName} encadre ${student.fullName} en ${subjects.join(', ')}.`,
+      'success'
+    );
+    return { success: true };
+  };
+
+  const unassignTutorFromStudent = async (
+    tutorId: string,
+    studentId: string,
+    subjectToRemove?: string
+  ) => {
+    const student = students.find((s) => s.id === studentId);
+    const tutor = tutors.find((t) => t.id === tutorId);
+    if (!student || !tutor) return;
+
+    let updatedTutor: Tutor;
+    let updatedStudent: Student;
+
+    if (subjectToRemove) {
+      // Retirer une matière spécifique (Collège/Lycée)
+      const currentSubjects = tutor.assignedStudentSubjects?.[studentId] || [];
+      const remainingSubjects = currentSubjects.filter((s) => s !== subjectToRemove);
+      const isStudentStillAssigned = remainingSubjects.length > 0;
+
+      const nextStudentIds = isStudentStillAssigned
+        ? tutor.assignedStudentIds
+        : (tutor.assignedStudentIds || []).filter((id) => id !== studentId);
+
+      const nextSubjectsMap = { ...(tutor.assignedStudentSubjects || {}) };
+      if (isStudentStillAssigned) {
+        nextSubjectsMap[studentId] = remainingSubjects;
+      } else {
+        delete nextSubjectsMap[studentId];
+      }
+
+      const tutorStudents = students.filter((s) => nextStudentIds.includes(s.id));
+      const totalWeeklySessions = tutorStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
+      const deducedMonthlyHours = calculateMonthlyHours(totalWeeklySessions);
+
+      updatedTutor = {
+        ...tutor,
+        assignedStudentIds: nextStudentIds,
+        assignedStudentSubjects: nextSubjectsMap,
+        totalHours: deducedMonthlyHours,
+      };
+
+      const updatedAssignments = (student.tutorAssignments || [])
+        .map((a) => {
+          if (a.tutorId === tutorId) {
+            const rem = (a.subjects || []).filter((s) => s !== subjectToRemove);
+            return rem.length > 0 ? { ...a, subjects: rem } : null;
+          }
+          return a;
+        })
+        .filter(Boolean) as typeof student.tutorAssignments;
+
+      updatedStudent = {
+        ...student,
+        tutorIds: isStudentStillAssigned
+          ? student.tutorIds
+          : (student.tutorIds || []).filter((id) => id !== tutorId),
+        tutorAssignments: updatedAssignments,
+      };
+    } else {
+      // Retrait complet de l'élève
+      const nextStudentIds = (tutor.assignedStudentIds || []).filter((id) => id !== studentId);
+      const nextSubjectsMap = { ...(tutor.assignedStudentSubjects || {}) };
+      delete nextSubjectsMap[studentId];
+
+      const tutorStudents = students.filter((s) => nextStudentIds.includes(s.id));
+      const totalWeeklySessions = tutorStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
+      const deducedMonthlyHours = calculateMonthlyHours(totalWeeklySessions);
+
+      updatedTutor = {
+        ...tutor,
+        assignedStudentIds: nextStudentIds,
+        assignedStudentSubjects: nextSubjectsMap,
+        totalHours: deducedMonthlyHours,
+      };
+
+      updatedStudent = {
+        ...student,
+        tutorId: student.tutorId === tutorId ? undefined : student.tutorId,
+        tutorIds: (student.tutorIds || []).filter((id) => id !== tutorId),
+        tutorAssignments: (student.tutorAssignments || []).filter((a) => a.tutorId !== tutorId),
+      };
+    }
+
+    setTutors((prev) => prev.map((t) => (t.id === tutor.id ? updatedTutor : t)));
+    setStudents((prev) => prev.map((s) => (s.id === student.id ? updatedStudent : s)));
+
+    await safeFirestoreWrite(
+      Promise.all([
+        setDoc(doc(db, COLLECTIONS.TUTORS, tutor.id), sanitizeForFirestore(updatedTutor), { merge: true }),
+        setDoc(doc(db, COLLECTIONS.STUDENTS, student.id), sanitizeForFirestore(updatedStudent), { merge: true }),
+      ]),
+      1200
+    );
+
+    showToast(`Affectation retirée entre ${student.fullName} et ${tutor.fullName}.`, 'info');
   };
 
   const login = (usernameInput: string, passwordInput: string) => {
@@ -1347,6 +1554,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addTutor,
         updateTutor,
         deleteTutor,
+        assignTutorToStudent,
+        unassignTutorFromStudent,
         updateStudent,
         deleteStudent,
         updateExam,
@@ -1379,6 +1588,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSelectedProductForRestock,
         isNewExamModalOpen,
         setIsNewExamModalOpen,
+        isAssignModalOpen,
+        setIsAssignModalOpen,
+        selectedStudentForAssignment,
+        setSelectedStudentForAssignment,
+        selectedTutorForAssignment,
+        setSelectedTutorForAssignment,
         isSyncDrawerOpen,
         setIsSyncDrawerOpen,
         isSearchOpen,

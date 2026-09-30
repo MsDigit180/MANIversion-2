@@ -33,6 +33,7 @@ import { Student } from '../../types';
 import { PrintStudentListModal, exportStudentsToCSV } from '../modals/PrintStudentListModal';
 import { StudentDetailModal } from '../modals/StudentDetailModal';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
+import { formatSessionHours, calculateWeeklyHours } from '../../utils/dateUtils';
 
 export const InscriptionsTab: React.FC = () => {
   const {
@@ -43,6 +44,8 @@ export const InscriptionsTab: React.FC = () => {
     setIsNewPaymentModalOpen,
     setIsStopTutoringModalOpen,
     setSelectedStudentForStop,
+    setIsAssignModalOpen,
+    setSelectedStudentForAssignment,
     campus,
     showToast,
   } = useApp();
@@ -233,7 +236,9 @@ export const InscriptionsTab: React.FC = () => {
           <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-white">{totalStudents}</div>
           <div className="flex items-center justify-between mt-1 text-[10px] text-slate-500 dark:text-slate-400">
             <span>Effectif total</span>
-            <span className="font-semibold text-indigo-600 dark:text-indigo-400">{totalWeeklySessions} séances/sem.</span>
+            <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+              {totalWeeklySessions} séances/sem. ({formatSessionHours(calculateWeeklyHours(totalWeeklySessions))})
+            </span>
           </div>
         </div>
 
@@ -438,7 +443,7 @@ export const InscriptionsTab: React.FC = () => {
           <span className="font-semibold text-slate-800 dark:text-slate-200">{sortedStudents.length}</span> élève(s) listé(s)
           <span className="text-slate-300 dark:text-slate-600">·</span>
           <span className="font-mono text-indigo-600 dark:text-indigo-400 font-semibold">
-            {sortedStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0)} séances/sem.
+            {sortedStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0)} séances/sem. ({formatSessionHours(calculateWeeklyHours(sortedStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0)))})
           </span>
         </div>
       </div>
@@ -559,8 +564,8 @@ export const InscriptionsTab: React.FC = () => {
                           <span className="font-mono font-bold text-xs">{weeklySessions}</span>
                           <span className="text-[11px]">séance{weeklySessions > 1 ? 's' : ''}/sem.</span>
                         </div>
-                        <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 ml-1">
-                          ~{weeklySessions * 2} heures/semaine
+                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-semibold mt-0.5 ml-1">
+                          = {formatSessionHours(calculateWeeklyHours(weeklySessions))} / sem. (1h30/s)
                         </div>
                       </td>
 
@@ -653,6 +658,19 @@ export const InscriptionsTab: React.FC = () => {
                             <span className="hidden xl:inline">Modifier</span>
                           </button>
 
+                          {/* Affecter Encadreur Button */}
+                          <button
+                            onClick={() => {
+                              setSelectedStudentForAssignment(stu);
+                              setIsAssignModalOpen(true);
+                            }}
+                            title="Affecter ou planifier les encadreurs (contrôle d'intégrité)"
+                            className="flex h-7 items-center gap-1 rounded-lg border border-purple-200 dark:border-purple-500/30 bg-purple-50 dark:bg-purple-500/10 px-2 text-[11px] font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-500/20 transition-colors cursor-pointer"
+                          >
+                            <GraduationCap className="h-3 w-3" />
+                            <span className="hidden xl:inline">Affecter</span>
+                          </button>
+
                           {/* Quick Pay */}
                           <button
                             onClick={() => setIsNewPaymentModalOpen(true)}
@@ -723,7 +741,7 @@ export const InscriptionsTab: React.FC = () => {
             </span>
             <span className="text-slate-300 dark:text-slate-600">·</span>
             <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-              Charge totale : {filteredStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0)} séances/semaine
+              Charge totale : {filteredStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0)} séances/semaine ({formatSessionHours(calculateWeeklyHours(filteredStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0)))})
             </span>
           </div>
           <span>Cabinet Cab-Appuis · {campus} · Niamey (Niger)</span>

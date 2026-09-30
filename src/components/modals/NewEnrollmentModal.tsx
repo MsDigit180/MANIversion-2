@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { X, UserCheck, Clock, Camera, Loader2, Calendar, Sparkles, Minus, Plus, Edit } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { compressImage } from '../../utils/imageOptimizer';
-import { getCurrentFrenchDate } from '../../utils/dateUtils';
+import {
+  getCurrentFrenchDate,
+  formatSessionHours,
+  calculateWeeklyHours,
+  calculateMonthlyHours,
+} from '../../utils/dateUtils';
 
 export const NewEnrollmentModal: React.FC = () => {
   const {
@@ -382,13 +387,13 @@ export const NewEnrollmentModal: React.FC = () => {
                 </div>
               </div>
 
-              {/* Dynamic weekly hours estimate */}
+              {/* Dynamic weekly hours estimate (1 session = 1h 30mn) */}
               <div className="text-right">
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 font-mono text-xs font-bold border border-indigo-500/30">
                   {sessionsPerWeek} séance{sessionsPerWeek > 1 ? 's' : ''}/sem.
                 </span>
-                <span className="block text-[10px] text-slate-400 mt-0.5 font-mono">
-                  ~{sessionsPerWeek * 2} heures/semaine
+                <span className="block text-[10px] text-emerald-400 mt-0.5 font-mono font-semibold">
+                  = {formatSessionHours(calculateWeeklyHours(sessionsPerWeek))} / semaine
                 </span>
               </div>
             </div>
@@ -427,24 +432,29 @@ export const NewEnrollmentModal: React.FC = () => {
               {/* Quick Preset Buttons */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[11px] text-slate-400 mr-1">Raccourcis :</span>
-                {[2, 3, 4, 5].map((preset) => (
+                {[
+                  { count: 2, label: '2 séances (3h00)' },
+                  { count: 3, label: '3 séances (4h30)' },
+                  { count: 4, label: '4 séances (6h00)' },
+                  { count: 5, label: '5 séances (7h30)' },
+                ].map(({ count, label }) => (
                   <button
-                    key={preset}
+                    key={count}
                     type="button"
-                    onClick={() => setSessionsPerWeek(preset)}
+                    onClick={() => setSessionsPerWeek(count)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                      sessionsPerWeek === preset
+                      sessionsPerWeek === count
                         ? 'bg-indigo-600 border-indigo-500 text-white shadow-sm'
                         : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750 hover:text-white'
                     }`}
                   >
-                    {preset} {preset === 2 ? '(Week-end)' : preset === 3 ? '(Standard)' : preset === 5 ? '(Intensif)' : 'séances'}
+                    {label}
                   </button>
                 ))}
               </div>
             </div>
             <p className="text-[10px] text-indigo-300/80">
-              💡 Ce quota servira de repère obligatoire lors de l'affectation des encadreurs pour équilibrer leur emploi du temps.
+              💡 Règle de calcul : 1 séance d'encadrement = <strong>1h 30mn</strong>. Ce quota servira à déduire automatiquement le volume horaire du planning de l'encadreur.
             </p>
           </div>
 

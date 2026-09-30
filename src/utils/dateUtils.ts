@@ -120,3 +120,24 @@ export function formatYYYYMMToFrench(yyyyMm: string): string {
   }
   return yyyyMm;
 }
+
+/**
+ * Règle métier Cab-Appuis : 1 séance d'encadrement = 1h 30mn (1.5 heure)
+ */
+export const SESSION_DURATION_HOURS = 1.5;
+
+export function formatSessionHours(hours: number): string {
+  if (!hours || hours <= 0) return '0h';
+  const wholeHours = Math.floor(hours);
+  const minutes = Math.round((hours - wholeHours) * 60);
+  if (minutes === 0) return `${wholeHours}h`;
+  return `${wholeHours}h ${String(minutes).padStart(2, '0')}mn`;
+}
+
+export function calculateWeeklyHours(sessionsCount: number): number {
+  return (sessionsCount || 0) * SESSION_DURATION_HOURS;
+}
+
+export function calculateMonthlyHours(sessionsCount: number): number {
+  return (sessionsCount || 0) * SESSION_DURATION_HOURS * 4;
+}

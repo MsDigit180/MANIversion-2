@@ -25,6 +25,7 @@ import { RestockModal } from './components/modals/RestockModal';
 import { NewExamDossierModal } from './components/modals/NewExamDossierModal';
 import { ReceiptModal } from './components/modals/ReceiptModal';
 import { StopTutoringModal } from './components/modals/StopTutoringModal';
+import { AssignTutorModal } from './components/modals/AssignTutorModal';
 import { SyncDrawerModal } from './components/modals/SyncDrawerModal';
 import { GlobalSearchPalette } from './components/modals/GlobalSearchPalette';
 import { Toast } from './components/common/Toast';
@@ -43,7 +44,20 @@ import {
 import { TabKey } from './types';
 
 const DashboardContent: React.FC = () => {
-  const { currentTab, setCurrentTab, campus, timePeriod, isAuthenticated, theme } = useApp();
+  const {
+    currentTab,
+    setCurrentTab,
+    campus,
+    timePeriod,
+    isAuthenticated,
+    theme,
+    isAssignModalOpen,
+    setIsAssignModalOpen,
+    selectedStudentForAssignment,
+    setSelectedStudentForAssignment,
+    selectedTutorForAssignment,
+    setSelectedTutorForAssignment,
+  } = useApp();
   const [embeddedTab, setEmbeddedTab] = useState<'inscriptions' | 'paiements' | 'concours' | 'boutique'>('inscriptions');
 
   // If not authenticated, render Login view
@@ -244,6 +258,16 @@ const DashboardContent: React.FC = () => {
       <NewExamDossierModal />
       <ReceiptModal />
       <StopTutoringModal />
+      <AssignTutorModal
+        isOpen={isAssignModalOpen}
+        onClose={() => {
+          setIsAssignModalOpen(false);
+          setSelectedStudentForAssignment(null);
+          setSelectedTutorForAssignment(null);
+        }}
+        initialStudent={selectedStudentForAssignment}
+        initialTutor={selectedTutorForAssignment}
+      />
       <SyncDrawerModal />
       <GlobalSearchPalette />
       <Toast />

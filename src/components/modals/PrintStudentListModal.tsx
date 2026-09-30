@@ -15,6 +15,7 @@ import {
   BadgeCheck,
 } from 'lucide-react';
 import { Student } from '../../types';
+import { formatSessionHours, calculateWeeklyHours } from '../../utils/dateUtils';
 
 interface PrintStudentListModalProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ export const exportStudentsToCSV = (
     'Tuteur Légal',
     'Téléphone Tuteur',
     'Séances/Semaine',
+    'Heures Hebdo Déduites (1h30/séance)',
     'Scolarité Mensuelle (FCFA)',
     'Montant Payé (FCFA)',
     'Solde Dû (FCFA)',
@@ -67,6 +69,7 @@ export const exportStudentsToCSV = (
     escapeCsv(s.guardianName),
     escapeCsv(s.guardianPhone),
     escapeCsv(s.sessionsPerWeek || 3),
+    escapeCsv(formatSessionHours((s.sessionsPerWeek || 3) * 1.5)),
     escapeCsv(s.monthlyFee),
     escapeCsv(s.paidAmount),
     escapeCsv(Math.max(0, s.monthlyFee - s.paidAmount)),
@@ -276,8 +279,11 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
               <span className="font-mono text-sm font-bold text-emerald-700">{activeCount}</span>
             </div>
             <div className="border border-slate-200 rounded-lg p-2 bg-slate-50">
-              <span className="text-[10px] text-slate-500 uppercase block font-semibold">Quota Séances</span>
+              <span className="text-[10px] text-slate-500 uppercase block font-semibold">Quota Séances (1h30)</span>
               <span className="font-mono text-sm font-bold text-indigo-700">{totalWeeklySessions} /sem.</span>
+              <span className="text-[9px] text-slate-500 block font-mono">
+                {formatSessionHours(calculateWeeklyHours(totalWeeklySessions))}
+              </span>
             </div>
             <div className="border border-slate-200 rounded-lg p-2 bg-slate-50">
               <span className="text-[10px] text-slate-500 uppercase block font-semibold">Arrêts (Demande)</span>
@@ -343,7 +349,10 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
                           <div className="text-[10px] font-mono text-slate-500">{stu.guardianPhone}</div>
                         </td>
                         <td className="py-1.5 px-2.5 text-center font-mono font-bold text-indigo-900 border-r border-slate-200">
-                          {stu.sessionsPerWeek || 3} séa./sem.
+                          <div>{stu.sessionsPerWeek || 3} séa./sem.</div>
+                          <div className="text-[9px] text-emerald-700 font-semibold font-mono">
+                            {formatSessionHours((stu.sessionsPerWeek || 3) * 1.5)}
+                          </div>
                         </td>
                         <td className="py-1.5 px-2.5 text-center border-r border-slate-200">
                           {stu.tutoringStatus === 'Actif' && (
