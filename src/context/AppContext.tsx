@@ -158,6 +158,8 @@ interface AppContextType {
   // Modals & Panels
   isNewStudentModalOpen: boolean;
   setIsNewStudentModalOpen: (b: boolean) => void;
+  editingStudent: Student | null;
+  setEditingStudent: (s: Student | null) => void;
   isStopTutoringModalOpen: boolean;
   setIsStopTutoringModalOpen: (b: boolean) => void;
   selectedStudentForStop: Student | null;
@@ -272,6 +274,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Modals
   const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [isStopTutoringModalOpen, setIsStopTutoringModalOpen] = useState(false);
   const [selectedStudentForStop, setSelectedStudentForStop] = useState<Student | null>(null);
   const [isNewPaymentModalOpen, setIsNewPaymentModalOpen] = useState(false);
@@ -332,7 +335,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           (snapshot) => {
             const list: Student[] = [];
             snapshot.forEach((docSnap) => {
-              list.push(docSnap.data() as Student);
+              const sData = docSnap.data() as Student;
+              list.push({
+                ...sData,
+                sessionsPerWeek: sData.sessionsPerWeek || 3,
+              });
             });
             if (list.length > 0) {
               setStudents(list);
@@ -744,6 +751,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newStudentId = `stu-${Date.now()}`;
     const newStudent: Student = {
       ...studentData,
+      sessionsPerWeek: Number(studentData.sessionsPerWeek) || 3,
       avatar: optimizedAvatar,
       id: newStudentId,
       matricule,
@@ -1353,6 +1361,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getAgentOperations,
         isNewStudentModalOpen,
         setIsNewStudentModalOpen,
+        editingStudent,
+        setEditingStudent,
         isStopTutoringModalOpen,
         setIsStopTutoringModalOpen,
         selectedStudentForStop,

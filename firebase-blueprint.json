@@ -33,6 +33,7 @@
         "guardianName": { "type": "string", "maxLength": 150 },
         "guardianPhone": { "type": "string", "maxLength": 50 },
         "monthlyFee": { "type": "number" },
+        "sessionsPerWeek": { "type": "number", "description": "Nombre de séances hebdomadaires d'encadrement prévues pour l'élève (ex: 2, 3, 5 séances/semaine)" },
         "paidAmount": { "type": "number" },
         "paymentStatus": { "type": "string", "enum": ["A jour", "En retard", "Partiel"] },
         "tutoringStatus": { "type": "string", "enum": ["Actif", "Arrêté (À la demande)", "Arrêté (Défaut de paiement)"] },

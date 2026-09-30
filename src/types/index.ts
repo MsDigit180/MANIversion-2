@@ -55,6 +55,7 @@ export interface Student {
   subjects: string[];
   guardianName: string;
   guardianPhone: string;
+  sessionsPerWeek: number; // Nombre de séances d'encadrement par semaine (ex: 2, 3, 5 séances/semaine)
   monthlyFee: number; // in FCFA
   paidAmount: number;
   paymentStatus: 'A jour' | 'En retard' | 'Partiel';

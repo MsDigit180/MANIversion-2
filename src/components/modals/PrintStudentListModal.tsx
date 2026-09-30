@@ -39,6 +39,7 @@ export const exportStudentsToCSV = (
     'Matières Suivies',
     'Tuteur Légal',
     'Téléphone Tuteur',
+    'Séances/Semaine',
     'Scolarité Mensuelle (FCFA)',
     'Montant Payé (FCFA)',
     'Solde Dû (FCFA)',
@@ -65,6 +66,7 @@ export const exportStudentsToCSV = (
     escapeCsv(s.subjects.join(', ')),
     escapeCsv(s.guardianName),
     escapeCsv(s.guardianPhone),
+    escapeCsv(s.sessionsPerWeek || 3),
     escapeCsv(s.monthlyFee),
     escapeCsv(s.paidAmount),
     escapeCsv(Math.max(0, s.monthlyFee - s.paidAmount)),
@@ -112,6 +114,7 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
   const totalMonthlyFees = students.reduce((acc, s) => acc + s.monthlyFee, 0);
   const totalPaid = students.reduce((acc, s) => acc + s.paidAmount, 0);
   const totalRemaining = totalMonthlyFees - totalPaid;
+  const totalWeeklySessions = students.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
 
   const activeCount = students.filter((s) => s.tutoringStatus === 'Actif').length;
   const stoppedDemandCount = students.filter((s) => s.tutoringStatus === 'Arrêté (À la demande)').length;
@@ -267,10 +270,14 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
           </div>
 
           {/* KPI Summary Strip on Paper */}
-          <div className="grid grid-cols-4 gap-2 my-3 text-center">
+          <div className="grid grid-cols-5 gap-2 my-3 text-center">
             <div className="border border-slate-200 rounded-lg p-2 bg-slate-50">
               <span className="text-[10px] text-slate-500 uppercase block font-semibold">Effectif Actif</span>
               <span className="font-mono text-sm font-bold text-emerald-700">{activeCount}</span>
+            </div>
+            <div className="border border-slate-200 rounded-lg p-2 bg-slate-50">
+              <span className="text-[10px] text-slate-500 uppercase block font-semibold">Quota Séances</span>
+              <span className="font-mono text-sm font-bold text-indigo-700">{totalWeeklySessions} /sem.</span>
             </div>
             <div className="border border-slate-200 rounded-lg p-2 bg-slate-50">
               <span className="text-[10px] text-slate-500 uppercase block font-semibold">Arrêts (Demande)</span>
@@ -295,6 +302,7 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
                   <th className="py-2 px-2.5 border-r border-slate-300">Nom & Prénom Élève</th>
                   <th className="py-2 px-2.5 border-r border-slate-300">Niveau / Classe</th>
                   <th className="py-2 px-2.5 border-r border-slate-300">Tuteur & Téléphone</th>
+                  <th className="py-2 px-2.5 border-r border-slate-300 text-center">Séances/Sem.</th>
                   <th className="py-2 px-2.5 border-r border-slate-300 text-center">Encadrement</th>
                   <th className="py-2 px-2.5 border-r border-slate-300 text-right">Scolarité</th>
                   <th className="py-2 px-2.5 border-r border-slate-300 text-right">Payé</th>
@@ -334,6 +342,9 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
                           <div className="text-slate-800">{stu.guardianName}</div>
                           <div className="text-[10px] font-mono text-slate-500">{stu.guardianPhone}</div>
                         </td>
+                        <td className="py-1.5 px-2.5 text-center font-mono font-bold text-indigo-900 border-r border-slate-200">
+                          {stu.sessionsPerWeek || 3} séa./sem.
+                        </td>
                         <td className="py-1.5 px-2.5 text-center border-r border-slate-200">
                           {stu.tutoringStatus === 'Actif' && (
                             <span className="text-emerald-700 font-bold">Actif</span>
@@ -371,7 +382,7 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
               </tbody>
               <tfoot>
                 <tr className="bg-slate-100 border-t-2 border-slate-400 font-bold text-[11px]">
-                  <td colSpan={5} className="py-2 px-2.5 text-right uppercase text-slate-800">
+                  <td colSpan={6} className="py-2 px-2.5 text-right uppercase text-slate-800">
                     Totaux Financiers :
                   </td>
                   <td className="py-2 px-2.5 text-right font-mono text-slate-900 border-r border-slate-300">

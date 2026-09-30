@@ -21,16 +21,25 @@ import {
   FileSpreadsheet,
   Download,
   Calendar,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Edit,
+  Trash2,
+  Sparkles,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Student } from '../../types';
 import { PrintStudentListModal, exportStudentsToCSV } from '../modals/PrintStudentListModal';
 import { StudentDetailModal } from '../modals/StudentDetailModal';
+import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
 
 export const InscriptionsTab: React.FC = () => {
   const {
     students,
     setIsNewStudentModalOpen,
+    setEditingStudent,
+    deleteStudent,
     setIsNewPaymentModalOpen,
     setIsStopTutoringModalOpen,
     setSelectedStudentForStop,
@@ -41,16 +50,24 @@ export const InscriptionsTab: React.FC = () => {
   const [cycleFilter, setCycleFilter] = useState<string>('all');
   const [tutoringFilter, setTutoringFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name'>('recent');
+  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name' | 'sessions-desc' | 'sessions-asc'>('recent');
   const [search, setSearch] = useState<string>('');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<Student | null>(null);
+
+  // Delete state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Statistics counters
   const totalStudents = students.length;
   const activeStudents = students.filter((s) => s.tutoringStatus === 'Actif').length;
   const stoppedDemand = students.filter((s) => s.tutoringStatus === 'Arrêté (À la demande)').length;
   const stoppedUnpaid = students.filter((s) => s.tutoringStatus === 'Arrêté (Défaut de paiement)').length;
+  const totalWeeklySessions = students
+    .filter((s) => s.tutoringStatus === 'Actif')
+    .reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
 
   const filteredStudents = students.filter((stu) => {
     const matchesSearch =
@@ -83,6 +100,12 @@ export const InscriptionsTab: React.FC = () => {
   });
 
   const sortedStudents = [...filteredStudents].sort((a, b) => {
+    if (sortBy === 'sessions-desc') {
+      return (b.sessionsPerWeek || 0) - (a.sessionsPerWeek || 0);
+    }
+    if (sortBy === 'sessions-asc') {
+      return (a.sessionsPerWeek || 0) - (b.sessionsPerWeek || 0);
+    }
     if (sortBy === 'name') {
       return a.fullName.localeCompare(b.fullName);
     }
@@ -104,9 +127,32 @@ export const InscriptionsTab: React.FC = () => {
     }
   });
 
+  const toggleSessionsSort = () => {
+    setSortBy((prev) => (prev === 'sessions-desc' ? 'sessions-asc' : 'sessions-desc'));
+  };
+
   const handleDirectExportCSV = () => {
     exportStudentsToCSV(filteredStudents);
     showToast(`Export CSV généré avec succès pour ${filteredStudents.length} élève(s).`, 'success');
+  };
+
+  const handleEditStudent = (stu: Student) => {
+    setEditingStudent(stu);
+    setIsNewStudentModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!studentToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteStudent(studentToDelete.id);
+      setIsDeleteModalOpen(false);
+      setStudentToDelete(null);
+    } catch (e) {
+      showToast("Erreur lors de la suppression de l'élève.", 'warning');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const getStatusBadge = (status: Student['paymentStatus']) => {
@@ -169,7 +215,7 @@ export const InscriptionsTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* 4 Interactive KPI Cards */}
+      {/* 4 Interactive KPI Cards + Quota Semaines Highlight */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Card 1: Total */}
         <div
@@ -185,7 +231,10 @@ export const InscriptionsTab: React.FC = () => {
             <Users className="h-4 w-4 text-indigo-500" />
           </div>
           <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-white">{totalStudents}</div>
-          <span className="text-[10px] text-slate-500 dark:text-slate-400">Effectif total (Niamey)</span>
+          <div className="flex items-center justify-between mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+            <span>Effectif total</span>
+            <span className="font-semibold text-indigo-600 dark:text-indigo-400">{totalWeeklySessions} séances/sem.</span>
+          </div>
         </div>
 
         {/* Card 2: Active */}
@@ -202,7 +251,9 @@ export const InscriptionsTab: React.FC = () => {
             <UserCheck className="h-4 w-4 text-emerald-500" />
           </div>
           <div className="mt-2 font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400">{activeStudents}</div>
-          <span className="text-[10px] text-slate-500 dark:text-slate-400">En cours réguliers</span>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+            {totalWeeklySessions} séances hebdomadaires
+          </span>
         </div>
 
         {/* Card 3: Stopped on demand */}
@@ -256,29 +307,32 @@ export const InscriptionsTab: React.FC = () => {
 
         {/* Right: Actions (CSV Export, Print/PDF & New Student) */}
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* CSV Export Button (USER REQUIREMENT) */}
+          {/* CSV Export Button */}
           <button
             onClick={handleDirectExportCSV}
             className="flex items-center gap-1.5 rounded-xl border border-emerald-300 dark:border-emerald-600/80 bg-emerald-50 dark:bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors cursor-pointer shadow-sm"
-            title="Exporter directement la liste filtrée au format CSV"
+            title="Exporter directement la liste filtrée au format CSV (avec quota séances)"
           >
             <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>Exporter CSV</span>
           </button>
 
-          {/* Print / PDF Button (USER REQUIREMENT) */}
+          {/* Print / PDF Button */}
           <button
             onClick={() => setIsPrintModalOpen(true)}
             className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer shadow-sm"
             title="Ouvrir la vue optimisée d'impression et export PDF"
           >
             <Printer className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
-            <span>Imprimer la Liste Filtrée</span>
+            <span>Imprimer la Liste</span>
           </button>
 
           {/* New Enrollment Button */}
           <button
-            onClick={() => setIsNewStudentModalOpen(true)}
+            onClick={() => {
+              setEditingStudent(null);
+              setIsNewStudentModalOpen(true);
+            }}
             className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors cursor-pointer"
           >
             <Plus className="h-4 w-4" />
@@ -287,7 +341,7 @@ export const InscriptionsTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Cycle, Tutoring & Payment Filters */}
+      {/* Cycle, Tutoring, Payment & Sorting Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
           {/* Cycle filter */}
@@ -363,23 +417,29 @@ export const InscriptionsTab: React.FC = () => {
             </select>
           </div>
 
-          {/* Sorting selector */}
+          {/* Sorting selector with sessions/week sorting requirement */}
           <div className="flex items-center gap-1 text-xs">
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'recent' | 'oldest' | 'name')}
-              className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-2.5 py-1 text-xs text-indigo-700 dark:text-indigo-300 font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-              title="Trier les inscriptions"
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="rounded-xl border border-indigo-300 dark:border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 px-2.5 py-1 text-xs text-indigo-700 dark:text-indigo-300 font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              title="Trier la liste des élèves"
             >
               <option value="recent">Tri : Plus récents d'abord</option>
               <option value="oldest">Tri : Plus anciens d'abord</option>
+              <option value="sessions-desc">Tri : Séances/semaine (Décroissant: + au -)</option>
+              <option value="sessions-asc">Tri : Séances/semaine (Croissant: - au +)</option>
               <option value="name">Tri : Par Nom (Alphabétique)</option>
             </select>
           </div>
         </div>
 
-        <div className="text-xs text-slate-500 dark:text-slate-400">
-          <span className="font-semibold text-slate-800 dark:text-slate-200">{sortedStudents.length}</span> élève(s) trié(s)
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <span className="font-semibold text-slate-800 dark:text-slate-200">{sortedStudents.length}</span> élève(s) listé(s)
+          <span className="text-slate-300 dark:text-slate-600">·</span>
+          <span className="font-mono text-indigo-600 dark:text-indigo-400 font-semibold">
+            {sortedStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0)} séances/sem.
+          </span>
         </div>
       </div>
 
@@ -391,6 +451,26 @@ export const InscriptionsTab: React.FC = () => {
               <tr>
                 <th className="py-3 px-4">Élève & Matricule</th>
                 <th className="py-3 px-4">Niveau & Matières</th>
+
+                {/* USER REQUIREMENT: Colonne "Séances/semaine" avec tri */}
+                <th
+                  onClick={toggleSessionsSort}
+                  className="py-3 px-4 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors select-none group"
+                  title="Cliquer pour trier par séances/semaine (décroissant/croissant)"
+                >
+                  <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300 font-bold">
+                    <Calendar className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>Séances / Semaine</span>
+                    {sortBy === 'sessions-desc' ? (
+                      <ArrowDown className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    ) : sortBy === 'sessions-asc' ? (
+                      <ArrowUp className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    ) : (
+                      <ArrowUpDown className="h-3 w-3 text-slate-400 opacity-60 group-hover:opacity-100 transition-opacity" />
+                    )}
+                  </div>
+                </th>
+
                 <th className="py-3 px-4">Date d'Inscription</th>
                 <th className="py-3 px-4">Tuteur Légal (Niamey)</th>
                 <th className="py-3 px-4 text-center">Encadrement</th>
@@ -403,7 +483,7 @@ export const InscriptionsTab: React.FC = () => {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
               {sortedStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={9} className="py-12 text-center text-slate-400">
                     <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p className="font-medium text-slate-700 dark:text-slate-300">Aucun élève ne correspond aux critères.</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">Modifiez vos filtres ou effectuez une recherche.</p>
@@ -412,6 +492,7 @@ export const InscriptionsTab: React.FC = () => {
               ) : (
                 sortedStudents.map((stu) => {
                   const balanceDue = stu.monthlyFee - stu.paidAmount;
+                  const weeklySessions = stu.sessionsPerWeek || 3;
 
                   return (
                     <tr
@@ -442,6 +523,17 @@ export const InscriptionsTab: React.FC = () => {
                               <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
                                 {stu.matricule}
                               </span>
+                              {stu.gender && (
+                                <span
+                                  className={`text-[9px] font-bold px-1 rounded ${
+                                    stu.gender === 'Masculin (M)'
+                                      ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                      : 'bg-pink-50 dark:bg-pink-500/10 text-pink-600 dark:text-pink-400'
+                                  }`}
+                                >
+                                  {stu.gender === 'Masculin (M)' ? 'M' : 'F'}
+                                </span>
+                              )}
                               {stu.syncStatus === 'pending' && (
                                 <span className="text-[9px] font-semibold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/20 px-1 rounded border border-amber-200 dark:border-amber-500/30">
                                   Cache Local
@@ -460,10 +552,22 @@ export const InscriptionsTab: React.FC = () => {
                         </div>
                       </td>
 
+                      {/* USER REQUIREMENT: Séances / Semaine */}
+                      <td className="py-3.5 px-4">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 shadow-2xs">
+                          <Calendar className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                          <span className="font-mono font-bold text-xs">{weeklySessions}</span>
+                          <span className="text-[11px]">séance{weeklySessions > 1 ? 's' : ''}/sem.</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 ml-1">
+                          ~{weeklySessions * 2} heures/semaine
+                        </div>
+                      </td>
+
                       {/* Date d'Inscription */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-1.5 font-mono text-xs text-slate-800 dark:text-slate-200 font-medium">
-                          <Calendar className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                          <Clock className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
                           <span>{stu.enrollmentDate}</span>
                         </div>
                         <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
@@ -526,7 +630,7 @@ export const InscriptionsTab: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* Actions */}
+                      {/* Actions: Profil, Modifier, Payer, Arrêter, Supprimer */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           {/* Profile Button */}
@@ -536,7 +640,17 @@ export const InscriptionsTab: React.FC = () => {
                             className="flex h-7 items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-750 px-2 text-[11px] font-medium text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                           >
                             <Eye className="h-3 w-3" />
-                            <span className="hidden sm:inline">Profil</span>
+                            <span className="hidden xl:inline">Profil</span>
+                          </button>
+
+                          {/* Edit Button */}
+                          <button
+                            onClick={() => handleEditStudent(stu)}
+                            title="Modifier l'élève (matières, quota séances, tuteur)"
+                            className="flex h-7 items-center gap-1 rounded-lg border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-500/10 px-2 text-[11px] font-medium text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors cursor-pointer"
+                          >
+                            <Edit className="h-3 w-3" />
+                            <span className="hidden xl:inline">Modifier</span>
                           </button>
 
                           {/* Quick Pay */}
@@ -546,7 +660,7 @@ export const InscriptionsTab: React.FC = () => {
                             className="flex h-7 items-center gap-1 rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 px-2 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors cursor-pointer"
                           >
                             <CreditCard className="h-3 w-3" />
-                            <span className="hidden sm:inline">Payer</span>
+                            <span className="hidden xl:inline">Payer</span>
                           </button>
 
                           {/* Stop/Status Button */}
@@ -569,14 +683,27 @@ export const InscriptionsTab: React.FC = () => {
                             {stu.tutoringStatus === 'Actif' ? (
                               <>
                                 <UserX className="h-3 w-3" />
-                                <span className="hidden sm:inline">Arrêter</span>
+                                <span className="hidden xl:inline">Arrêter</span>
                               </>
                             ) : (
                               <>
                                 <UserCheck className="h-3 w-3" />
-                                <span className="hidden sm:inline">Statut Arrêt</span>
+                                <span className="hidden xl:inline">Statut</span>
                               </>
                             )}
+                          </button>
+
+                          {/* Delete Button */}
+                          <button
+                            onClick={() => {
+                              setStudentToDelete(stu);
+                              setIsDeleteModalOpen(true);
+                            }}
+                            title="Supprimer l'élève du registre"
+                            className="flex h-7 items-center gap-1 rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-2 text-[11px] font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            <span className="hidden xl:inline">Supprimer</span>
                           </button>
                         </div>
                       </td>
@@ -588,11 +715,17 @@ export const InscriptionsTab: React.FC = () => {
           </table>
         </div>
 
-        {/* Footer info bar */}
-        <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-3 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between bg-slate-50 dark:bg-slate-750">
-          <span>
-            {filteredStudents.length} élèves affichés · ({activeStudents} actifs, {stoppedDemand + stoppedUnpaid} arrêts)
-          </span>
+        {/* Footer info bar with weekly sessions total */}
+        <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-3 text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 dark:bg-slate-750">
+          <div className="flex items-center gap-2">
+            <span>
+              {filteredStudents.length} élèves affichés · ({activeStudents} actifs, {stoppedDemand + stoppedUnpaid} arrêts)
+            </span>
+            <span className="text-slate-300 dark:text-slate-600">·</span>
+            <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+              Charge totale : {filteredStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0)} séances/semaine
+            </span>
+          </div>
           <span>Cabinet Cab-Appuis · {campus} · Niamey (Niger)</span>
         </div>
       </div>
@@ -614,6 +747,19 @@ export const InscriptionsTab: React.FC = () => {
         isOpen={!!selectedStudentForDetail}
         onClose={() => setSelectedStudentForDetail(null)}
         student={selectedStudentForDetail}
+      />
+
+      {/* Confirm Delete Student Modal */}
+      <ConfirmDeleteModal
+        isOpen={isDeleteModalOpen}
+        title="Suppression de l'élève du registre"
+        message={`Êtes-vous sûr de vouloir supprimer l'élève "${studentToDelete?.fullName}" (${studentToDelete?.matricule}) ? Cette action supprimera définitivement le dossier élève dans Cloud Firebase.`}
+        onConfirm={handleDeleteConfirm}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setStudentToDelete(null);
+        }}
+        isDeleting={isDeleting}
       />
     </div>
   );

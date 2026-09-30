@@ -250,13 +250,35 @@ export const EncadreursTab: React.FC = () => {
                       </td>
 
                       <td className="py-3 px-4">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-800 dark:text-slate-200">
-                            {assignedStudentsList.length} élève{assignedStudentsList.length > 1 ? 's' : ''}
-                          </span>
-                          <span className="text-[10px] text-slate-400 truncate max-w-xs">
-                            {assignedStudentsList.map((s) => s.fullName).join(', ') || 'Aucun élève affecté'}
-                          </span>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-800 dark:text-slate-200">
+                              {assignedStudentsList.length} élève{assignedStudentsList.length > 1 ? 's' : ''}
+                            </span>
+                            {assignedStudentsList.length > 0 && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] font-bold font-mono">
+                                {assignedStudentsList.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0)} séa./sem.
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-1 max-w-sm">
+                            {assignedStudentsList.length === 0 ? (
+                              <span className="text-[10px] text-slate-400 italic">Aucun élève affecté</span>
+                            ) : (
+                              assignedStudentsList.map((s) => (
+                                <span
+                                  key={s.id}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px]"
+                                  title={`${s.level} · Quota : ${s.sessionsPerWeek || 3} séances/semaine`}
+                                >
+                                  <span>{s.fullName}</span>
+                                  <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                                    ({s.sessionsPerWeek || 3}s/s)
+                                  </span>
+                                </span>
+                              ))
+                            )}
+                          </div>
                         </div>
                       </td>
 

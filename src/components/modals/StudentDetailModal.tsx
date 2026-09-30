@@ -16,6 +16,7 @@ import {
   UserCheck,
   UserX,
   BadgeCheck,
+  Edit,
 } from 'lucide-react';
 import { Student } from '../../types';
 import { useApp } from '../../context/AppContext';
@@ -39,6 +40,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     setIsStopTutoringModalOpen,
     setSelectedStudentForStop,
     setIsNewPaymentModalOpen,
+    setEditingStudent,
+    setIsNewStudentModalOpen,
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'payments' | 'supplies' | 'exams'>('payments');
@@ -91,7 +94,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Status & Highlights Card */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Tutoring Status */}
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3.5">
               <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold block mb-1">
@@ -122,6 +125,20 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   "{student.stopReason}"
                 </p>
               )}
+            </div>
+
+            {/* Quota Séances Hebdo */}
+            <div className="rounded-xl border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/50 dark:bg-indigo-950/40 p-3.5">
+              <span className="text-[11px] text-indigo-700 dark:text-indigo-300 uppercase tracking-wider font-semibold block mb-1">
+                Quota Séances Hebdo
+              </span>
+              <div className="flex items-center gap-1.5 font-mono font-bold text-sm text-indigo-900 dark:text-indigo-200">
+                <Calendar className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                <span>{student.sessionsPerWeek || 3} séances/sem.</span>
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-mono">
+                ~{(student.sessionsPerWeek || 3) * 2} heures/semaine
+              </div>
             </div>
 
             {/* Financial Status */}
@@ -356,6 +373,17 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
           </button>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                onClose();
+                setEditingStudent(student);
+                setIsNewStudentModalOpen(true);
+              }}
+              className="px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold text-xs hover:bg-indigo-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Edit className="h-3.5 w-3.5" />
+              <span>Modifier Dossier</span>
+            </button>
             <button
               onClick={() => {
                 onClose();
