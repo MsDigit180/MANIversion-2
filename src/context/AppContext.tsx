@@ -1385,12 +1385,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const exam = exams.find((e) => e.id === examId);
     if (!exam) return;
 
-    const alreadySubmitted = exam.submittedPieces.includes(piece);
+    const currentSubmitted = exam.submittedPieces || [];
+    const currentRequired = exam.requiredPieces || [];
+    const alreadySubmitted = currentSubmitted.includes(piece);
     const newSubmitted = alreadySubmitted
-      ? exam.submittedPieces.filter((p) => p !== piece)
-      : [...exam.submittedPieces, piece];
+      ? currentSubmitted.filter((p) => p !== piece)
+      : [...currentSubmitted, piece];
 
-    const isComplete = exam.requiredPieces.every((p) => newSubmitted.includes(p));
+    const isComplete = currentRequired.length > 0 && currentRequired.every((p) => newSubmitted.includes(p));
     const newStatus = isComplete ? 'Validé' : 'Pièces manquantes';
 
     setExams((prev) =>
@@ -1420,10 +1422,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const exam = exams.find((e) => e.id === examId);
     if (!exam) return;
 
+    const reqPieces = exam.requiredPieces || [];
+
     setExams((prev) =>
       prev.map((e) =>
         e.id === examId
-          ? { ...e, submittedPieces: [...e.requiredPieces], status: 'Validé' }
+          ? { ...e, submittedPieces: [...reqPieces], status: 'Validé' }
           : e
       )
     );
@@ -1432,7 +1436,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setDoc(
         doc(db, COLLECTIONS.EXAMS, examId),
         sanitizeForFirestore({
-          submittedPieces: [...exam.requiredPieces],
+          submittedPieces: [...reqPieces],
           status: 'Validé',
         }),
         { merge: true }

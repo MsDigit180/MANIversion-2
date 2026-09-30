@@ -300,6 +300,14 @@ export interface ExamApplication {
   dossierNumber: string; // e.g. "CNR-2026-019"
   candidateName: string;
   gender?: 'Masculin (M)' | 'Féminin (F)';
+  birthDate?: string;
+  birthPlace?: string;
+  nationality?: string;
+  residenceCity?: string;
+  contactPhone: string;
+  email?: string;
+  educationLevel?: string; // e.g. Licence 3, Master 2, Baccalauréat, BTS, BEPC
+  fieldOfStudy?: string; // e.g. Droit Public, Économie, Informatique, Santé, etc.
   studentId?: string; // Optional foreign key if the candidate is already an enrolled student
   examType:
     | 'ENA / ENAM'
@@ -310,11 +318,13 @@ export interface ExamApplication {
     | 'Santé Publique (ENSP)'
     | 'Fonction Publique'
     | string;
-  examBatch: string;
-  requiredPieces: string[];
-  submittedPieces: string[];
-  status: 'Validé' | 'En instruction' | 'Pièces manquantes' | 'Admis';
-  contactPhone: string;
+  examBatch: string; // Corps / Option / Session visée
+  examCenter?: string; // Centre de composition (ex: Niamey, Maradi, Zinder...)
+  prepFee?: number; // Frais de préparation au concours en FCFA
+  notes?: string;
+  requiredPieces?: string[];
+  submittedPieces?: string[];
+  status: 'Inscrit' | 'Validé' | 'En instruction' | 'Pièces manquantes' | 'Admis' | string;
   submissionDate: string;
   syncStatus: SyncState;
   // Relational link to staff
