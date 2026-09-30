@@ -168,6 +168,7 @@ export const COLLECTIONS = {
   STUDENTS: 'students',
   PAYMENTS: 'payments',
   EXAMS: 'exams',
+  TUTORS: 'tutors',
   INVENTORY: 'inventory',
   SUPPLY_SALES: 'supplySales',
   OPERATIONS: 'operations',

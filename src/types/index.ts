@@ -2,7 +2,7 @@ export type NetworkStatus = 'online' | 'offline' | 'syncing';
 
 export type TimePeriod = 'today' | 'week' | 'month' | 'term' | 'year';
 
-export type TabKey = 'dashboard' | 'inscriptions' | 'paiements' | 'concours' | 'boutique' | 'settings';
+export type TabKey = 'dashboard' | 'inscriptions' | 'paiements' | 'concours' | 'encadreurs' | 'boutique' | 'settings';
 
 export type ThemeMode = 'dark' | 'light';
 
@@ -19,6 +19,7 @@ export interface Agent {
   id: string;
   username: string;
   fullName: string;
+  gender?: 'Masculin (M)' | 'Féminin (F)';
   role: AgentRole;
   email: string;
   phone?: string;
@@ -47,6 +48,7 @@ export interface Student {
   id: string;
   matricule: string;
   fullName: string;
+  gender?: 'Masculin (M)' | 'Féminin (F)';
   avatar?: string;
   level: string; // e.g. "CM2 (CFEPD)", "CE2", "3ème (BEPC)", "Terminale D"
   stream: 'Primaire' | 'Collège' | 'Lycée' | 'Prépa Concours' | string;
@@ -62,7 +64,43 @@ export interface Student {
   enrollmentDate: string;
   syncStatus: SyncState;
   notes?: string;
+  tutorId?: string; // Reference tutor for primary school (1 tutor max rule)
+  tutorIds?: string[]; // Multiple tutors for college/lycée
   // Relational link to staff
+  agentId: string;
+  agentName: string;
+  agentRole: AgentRole;
+  agentAvatar?: string;
+}
+
+export interface TutoringSession {
+  id: string;
+  tutorId: string;
+  tutorName: string;
+  studentId: string;
+  studentName: string;
+  subject: string;
+  startTime: string; // e.g. "08:00"
+  endTime: string; // e.g. "10:00"
+  durationHours: number; // e.g. 2
+  date: string;
+  status: 'Planifiée' | 'Effectuée' | 'Annulée';
+}
+
+export interface Tutor {
+  id: string;
+  matricule: string;
+  fullName: string;
+  gender?: 'Masculin (M)' | 'Féminin (F)';
+  phone: string;
+  email: string;
+  avatar?: string;
+  subjects: string[];
+  levels: string[]; // e.g. ["Primaire", "Collège", "Lycée", "Supérieur"]
+  assignedStudentIds: string[];
+  sessions: TutoringSession[];
+  totalHours: number;
+  syncStatus: SyncState;
   agentId: string;
   agentName: string;
   agentRole: AgentRole;
@@ -100,6 +138,7 @@ export interface ExamApplication {
   id: string;
   dossierNumber: string; // e.g. "CNR-2026-019"
   candidateName: string;
+  gender?: 'Masculin (M)' | 'Féminin (F)';
   studentId?: string; // Optional foreign key if the candidate is already an enrolled student
   examType:
     | 'ENA / ENAM'

@@ -14,6 +14,7 @@ import {
   ThemeMode,
   Agent,
   AgentRole,
+  Tutor,
 } from '../types';
 import {
   db,
@@ -35,6 +36,7 @@ import {
   SEED_STUDENTS,
   SEED_PAYMENTS,
   SEED_EXAMS,
+  SEED_TUTORS,
   SEED_INVENTORY,
   SEED_SUPPLY_SALES,
   SEED_OPERATIONS,
@@ -134,6 +136,15 @@ interface AppContextType {
     studentId?: string
   ) => Promise<void>;
   supplySales: SupplySale[];
+  tutors: Tutor[];
+  addTutor: (tutorData: Omit<Tutor, 'id' | 'matricule' | 'syncStatus' | 'agentId' | 'agentName' | 'agentRole' | 'agentAvatar'>) => Promise<Tutor>;
+  updateTutor: (id: string, data: Partial<Tutor>) => Promise<void>;
+  deleteTutor: (id: string) => Promise<void>;
+  updateStudent: (id: string, data: Partial<Student>) => Promise<void>;
+  deleteStudent: (id: string) => Promise<void>;
+  updateExam: (id: string, data: Partial<ExamApplication>) => Promise<void>;
+  deleteExam: (id: string) => Promise<void>;
+  updateAgent: (id: string, data: Partial<Agent>) => Promise<void>;
   operations: OperationItem[];
   alerts: PriorityAlert[];
   dismissAlert: (id: string) => Promise<void>;
@@ -242,6 +253,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [students, setStudents] = useState<Student[]>(SEED_STUDENTS);
   const [payments, setPayments] = useState<PaymentReceipt[]>(SEED_PAYMENTS);
   const [exams, setExams] = useState<ExamApplication[]>(SEED_EXAMS);
+  const [tutors, setTutors] = useState<Tutor[]>(SEED_TUTORS);
   const [inventory, setInventory] = useState<InventoryItem[]>(SEED_INVENTORY);
   const [supplySales, setSupplySales] = useState<SupplySale[]>(SEED_SUPPLY_SALES);
   const [operations, setOperations] = useState<OperationItem[]>(SEED_OPERATIONS);
@@ -362,6 +374,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.EXAMS)
         );
         unsubscribes.push(unsubExams);
+
+        // 4.1 Tutors Listener
+        const unsubTutors = onSnapshot(
+          collection(db, COLLECTIONS.TUTORS),
+          (snapshot) => {
+            const list: Tutor[] = [];
+            snapshot.forEach((docSnap) => {
+              list.push(docSnap.data() as Tutor);
+            });
+            if (list.length > 0) {
+              setTutors(list);
+            }
+          },
+          (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.TUTORS)
+        );
+        unsubscribes.push(unsubTutors);
 
         // 5. Inventory Listener
         const unsubInventory = onSnapshot(
@@ -488,6 +516,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     await safeFirestoreWrite(deleteDoc(doc(db, COLLECTIONS.AGENTS, agentId)), 1200);
     showToast('Utilisateur supprimé de Firebase.', 'info');
+  };
+
+  const updateAgent = async (id: string, data: Partial<Agent>) => {
+    setAgents((prev) => prev.map((a) => (a.id === id ? { ...a, ...data } : a)));
+    await safeFirestoreWrite(setDoc(doc(db, COLLECTIONS.AGENTS, id), sanitizeForFirestore(data), { merge: true }), 1200);
+    showToast('Utilisateur mis à jour avec succès.', 'success');
+  };
+
+  const updateStudent = async (id: string, data: Partial<Student>) => {
+    setStudents((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s)));
+    await safeFirestoreWrite(setDoc(doc(db, COLLECTIONS.STUDENTS, id), sanitizeForFirestore(data), { merge: true }), 1200);
+  };
+
+  const deleteStudent = async (id: string) => {
+    setStudents((prev) => prev.filter((s) => s.id !== id));
+    await safeFirestoreWrite(deleteDoc(doc(db, COLLECTIONS.STUDENTS, id)), 1200);
+    showToast('Élève supprimé du registre.', 'info');
+  };
+
+  const updateExam = async (id: string, data: Partial<ExamApplication>) => {
+    setExams((prev) => prev.map((e) => (e.id === id ? { ...e, ...data } : e)));
+    await safeFirestoreWrite(setDoc(doc(db, COLLECTIONS.EXAMS, id), sanitizeForFirestore(data), { merge: true }), 1200);
+  };
+
+  const deleteExam = async (id: string) => {
+    setExams((prev) => prev.filter((e) => e.id !== id));
+    await safeFirestoreWrite(deleteDoc(doc(db, COLLECTIONS.EXAMS, id)), 1200);
+    showToast('Dossier concours supprimé.', 'info');
+  };
+
+  const addTutor = async (tutorData: Omit<Tutor, 'id' | 'matricule' | 'syncStatus' | 'agentId' | 'agentName' | 'agentRole' | 'agentAvatar'>): Promise<Tutor> => {
+    const id = `tutor-${Date.now()}`;
+    const matricule = `ENC-2026-${String(Math.floor(Math.random() * 900) + 100)}`;
+    const newTutor: Tutor = {
+      ...tutorData,
+      id,
+      matricule,
+      syncStatus: 'synced',
+      agentId: currentUser.id,
+      agentName: currentUser.fullName,
+      agentRole: currentUser.role,
+      agentAvatar: currentUser.avatar,
+    };
+    setTutors((prev) => [newTutor, ...prev]);
+    await safeFirestoreWrite(setDoc(doc(db, COLLECTIONS.TUTORS, id), sanitizeForFirestore(newTutor)), 1200);
+    return newTutor;
+  };
+
+  const updateTutor = async (id: string, data: Partial<Tutor>) => {
+    setTutors((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
+    await safeFirestoreWrite(setDoc(doc(db, COLLECTIONS.TUTORS, id), sanitizeForFirestore(data), { merge: true }), 1200);
+  };
+
+  const deleteTutor = async (id: string) => {
+    setTutors((prev) => prev.filter((t) => t.id !== id));
+    await safeFirestoreWrite(deleteDoc(doc(db, COLLECTIONS.TUTORS, id)), 1200);
   };
 
   const login = (usernameInput: string, passwordInput: string) => {
@@ -1251,6 +1335,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteProduct,
         recordSupplySale,
         supplySales,
+        tutors,
+        addTutor,
+        updateTutor,
+        deleteTutor,
+        updateStudent,
+        deleteStudent,
+        updateExam,
+        deleteExam,
+        updateAgent,
         operations,
         alerts,
         dismissAlert,

@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Settings,
   Shield,
+  UserCheck,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { TabKey } from '../../types';
@@ -41,6 +42,7 @@ export const Sidebar: React.FC = () => {
     { key: 'inscriptions', label: 'Inscriptions & Scolarité', icon: Users },
     { key: 'paiements', label: 'Paiements & Caisse', icon: CreditCard },
     { key: 'concours', label: 'Concours Professionnels', icon: GraduationCap },
+    { key: 'encadreurs', label: 'Gestion des Encadreurs', icon: UserCheck },
     { key: 'boutique', label: 'Boutique & Stocks', icon: Package },
     { key: 'settings', label: 'Paramètres & Sécurité', icon: Settings },
   ];

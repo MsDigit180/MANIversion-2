@@ -7,6 +7,7 @@ import {
   OperationItem,
   PriorityAlert,
   Agent,
+  Tutor,
 } from '../types';
 import {
   db,
@@ -27,6 +28,7 @@ export const SEED_AGENTS: Agent[] = [
     id: 'agent-1',
     username: 'admin',
     fullName: 'M. Lawali B.',
+    gender: 'Masculin (M)',
     role: 'Administrateur Principal',
     email: 'MsLawali85@gmail.com',
     phone: '+227 96 00 11 22',
@@ -38,6 +40,7 @@ export const SEED_AGENTS: Agent[] = [
     id: 'agent-2',
     username: 'hadiza.caisse',
     fullName: 'Hadiza Moussa',
+    gender: 'Féminin (F)',
     role: 'Agent de Caisse',
     email: 'caisse.plateau@cabappuis.ne',
     phone: '+227 90 22 33 44',
@@ -49,6 +52,7 @@ export const SEED_AGENTS: Agent[] = [
     id: 'agent-3',
     username: 'ousmane.pedago',
     fullName: 'Prof. Ousmane Adamou',
+    gender: 'Masculin (M)',
     role: 'Responsable Pédagogique',
     email: 'pedago@cabappuis.ne',
     phone: '+227 94 33 44 55',
@@ -60,12 +64,52 @@ export const SEED_AGENTS: Agent[] = [
     id: 'agent-4',
     username: 'fatima.secretariat',
     fullName: 'Fatima Salifou',
+    gender: 'Féminin (F)',
     role: 'Secrétaire d\'Accueil',
     email: 'accueil.plateau@cabappuis.ne',
     phone: '+227 80 44 55 66',
     campus: 'Campus Niamey Plateau (Central)',
     avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
     active: true,
+  },
+];
+
+export const SEED_TUTORS: Tutor[] = [
+  {
+    id: 'tutor-1',
+    matricule: 'ENC-2026-001',
+    fullName: 'Prof. Ousmane Adamou',
+    gender: 'Masculin (M)',
+    phone: '+227 94 33 44 55',
+    email: 'ousmane.adamou@cabappuis.ne',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    subjects: ['Mathématiques', 'Physique-Chimie', 'Calcul & Problèmes'],
+    levels: ['Primaire', 'Collège', 'Lycée', 'Supérieur'],
+    assignedStudentIds: ['stu-1', 'stu-3', 'stu-4'],
+    sessions: [],
+    totalHours: 18,
+    syncStatus: 'synced',
+    agentId: 'agent-1',
+    agentName: 'M. Lawali B.',
+    agentRole: 'Administrateur Principal',
+  },
+  {
+    id: 'tutor-2',
+    matricule: 'ENC-2026-002',
+    fullName: 'Mme Aminata Kaboré',
+    gender: 'Féminin (F)',
+    phone: '+227 97 88 12 34',
+    email: 'aminata.kabore@cabappuis.ne',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
+    subjects: ['Français', 'Grammaire & Orthographe', 'Anglais'],
+    levels: ['Primaire', 'Collège'],
+    assignedStudentIds: ['stu-2', 'stu-4'],
+    sessions: [],
+    totalHours: 24,
+    syncStatus: 'synced',
+    agentId: 'agent-1',
+    agentName: 'M. Lawali B.',
+    agentRole: 'Administrateur Principal',
   },
 ];
 
@@ -693,6 +737,10 @@ export async function seedInitialFirestoreData(force = false): Promise<{ success
       // 4. Exams
       ...SEED_EXAMS.map((exam) =>
         setDoc(doc(db, COLLECTIONS.EXAMS, exam.id), sanitizeForFirestore(exam), { merge: true }).then(() => { totalDocs++; })
+      ),
+      // 4.1 Tutors
+      ...SEED_TUTORS.map((tutor) =>
+        setDoc(doc(db, COLLECTIONS.TUTORS, tutor.id), sanitizeForFirestore(tutor), { merge: true }).then(() => { totalDocs++; })
       ),
       // 5. Inventory
       ...SEED_INVENTORY.map((item) =>

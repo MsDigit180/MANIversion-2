@@ -14,6 +14,7 @@ import { PriorityAlerts } from './components/dashboard/PriorityAlerts';
 import { InscriptionsTab } from './components/tabs/InscriptionsTab';
 import { PaiementsTab } from './components/tabs/PaiementsTab';
 import { ConcoursTab } from './components/tabs/ConcoursTab';
+import { EncadreursTab } from './components/tabs/EncadreursTab';
 import { BoutiqueTab } from './components/tabs/BoutiqueTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
 import { NewEnrollmentModal } from './components/modals/NewEnrollmentModal';
@@ -100,6 +101,7 @@ const DashboardContent: React.FC = () => {
                     {currentTab === 'inscriptions' && 'Inscriptions & Registre Scolaire'}
                     {currentTab === 'paiements' && 'Journal de Caisse & Règlements'}
                     {currentTab === 'concours' && 'Pôle Concours Fonction Publique'}
+                    {currentTab === 'encadreurs' && 'Gestion Pédagogique des Encadreurs'}
                     {currentTab === 'boutique' && 'Fournitures & Magasin Central'}
                     {currentTab === 'settings' && 'Paramètres, Sécurité & Profil'}
                   </span>
@@ -109,6 +111,7 @@ const DashboardContent: React.FC = () => {
                   {currentTab === 'inscriptions' && 'Gestion des Élèves & Suivi Pédagogique'}
                   {currentTab === 'paiements' && 'Gestion de la Caisse, Reçus & Relances'}
                   {currentTab === 'concours' && 'Inscriptions & Dossiers Concours Directs'}
+                  {currentTab === 'encadreurs' && 'Annuaire des Encadreurs & Suivi des Séances'}
                   {currentTab === 'boutique' && 'Vente & Inventaire des Fournitures'}
                   {currentTab === 'settings' && 'Paramètres Généraux & Gestion des Identifiants'}
                 </h1>
@@ -225,6 +228,7 @@ const DashboardContent: React.FC = () => {
             {currentTab === 'inscriptions' && <InscriptionsTab />}
             {currentTab === 'paiements' && <PaiementsTab />}
             {currentTab === 'concours' && <ConcoursTab />}
+            {currentTab === 'encadreurs' && <EncadreursTab />}
             {currentTab === 'boutique' && <BoutiqueTab />}
             {currentTab === 'settings' && <SettingsTab />}
           </div>

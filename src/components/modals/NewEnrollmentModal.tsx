@@ -10,6 +10,7 @@ export const NewEnrollmentModal: React.FC = () => {
   const [stream, setStream] = useState<'Primaire' | 'Collège' | 'Lycée' | 'Prépa Concours'>('Primaire');
   const [level, setLevel] = useState('CM2 (CFEPD & Entrée en 6ème)');
   const [fullName, setFullName] = useState('');
+  const [gender, setGender] = useState<'Masculin (M)' | 'Féminin (F)'>('Masculin (M)');
   const [avatar, setAvatar] = useState<string>('');
   const [subjects, setSubjects] = useState('Calcul, Français, Dictée, Éveil');
   const [guardianName, setGuardianName] = useState('');
@@ -65,6 +66,7 @@ export const NewEnrollmentModal: React.FC = () => {
     try {
       await addStudent({
         fullName: fullName.trim(),
+        gender,
         avatar: avatar || undefined,
         level,
         stream,
@@ -201,8 +203,8 @@ export const NewEnrollmentModal: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-300 mb-1">
                 Nom complet de l'élève *
               </label>
@@ -218,13 +220,29 @@ export const NewEnrollmentModal: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Classe d'Appui ({stream}) *
+                Sexe / Genre *
               </label>
               <select
-                value={level}
-                onChange={(e) => setLevel(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none cursor-pointer"
+                required
+                value={gender}
+                onChange={(e) => setGender(e.target.value as any)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none cursor-pointer font-semibold"
               >
+                <option value="Masculin (M)">Masculin (M)</option>
+                <option value="Féminin (F)">Féminin (F)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Classe d'Appui ({stream}) *
+            </label>
+            <select
+              value={level}
+              onChange={(e) => setLevel(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none cursor-pointer"
+            >
                 {stream === 'Primaire' && (
                   <>
                     <option value="CM2 (CFEPD & Entrée en 6ème)">CM2 (Prépa Examen CFEPD & Entrée en 6ème)</option>
@@ -269,7 +287,6 @@ export const NewEnrollmentModal: React.FC = () => {
                   </>
                 )}
               </select>
-            </div>
           </div>
 
           <div>

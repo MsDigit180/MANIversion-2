@@ -6,6 +6,7 @@ export const NewExamDossierModal: React.FC = () => {
   const { isNewExamModalOpen, setIsNewExamModalOpen, addExam, networkStatus } = useApp();
 
   const [candidateName, setCandidateName] = useState('');
+  const [gender, setGender] = useState<'Masculin (M)' | 'Féminin (F)'>('Masculin (M)');
   const [examType, setExamType] = useState<string>('ENA / ENAM');
   const [examBatch, setExamBatch] = useState('ENAM Niamey - Cycle Supérieur (Administration Générale)');
   const [contactPhone, setContactPhone] = useState('+227 96 ');
@@ -27,25 +28,6 @@ export const NewExamDossierModal: React.FC = () => {
 
   if (!isNewExamModalOpen) return null;
 
-  const handleExamTypeChange = (selected: string) => {
-    setExamType(selected);
-    if (selected === 'ENA / ENAM') {
-      setExamBatch('ENAM Niamey - Cycle Supérieur (Administration / Diplomatie)');
-    } else if (selected === 'Police Nationale') {
-      setExamBatch('École Nationale de Police de Niamey - Officiers & Inspecteurs');
-    } else if (selected === 'Gendarmerie Nationale') {
-      setExamBatch('Élèves Sous-Officiers de Gendarmerie - Centre d\'Instruction Koira Tegui');
-    } else if (selected === 'Garde Nationale (GNN)') {
-      setExamBatch('Commandement de la Garde Nationale du Niger (GNN) - Promotion 2026');
-    } else if (selected === 'Douanes & Trésor') {
-      setExamBatch('Direction Générale des Douanes (DGD Niger) - Contrôleurs des Douanes');
-    } else if (selected === 'Santé Publique (ENSP)') {
-      setExamBatch('ENSP Niamey - Infirmiers Diplômés d\'État & Sages-Femmes');
-    } else {
-      setExamBatch('Fonction Publique Générale - Cadre A & B');
-    }
-  };
-
   const togglePiece = (piece: string) => {
     if (submittedPieces.includes(piece)) {
       setSubmittedPieces(submittedPieces.filter((p) => p !== piece));
@@ -62,8 +44,9 @@ export const NewExamDossierModal: React.FC = () => {
     try {
       await addExam({
         candidateName: candidateName.trim(),
-        examType: examType as any,
-        examBatch: examBatch.trim(),
+        gender,
+        examType: examType.trim() || 'Concours Général',
+        examBatch: examBatch.trim() || 'Session 2026',
         contactPhone: contactPhone.trim(),
         requiredPieces: defaultPieces,
         submittedPieces,
@@ -73,6 +56,7 @@ export const NewExamDossierModal: React.FC = () => {
 
       // Reset
       setCandidateName('');
+      setExamType('ENA / ENAM');
       setIsNewExamModalOpen(false);
     } catch (error) {
       console.error('Error saving exam application to Firestore:', error);
@@ -90,13 +74,13 @@ export const NewExamDossierModal: React.FC = () => {
               <Shield className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Candidature Concours Fonction Publique</h3>
+              <h3 className="text-base font-bold text-white">Candidature Concours Professionnel</h3>
               <p className="text-xs text-slate-400">Enregistrement sécurisé Cloud Firestore</p>
             </div>
           </div>
           <button
             onClick={() => setIsNewExamModalOpen(false)}
-            className="text-slate-400 hover:text-white transition-colors"
+            className="text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -112,38 +96,50 @@ export const NewExamDossierModal: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Nom complet du candidat *
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="Ex: Hassane Ousmane Dan Mallam"
-              value={candidateName}
-              onChange={(e) => setCandidateName(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-purple-500 focus:outline-none"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Nom complet du candidat *
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: Hassane Ousmane Dan Mallam"
+                value={candidateName}
+                onChange={(e) => setCandidateName(e.target.value)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-purple-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Sexe / Genre *
+              </label>
+              <select
+                required
+                value={gender}
+                onChange={(e) => setGender(e.target.value as any)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-purple-500 focus:outline-none cursor-pointer font-semibold"
+              >
+                <option value="Masculin (M)">Masculin (M)</option>
+                <option value="Féminin (F)">Féminin (F)</option>
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Corps / Concours Visé (Niger) *
+                Type de Concours (Saisie libre) *
               </label>
-              <select
+              <input
+                type="text"
+                required
+                placeholder="Ex: ENA / ENAM, Police, Douanes..."
                 value={examType}
-                onChange={(e) => handleExamTypeChange(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-purple-500 focus:outline-none cursor-pointer"
-              >
-                <option value="ENA / ENAM">1. ENA / ENAM (Administration & Magistrature)</option>
-                <option value="Police Nationale">2. Police Nationale du Niger</option>
-                <option value="Gendarmerie Nationale">3. Gendarmerie Nationale du Niger</option>
-                <option value="Garde Nationale (GNN)">4. Garde Nationale du Niger (GNN)</option>
-                <option value="Douanes & Trésor">5. Douanes & Trésor (DGD Niger)</option>
-                <option value="Santé Publique (ENSP)">6. Santé Publique (ENSP Niamey)</option>
-                <option value="Fonction Publique">7. Autre concours Fonction Publique</option>
-              </select>
+                onChange={(e) => setExamType(e.target.value)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-purple-500 focus:outline-none font-semibold text-purple-300"
+              />
             </div>
 
             <div>
@@ -163,35 +159,38 @@ export const NewExamDossierModal: React.FC = () => {
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Filière / Section / Centre de Formation
+              Intitulé de la Session / Batch de Recrutement
             </label>
             <input
               type="text"
               value={examBatch}
               onChange={(e) => setExamBatch(e.target.value)}
+              placeholder="Ex: Session 2026 - Cycle Supérieur"
               className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-purple-500 focus:outline-none"
             />
           </div>
 
+          {/* Checklist of Pieces */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-2">
-              Pièces administratives déjà réunies par le candidat :
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              Pièces du dossier fournies par le candidat :
             </label>
-            <div className="grid grid-cols-1 gap-2">
-              {defaultPieces.map((p) => {
-                const checked = submittedPieces.includes(p);
+            <div className="space-y-1.5 max-h-40 overflow-y-auto rounded-lg border border-slate-700 bg-slate-800 p-2.5">
+              {defaultPieces.map((piece, idx) => {
+                const isChecked = submittedPieces.includes(piece);
                 return (
                   <div
-                    key={p}
-                    onClick={() => togglePiece(p)}
-                    className={`flex items-center gap-2.5 rounded-lg border p-2 text-xs cursor-pointer transition-colors ${
-                      checked
-                        ? 'border-purple-500/40 bg-purple-500/10 text-purple-200'
-                        : 'border-slate-800 bg-slate-800/40 text-slate-400 hover:border-slate-700'
-                    }`}
+                    key={idx}
+                    onClick={() => togglePiece(piece)}
+                    className="flex items-center gap-2 text-xs text-slate-200 hover:bg-slate-750 p-1.5 rounded cursor-pointer transition-colors"
                   >
-                    <input type="checkbox" checked={checked} readOnly className="rounded text-purple-600 shrink-0" />
-                    <span>{p}</span>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {}}
+                      className="rounded border-slate-600 bg-slate-900 text-purple-600 focus:ring-purple-500 h-3.5 w-3.5"
+                    />
+                    <span className={isChecked ? 'line-through opacity-75' : ''}>{piece}</span>
                   </div>
                 );
               })}
@@ -203,17 +202,17 @@ export const NewExamDossierModal: React.FC = () => {
               type="button"
               disabled={isSubmitting}
               onClick={() => setIsNewExamModalOpen(false)}
-              className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700 transition-colors disabled:opacity-50"
+              className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-500 transition-colors shadow disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-semibold text-white shadow transition-colors cursor-pointer disabled:opacity-50"
             >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-              <span>{isSubmitting ? 'Enregistrement Firestore...' : 'Créer le Dossier Candidature'}</span>
+              {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+              <span>{isSubmitting ? 'Enregistrement...' : 'Enregistrer la Candidature'}</span>
             </button>
           </div>
         </form>
