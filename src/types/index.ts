@@ -223,6 +223,9 @@ export interface Student {
   tutorId?: string; // Reference tutor for primary school (1 tutor max rule)
   tutorIds?: string[]; // Multiple tutors for college/lycée
   tutorAssignments?: StudentTutorAssignment[]; // Rich subject-based tutor assignments
+  groupId?: string; // Identifiant de groupe d'encadrement collectif (clé de mutualisation)
+  groupName?: string; // Libellé informatif du groupe (ex: "Groupe Terminale D Sciences")
+  timeSlot?: string; // Créneau horaire / Jour mutualisé (ex: "Samedi-Dimanche 09h-11h")
   // Relational link to staff
   agentId: string;
   agentName: string;
@@ -268,13 +271,51 @@ export interface Tutor {
   agentAvatar?: string;
 }
 
+export interface MultiStudentReceiptItem {
+  studentId: string;
+  studentMatricule?: string;
+  studentName: string;
+  level: string;
+  category?: string;
+  monthlyFee?: number;
+  amount: number; // in FCFA
+  previousPaid?: number;
+  newPaid?: number;
+  balanceRemaining?: number;
+  notes?: string;
+}
+
+export interface TutoringGroup {
+  id: string; // Identifiant unique du groupe (ex: GRP-CM1-A, GRP-BAC-D-SCI)
+  name: string; // Libellé informatif
+  level: string;
+  stream: string;
+  subjects: string[];
+  timeSlot?: string;
+  sessionsPerWeek: number;
+  tutors: {
+    id: string;
+    name: string;
+    phone?: string;
+    avatar?: string;
+    subjects: string[];
+  }[];
+  studentIds: string[];
+  students: Student[];
+  totalMonthlyFee: number;
+  totalPaid: number;
+  totalBalance: number;
+  activeCount: number;
+  stoppedCount: number;
+}
+
 export interface PaymentReceipt {
   id: string;
   receiptNumber: string; // e.g. "REC-2026-0842"
-  studentId?: string; // Foreign key linking to Student
+  studentId?: string; // Foreign key linking to Student (optionnel si reçu groupé multi-élèves)
   studentName: string;
-  category: 'Scolarité Mensuelle' | 'Inscription' | 'Frais Concours' | 'Fournitures';
-  amount: number; // in FCFA
+  category: 'Scolarité Mensuelle' | 'Inscription' | 'Frais Concours' | 'Fournitures' | string;
+  amount: number; // in FCFA (total encaissé)
   paymentMethod:
     | 'Espèces'
     | 'Airtel Money'
@@ -288,6 +329,11 @@ export interface PaymentReceipt {
   status: 'Validé' | 'En attente' | 'Annulé';
   syncStatus: SyncState;
   notes?: string;
+  // Multi-Student / Family Receipt Support
+  isMultiStudent?: boolean;
+  guardianName?: string;
+  guardianPhone?: string;
+  studentBreakdown?: MultiStudentReceiptItem[];
   // Relational link to staff
   agentId: string;
   agentName: string;

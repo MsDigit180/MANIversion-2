@@ -202,8 +202,17 @@ export const PaiementsTab: React.FC = () => {
                         {formatReceiptPaymentDate(pay.paymentDate)}
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200">
-                      {pay.studentName}
+                    <td className="py-3.5 px-4">
+                      <div className="font-semibold text-slate-800 dark:text-slate-200">
+                        {pay.studentName}
+                      </div>
+                      {(pay.isMultiStudent || (pay.studentBreakdown && pay.studentBreakdown.length > 1)) && (
+                        <div className="mt-1 flex items-center gap-1">
+                          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                            Reçu Groupé Famille ({pay.studentBreakdown?.length || 2} él.)
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="inline-block rounded-md bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">

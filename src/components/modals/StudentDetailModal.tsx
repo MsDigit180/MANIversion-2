@@ -20,10 +20,15 @@ import {
   BookOpen,
   Lock,
   Plus,
+  Layers,
+  Users,
+  Sparkles,
 } from 'lucide-react';
 import { Student } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { formatSessionHours, calculateWeeklyHours } from '../../utils/dateUtils';
+import { getStudentsInSameGroup, getStudentGroup } from '../../utils/groupUtils';
+import { getStudentSiblings } from '../../utils/familyUtils';
 import {
   isPrimaryStudent,
   getPrimaryTutorForStudent,
@@ -52,13 +57,21 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     setEditingStudent,
     setIsNewStudentModalOpen,
     tutors,
+    students,
     setIsAssignModalOpen,
     setSelectedStudentForAssignment,
+    setSelectedGroupForDetail,
+    setIsGroupDetailModalOpen,
+    setFamilyPaymentTargetParent,
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'tutors' | 'payments' | 'supplies' | 'exams'>('tutors');
 
   if (!isOpen || !student) return null;
+
+  const studentGroup = getStudentGroup(student, students, tutors);
+  const groupMates = getStudentsInSameGroup(student, students);
+  const siblings = getStudentSiblings(student, students);
 
   const studentPayments = getStudentPayments(student.id);
   const studentExams = getStudentExams(student.id);
@@ -363,6 +376,146 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* GROUPE D'ENCADREMENT COLLECTIF (USER REQUIREMENT) */}
+          {student.groupId && (
+            <div className="rounded-xl border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/50 dark:bg-indigo-950/30 p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-indigo-100 dark:border-indigo-900/40">
+                <div className="flex items-center gap-2">
+                  <div className="p-1 rounded-lg bg-indigo-600 text-white">
+                    <Layers className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <span>Groupe d'Encadrement Collectif :</span>
+                      <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-100 dark:bg-indigo-900/60 px-1.5 py-0.2 rounded text-[11px]">
+                        {student.groupId}
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {student.groupName || studentGroup?.name || 'Encadrement en groupe mutualisé'} · {student.timeSlot || studentGroup?.timeSlot}
+                    </p>
+                  </div>
+                </div>
+
+                {studentGroup && (
+                  <button
+                    onClick={() => {
+                      setSelectedGroupForDetail(studentGroup);
+                      setIsGroupDetailModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer self-start sm:self-auto"
+                  >
+                    <Layers className="h-3.5 w-3.5" />
+                    <span>Voir la fiche complète du groupe ({groupMates.length + 1} élèves)</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Fellow students in the same group */}
+              <div>
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1.5">
+                  Camarades dans le même groupe ({groupMates.length}) :
+                </span>
+                {groupMates.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 italic">
+                    Aucun autre élève n'est encore associé à cet identifiant de groupe.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {groupMates.map((mate) => (
+                      <div
+                        key={mate.id}
+                        className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <div className="h-6 w-6 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold text-[10px] flex items-center justify-center shrink-0">
+                            {mate.fullName[0]}
+                          </div>
+                          <div className="truncate">
+                            <span className="font-semibold text-slate-900 dark:text-white block truncate">
+                              {mate.fullName}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {mate.matricule} · {mate.level}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`text-[9.5px] px-1.5 py-0.5 rounded font-bold shrink-0 ${
+                            mate.tutoringStatus === 'Actif'
+                              ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                              : 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400'
+                          }`}
+                        >
+                          {mate.tutoringStatus === 'Actif' ? 'Actif' : 'Arrêté'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* FRATRIE / TUTEUR AVEC PLUSIEURS ENFANTS (USER REQUIREMENT) */}
+          {siblings.length > 0 && (
+            <div className="rounded-xl border border-purple-200 dark:border-purple-800/80 bg-purple-50/50 dark:bg-purple-950/30 p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-purple-100 dark:border-purple-900/40">
+                <div className="flex items-center gap-2">
+                  <div className="p-1 rounded-lg bg-purple-600 text-white">
+                    <Users className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <span>Fratrie Inscrite au Cabinet ({siblings.length + 1} enfants)</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Tuteur : <strong>{student.guardianName}</strong> · Tél : <span className="font-mono">{student.guardianPhone}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setFamilyPaymentTargetParent({
+                      guardianName: student.guardianName,
+                      guardianPhone: student.guardianPhone,
+                      studentIds: [student.id, ...siblings.map((s) => s.id)],
+                    });
+                    setIsNewPaymentModalOpen(true);
+                    onClose();
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer self-start sm:self-auto"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Émettre un Reçu Groupé Famille</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {siblings.map((sib) => (
+                  <div
+                    key={sib.id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs"
+                  >
+                    <div>
+                      <span className="font-semibold text-slate-900 dark:text-white block">
+                        {sib.fullName}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {sib.matricule} · {sib.level}
+                      </span>
+                    </div>
+                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-[11px]">
+                      {sib.monthlyFee.toLocaleString()} FCFA
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Chained Relational Entities (Tabs) */}
           <div>

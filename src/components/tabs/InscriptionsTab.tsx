@@ -27,17 +27,23 @@ import {
   Edit,
   Trash2,
   Sparkles,
+  Layers,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Student } from '../../types';
 import { PrintStudentListModal, exportStudentsToCSV } from '../modals/PrintStudentListModal';
 import { StudentDetailModal } from '../modals/StudentDetailModal';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
-import { formatSessionHours, calculateWeeklyHours } from '../../utils/dateUtils';
+import { GroupDetailModal } from '../modals/GroupDetailModal';
+import { AllGroupsModal } from '../modals/AllGroupsModal';
+import { formatSessionHours, calculateWeeklyHours, calculateTotalVolume } from '../../utils/dateUtils';
+import { extractTutoringGroups } from '../../utils/groupUtils';
+import { getStudentSiblings } from '../../utils/familyUtils';
 
 export const InscriptionsTab: React.FC = () => {
   const {
     students,
+    tutors,
     setIsNewStudentModalOpen,
     setEditingStudent,
     deleteStudent,
@@ -46,6 +52,11 @@ export const InscriptionsTab: React.FC = () => {
     setSelectedStudentForStop,
     setIsAssignModalOpen,
     setSelectedStudentForAssignment,
+    isGroupDetailModalOpen,
+    setIsGroupDetailModalOpen,
+    selectedGroupForDetail,
+    setSelectedGroupForDetail,
+    setFamilyPaymentTargetParent,
     campus,
     showToast,
   } = useApp();
@@ -54,10 +65,15 @@ export const InscriptionsTab: React.FC = () => {
   const [genderFilter, setGenderFilter] = useState<string>('all');
   const [tutoringFilter, setTutoringFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [groupFilter, setGroupFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name' | 'sessions-desc' | 'sessions-asc'>('recent');
   const [search, setSearch] = useState<string>('');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isAllGroupsModalOpen, setIsAllGroupsModalOpen] = useState(false);
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<Student | null>(null);
+
+  // Groups extracted from students
+  const tutoringGroups = extractTutoringGroups(students, tutors);
 
   // Delete state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -71,9 +87,11 @@ export const InscriptionsTab: React.FC = () => {
   const activeStudents = students.filter((s) => s.tutoringStatus === 'Actif').length;
   const stoppedDemand = students.filter((s) => s.tutoringStatus === 'Arrêté (À la demande)').length;
   const stoppedUnpaid = students.filter((s) => s.tutoringStatus === 'Arrêté (Défaut de paiement)').length;
-  const totalWeeklySessions = students
-    .filter((s) => s.tutoringStatus === 'Actif')
-    .reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
+  
+  // Volume net d'encadrement dédoublonné pour les élèves actifs
+  const activeVolume = calculateTotalVolume(students.filter((s) => s.tutoringStatus === 'Actif'));
+  const totalWeeklySessions = activeVolume.adjustedSessions;
+  const totalWeeklyHours = activeVolume.adjustedHours;
 
   const filteredStudents = students.filter((stu) => {
     const matchesSearch =
@@ -107,7 +125,13 @@ export const InscriptionsTab: React.FC = () => {
       matchesTutoring = stu.tutoringStatus !== 'Actif';
     }
 
-    return matchesSearch && matchesCycle && matchesGender && matchesPaymentStatus && matchesTutoring;
+    const matchesGroup =
+      groupFilter === 'all' ||
+      (groupFilter === 'groups_only' && !!stu.groupId) ||
+      (groupFilter === 'individual_only' && !stu.groupId) ||
+      (stu.groupId && stu.groupId.toLowerCase() === groupFilter.toLowerCase());
+
+    return matchesSearch && matchesCycle && matchesGender && matchesPaymentStatus && matchesTutoring && matchesGroup;
   });
 
   const sortedStudents = [...filteredStudents].sort((a, b) => {
@@ -320,6 +344,16 @@ export const InscriptionsTab: React.FC = () => {
 
         {/* Right: Actions (CSV Export, Print/PDF & New Student) */}
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Groupes d'Encadrement Button */}
+          <button
+            onClick={() => setIsAllGroupsModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/40 px-3.5 py-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer shadow-sm"
+            title="Consulter tous les groupes d'encadrement collectif et voir leurs listes d'élèves"
+          >
+            <Layers className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>Groupes ({tutoringGroups.length})</span>
+          </button>
+
           {/* CSV Export Button */}
           <button
             onClick={handleDirectExportCSV}
@@ -445,6 +479,29 @@ export const InscriptionsTab: React.FC = () => {
               <option value="A jour">À jour uniquement</option>
               <option value="Partiel">Partiel</option>
               <option value="En retard">En retard (Impayé)</option>
+            </select>
+          </div>
+
+          {/* Group Filter selector */}
+          <div className="flex items-center gap-1 text-xs">
+            <select
+              value={groupFilter}
+              onChange={(e) => setGroupFilter(e.target.value)}
+              className={`rounded-xl border px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer transition-colors ${
+                groupFilter !== 'all'
+                  ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-bold'
+                  : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 text-slate-800 dark:text-slate-200'
+              }`}
+              title="Filtrer les élèves par groupe d'encadrement"
+            >
+              <option value="all">Tous encadrements (Groupes & Indiv.)</option>
+              <option value="groups_only">Élèves en Groupe uniquement</option>
+              <option value="individual_only">Élèves Individuels uniquement</option>
+              {tutoringGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  Groupe : {g.name} ({g.students.length} él.)
+                </option>
+              ))}
             </select>
           </div>
 
@@ -593,6 +650,26 @@ export const InscriptionsTab: React.FC = () => {
                         <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-semibold mt-0.5 ml-1">
                           = {formatSessionHours(calculateWeeklyHours(weeklySessions))} / sem. (1h30/s)
                         </div>
+                        {stu.groupId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const g = tutoringGroups.find(
+                                (grp) => grp.id.toLowerCase() === stu.groupId?.toLowerCase()
+                              );
+                              if (g) {
+                                setSelectedGroupForDetail(g);
+                                setIsGroupDetailModalOpen(true);
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/80 border border-indigo-200 dark:border-indigo-800/80 rounded-md px-1.5 py-0.5 mt-1 ml-1 cursor-pointer transition-colors group"
+                            title={`Cliquer pour voir la fiche détaillée et tous les élèves du groupe : ${stu.groupName || stu.groupId}`}
+                          >
+                            <Layers className="h-2.5 w-2.5 text-indigo-500 group-hover:scale-110 transition-transform" />
+                            <span>Groupe: {stu.groupId}</span>
+                            <Eye className="h-2.5 w-2.5 text-indigo-400 opacity-60 group-hover:opacity-100 ml-0.5" />
+                          </button>
+                        )}
                       </td>
 
                       {/* Date d'Inscription */}
@@ -613,6 +690,32 @@ export const InscriptionsTab: React.FC = () => {
                           <Phone className="h-3 w-3 text-slate-400" />
                           <span>{stu.guardianPhone}</span>
                         </div>
+                        {(() => {
+                          const siblings = getStudentSiblings(stu, students);
+                          if (siblings.length === 0) return null;
+                          return (
+                            <div className="mt-1 flex items-center gap-1.5">
+                              <span className="text-[9.5px] font-semibold px-1.5 py-0.2 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                Fratrie ({siblings.length + 1} él.)
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFamilyPaymentTargetParent({
+                                    guardianName: stu.guardianName,
+                                    guardianPhone: stu.guardianPhone,
+                                    studentIds: [stu.id, ...siblings.map((s) => s.id)],
+                                  });
+                                  setIsNewPaymentModalOpen(true);
+                                }}
+                                className="text-[9.5px] font-bold text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 underline cursor-pointer"
+                                title="Émettre un seul reçu pour tous les enfants de ce tuteur"
+                              >
+                                Reçu Famille
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Encadrement */}
@@ -767,7 +870,19 @@ export const InscriptionsTab: React.FC = () => {
             </span>
             <span className="text-slate-300 dark:text-slate-600">·</span>
             <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-              Charge totale : {filteredStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0)} séances/semaine ({formatSessionHours(calculateWeeklyHours(filteredStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0)))})
+              {(() => {
+                const vol = calculateTotalVolume(filteredStudents);
+                return (
+                  <span>
+                    Volume net d'encadrement : {vol.adjustedSessions} séances/semaine ({formatSessionHours(vol.adjustedHours)})
+                    {vol.mutualizedGroupsCount > 0 && (
+                      <span className="text-slate-500 dark:text-slate-400 font-normal ml-1">
+                        · {vol.mutualizedGroupsCount} groupe(s) mutualisé(s) ({vol.rawSessions} séa. élèves cumulées)
+                      </span>
+                    )}
+                  </span>
+                );
+              })()}
             </span>
           </div>
           <span>Cabinet Cab-Appuis · {campus} · Niamey (Niger)</span>
@@ -792,6 +907,29 @@ export const InscriptionsTab: React.FC = () => {
         isOpen={!!selectedStudentForDetail}
         onClose={() => setSelectedStudentForDetail(null)}
         student={selectedStudentForDetail}
+      />
+
+      {/* Group Detail Modal */}
+      <GroupDetailModal
+        group={selectedGroupForDetail}
+        isOpen={isGroupDetailModalOpen}
+        onClose={() => {
+          setIsGroupDetailModalOpen(false);
+          setSelectedGroupForDetail(null);
+        }}
+        onSelectStudentForDetail={(stu) => setSelectedStudentForDetail(stu)}
+      />
+
+      {/* All Groups Modal */}
+      <AllGroupsModal
+        groups={tutoringGroups}
+        isOpen={isAllGroupsModalOpen}
+        onClose={() => setIsAllGroupsModalOpen(false)}
+        onSelectGroup={(g) => {
+          setIsAllGroupsModalOpen(false);
+          setSelectedGroupForDetail(g);
+          setIsGroupDetailModalOpen(true);
+        }}
       />
 
       {/* Confirm Delete Student Modal */}

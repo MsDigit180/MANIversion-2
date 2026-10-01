@@ -2,6 +2,7 @@
  * Utilities for formatting payment dates and preserving the exact day of payment
  * on receipts, quittances, and accounting records for Cabinet d'Appuis Scolaire MANI.
  */
+import { Student } from '../types';
 
 export function getCurrentFrenchDate(): string {
   const now = new Date();
@@ -141,3 +142,110 @@ export function calculateWeeklyHours(sessionsCount: number): number {
 export function calculateMonthlyHours(sessionsCount: number): number {
   return (sessionsCount || 0) * SESSION_DURATION_HOURS * 4;
 }
+
+/**
+ * Génère la clé de mutualisation d'un élève selon la règle métier :
+ * Clé = [ID_ENCADREUR] + [DISCIPLINE/MATIÈRE] + [CRÉNEAU_HORAIRE/JOUR] (ou groupe_id).
+ * Si aucun groupe ni encadreur partagé n'est défini, l'élève conserve une clé individuelle unique.
+ */
+export function getStudentMutualizationKey(student: Student): string {
+  // 1. Si un groupId explicite est défini (ex: "GRP-TERM-D-SCI", "GRP-CM2-A")
+  if (student.groupId && student.groupId.trim()) {
+    return `GRP_${student.groupId.trim().toUpperCase()}`;
+  }
+
+  // 2. Si encadreurs assignés par matière (Collège / Lycée)
+  if (student.tutorAssignments && student.tutorAssignments.length > 0) {
+    const mainAssignment = student.tutorAssignments[0];
+    const tutorId = mainAssignment.tutorId || 'NOTUTOR';
+    const subject = mainAssignment.subjects?.length
+      ? mainAssignment.subjects.slice().sort().join('-')
+      : (student.subjects?.length ? student.subjects.slice().sort().join('-') : 'GENERAL');
+    const slot = student.timeSlot || student.level || 'SLOT_COMMUN';
+    return `TUT_${tutorId}_SUB_${subject}_SLOT_${slot}`.toUpperCase();
+  }
+
+  // 3. Si encadreur unique référent (Primaire)
+  if (student.tutorId) {
+    const tutorId = student.tutorId;
+    const subject = student.subjects?.length
+      ? student.subjects.slice().sort().join('-')
+      : 'POLYVALENT';
+    const slot = student.timeSlot || student.level || 'SLOT_COMMUN';
+    return `TUT_${tutorId}_SUB_${subject}_SLOT_${slot}`.toUpperCase();
+  }
+
+  // 4. Élève individuel sans encadreur ni groupe mutualisé -> Clé unique pour compter son encadrement
+  return `INDIV_${student.id || student.matricule || Math.random()}`;
+}
+
+export interface AdjustedSessionVolumeResult {
+  /** Total net dédoublonné des séances par semaine (ex: 12 séa) */
+  adjustedSessions: number;
+  /** Volume net dédoublonné en heures par semaine (ex: 18h) */
+  adjustedHours: number;
+  /** Total brut cumulé de tous les élèves (ex: 36 séa) */
+  rawSessions: number;
+  /** Volume brut cumulé en heures par semaine (ex: 54h) */
+  rawHours: number;
+  /** Nombre de groupes / créneaux collectifs mutualisés (> 1 élève) */
+  mutualizedGroupsCount: number;
+  /** Nombre total de créneaux d'encadrement uniques */
+  uniqueSlotsCount: number;
+}
+
+/**
+ * FONCTION DE CALCUL DÉDOUBLONNÉE (MUTUALISATION DE CRÉNEAU) :
+ * Calcule le volume total net des séances et heures par semaine en dédoublonnant
+ * les élèves d'un même groupe d'encadrement ou partageant le même encadreur + créneau.
+ * 
+ * Règle métier :
+ * - 1 élève individuel -> Sa durée est comptée normalement (ex: 3 séa = 4h30).
+ * - 5 élèves dans le MÊME groupe -> La séance du cours collectif n'est comptée QU'UNE SEULE FOIS (ex: 3 séa = 4h30 et non 15 séa = 22h30).
+ */
+export function calculateTotalVolume(students: Student[]): AdjustedSessionVolumeResult {
+  let rawSessions = 0;
+  const groupsMap = new Map<string, { sessions: number; count: number }>();
+
+  for (const s of students) {
+    const sSessions = s.sessionsPerWeek || 3;
+    rawSessions += sSessions;
+
+    const key = getStudentMutualizationKey(s);
+
+    if (!groupsMap.has(key)) {
+      groupsMap.set(key, { sessions: sSessions, count: 1 });
+    } else {
+      const existing = groupsMap.get(key)!;
+      existing.count += 1;
+      // Retient le volume de séance du créneau (généralement identique pour tous les membres du groupe)
+      existing.sessions = Math.max(existing.sessions, sSessions);
+    }
+  }
+
+  let adjustedSessions = 0;
+  let mutualizedGroupsCount = 0;
+
+  groupsMap.forEach((g) => {
+    adjustedSessions += g.sessions;
+    if (g.count > 1) {
+      mutualizedGroupsCount += 1;
+    }
+  });
+
+  const rawHours = calculateWeeklyHours(rawSessions);
+  const adjustedHours = calculateWeeklyHours(adjustedSessions);
+
+  return {
+    adjustedSessions,
+    adjustedHours,
+    rawSessions,
+    rawHours,
+    mutualizedGroupsCount,
+    uniqueSlotsCount: groupsMap.size,
+  };
+}
+
+/** Alias requis pour conformité */
+export const getAdjustedTotalSessions = calculateTotalVolume;
+

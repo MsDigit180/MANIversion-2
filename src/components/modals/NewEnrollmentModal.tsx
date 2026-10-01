@@ -30,6 +30,9 @@ export const NewEnrollmentModal: React.FC = () => {
   const [guardianName, setGuardianName] = useState('');
   const [guardianPhone, setGuardianPhone] = useState('+227 ');
   const [sessionsPerWeek, setSessionsPerWeek] = useState<number>(3);
+  const [groupId, setGroupId] = useState('');
+  const [groupName, setGroupName] = useState('');
+  const [timeSlot, setTimeSlot] = useState('');
   const [monthlyFee, setMonthlyFee] = useState<number>(20000);
   const [initialPayment, setInitialPayment] = useState<number>(20000);
   const [notes, setNotes] = useState('');
@@ -46,6 +49,9 @@ export const NewEnrollmentModal: React.FC = () => {
       setGuardianName(editingStudent.guardianName);
       setGuardianPhone(editingStudent.guardianPhone);
       setSessionsPerWeek(editingStudent.sessionsPerWeek || 3);
+      setGroupId(editingStudent.groupId || '');
+      setGroupName(editingStudent.groupName || '');
+      setTimeSlot(editingStudent.timeSlot || '');
       setMonthlyFee(editingStudent.monthlyFee);
       setInitialPayment(editingStudent.paidAmount);
       setNotes(editingStudent.notes || '');
@@ -59,6 +65,9 @@ export const NewEnrollmentModal: React.FC = () => {
       setGuardianName('');
       setGuardianPhone('+227 ');
       setSessionsPerWeek(3);
+      setGroupId('');
+      setGroupName('');
+      setTimeSlot('');
       setMonthlyFee(20000);
       setInitialPayment(20000);
       setNotes('');
@@ -133,6 +142,9 @@ export const NewEnrollmentModal: React.FC = () => {
           guardianName: guardianName.trim(),
           guardianPhone: guardianPhone.trim(),
           sessionsPerWeek: validatedSessions,
+          groupId: groupId.trim() || undefined,
+          groupName: groupName.trim() || undefined,
+          timeSlot: timeSlot.trim() || undefined,
           monthlyFee,
           notes,
         });
@@ -148,6 +160,9 @@ export const NewEnrollmentModal: React.FC = () => {
           guardianName: guardianName.trim(),
           guardianPhone: guardianPhone.trim(),
           sessionsPerWeek: validatedSessions,
+          groupId: groupId.trim() || undefined,
+          groupName: groupName.trim() || undefined,
+          timeSlot: timeSlot.trim() || undefined,
           monthlyFee,
           paidAmount: initialPayment,
           paymentStatus: initialPayment >= monthlyFee ? 'A jour' : initialPayment > 0 ? 'Partiel' : 'En retard',
@@ -468,6 +483,53 @@ export const NewEnrollmentModal: React.FC = () => {
               onChange={(e) => setSubjects(e.target.value)}
               className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
             />
+          </div>
+
+          {/* Groupement / Mutualisation de créneau (Règle métier) */}
+          <div className="p-3 rounded-xl border border-slate-700/80 bg-slate-800/40 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-indigo-300">
+                Groupe d'encadrement collectif & Créneau mutualisé (Optionnel)
+              </label>
+              <span className="text-[10px] text-slate-400">
+                Clé de mutualisation pour dédoublonner le planning
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Code / ID Groupe</label>
+                <input
+                  type="text"
+                  placeholder="Ex: GRP-BAC-D-SCI"
+                  value={groupId}
+                  onChange={(e) => setGroupId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 font-mono focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Libellé du Groupe</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Groupe Terminale D Sciences"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Créneau & Jours</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Samedi-Dimanche 09h-11h"
+                  value={timeSlot}
+                  onChange={(e) => setTimeSlot(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-400 leading-tight">
+              Si plusieurs élèves partagent le même groupe ou créneau horaire avec le même encadreur, les séances ne sont comptées <strong>qu'une seule fois</strong> dans le total général.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

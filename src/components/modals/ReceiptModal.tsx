@@ -1,7 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { X, Printer, CheckCircle2, Clock, ShieldCheck, Download, Calendar, FileText, Sparkles } from 'lucide-react';
+import {
+  X,
+  Printer,
+  CheckCircle2,
+  Clock,
+  ShieldCheck,
+  Download,
+  Calendar,
+  FileText,
+  Users,
+  User,
+  Sparkles,
+  Phone,
+} from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { formatReceiptPaymentDate } from '../../utils/dateUtils';
+import { numberToFrenchWords } from '../../utils/familyUtils';
 import { CAB_APPUIS_LOGO } from '../../assets/logo';
 
 export const ReceiptModal: React.FC = () => {
@@ -20,9 +34,18 @@ export const ReceiptModal: React.FC = () => {
 
   if (!selectedReceipt) return null;
 
-  const studentRecord = students.find(
-    (s) => s.id === selectedReceipt.studentId || selectedReceipt.studentName.toLowerCase().includes(s.fullName.toLowerCase())
-  );
+  const isMulti =
+    selectedReceipt.isMultiStudent ||
+    (selectedReceipt.studentBreakdown && selectedReceipt.studentBreakdown.length > 1);
+
+  const studentRecord = !isMulti
+    ? students.find(
+        (s) =>
+          s.id === selectedReceipt.studentId ||
+          selectedReceipt.studentName.toLowerCase().includes(s.fullName.toLowerCase())
+      )
+    : null;
+
   const studentEnrollmentDate = studentRecord?.enrollmentDate || '29/09/2026';
 
   const handlePrint = () => {
@@ -31,7 +54,6 @@ export const ReceiptModal: React.FC = () => {
 
   const handleExportPDF = () => {
     setExporting(true);
-    // Trigger window.print() which allows direct "Save as PDF" in all modern browsers
     setTimeout(() => {
       window.print();
       setExporting(false);
@@ -39,16 +61,19 @@ export const ReceiptModal: React.FC = () => {
   };
 
   const formattedPaymentDate = formatReceiptPaymentDate(selectedReceipt.paymentDate);
+  const amountInWords = numberToFrenchWords(selectedReceipt.amount);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden">
+      <div className={`w-full ${isMulti ? 'max-w-2xl' : 'max-w-xl'} rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden`}>
         {/* Top bar controls (hidden in print) */}
         <div className="flex items-center justify-between border-b border-slate-800 bg-slate-850 px-6 py-3.5 print:hidden">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-indigo-400" />
             <span className="text-xs font-semibold text-white">
-              Aperçu du Reçu Officiel & Export PDF
+              {isMulti
+                ? 'Aperçu du Reçu Groupé (Famille / Multi-Élèves) & Export PDF'
+                : 'Aperçu du Reçu Officiel & Export PDF'}
             </span>
           </div>
 
@@ -78,7 +103,10 @@ export const ReceiptModal: React.FC = () => {
         </div>
 
         {/* Printable Receipt Paper Container */}
-        <div id="printable-receipt" className="relative p-8 bg-white text-slate-900 text-xs font-sans overflow-hidden">
+        <div
+          id="printable-receipt"
+          className="relative p-7 sm:p-8 bg-white text-slate-900 text-xs font-sans overflow-hidden"
+        >
           {/* Subtle Authentic Security Watermark */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none overflow-hidden opacity-[0.06] print:opacity-[0.08]">
             <img
@@ -105,15 +133,17 @@ export const ReceiptModal: React.FC = () => {
                     Agrément & Enregistrement Officiel
                   </span>
                 </div>
-                
+
                 <h1 className="text-base font-black tracking-tight uppercase text-slate-950 mt-1">
                   Cabinet d'Appuis Scolaire MANI
                 </h1>
                 <p className="text-[11px] font-bold text-indigo-950">
-                  Encadrement Pédagogique, Cours d'Appuis & Prépa Concours
+                  {isMulti
+                    ? 'Quittance Officielle de Paiement Groupé · Fratrie & Famille'
+                    : "Encadrement Pédagogique, Cours d'Appuis & Prépa Concours"}
                 </p>
 
-                <div className="mt-1.5 text-[9.5px] text-slate-700 space-y-0.5">
+                <div className="mt-1 text-[9.5px] text-slate-700 space-y-0.5">
                   <p className="font-medium">
                     📍 <span className="font-semibold">Adresse :</span> Quartier Niamey 2000, Niamey (République du Niger)
                   </p>
@@ -124,7 +154,9 @@ export const ReceiptModal: React.FC = () => {
                     <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                       RCCM : <span className="font-mono font-bold text-indigo-900">NE-NIM-A10-05126</span>
                     </span>
-                    <span className="text-slate-800">📞 <span className="font-mono font-bold">+227 91 58 44 59 / 96 16 51 81</span></span>
+                    <span className="text-slate-800">
+                      📞 <span className="font-mono font-bold">+227 91 58 44 59 / 96 16 51 81</span>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -136,39 +168,72 @@ export const ReceiptModal: React.FC = () => {
               </span>
               <p className="text-[10.5px] text-slate-700 mt-1.5 font-medium flex items-center justify-end gap-1">
                 <Calendar className="h-3 w-3 text-indigo-700" />
-                <span>Date de Paiement : <span className="font-bold text-slate-900">{formattedPaymentDate}</span></span>
+                <span>
+                  Date de Paiement : <span className="font-bold text-slate-900">{formattedPaymentDate}</span>
+                </span>
               </p>
               <p className="text-[9px] text-slate-500 font-mono">
-                Site : Niamey 2000 · Année 2026/2027
+                Site : Niamey 2000 · Année Scolaire 2026/2027
               </p>
+              {isMulti && (
+                <span className="inline-block mt-1 bg-purple-100 text-purple-900 border border-purple-300 font-bold text-[9.5px] px-2 py-0.5 rounded uppercase">
+                  Reçu Groupé Famille
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Beneficiary details */}
-          <div className="grid grid-cols-2 gap-4 my-5 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+          {/* Beneficiary Details Box */}
+          <div className="grid grid-cols-2 gap-4 my-4 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
             <div>
-              <span className="text-[10px] font-bold uppercase text-slate-500 block">
-                Bénéficiaire / Élève :
-              </span>
-              <span className="text-sm font-bold text-slate-900 block mt-0.5">
-                {selectedReceipt.studentName}
-              </span>
-              <span className="text-[11px] text-slate-600 block mt-0.5">
-                Catégorie : <span className="font-semibold text-slate-800">{selectedReceipt.category}</span>
-              </span>
-              <span className="text-[10.5px] text-slate-600 block mt-0.5 font-medium">
-                Date d'inscription initiale : <span className="font-bold text-slate-900">{studentEnrollmentDate}</span>
-              </span>
+              {isMulti ? (
+                <>
+                  <span className="text-[10px] font-bold uppercase text-purple-900 block flex items-center gap-1">
+                    <Users className="h-3 w-3 text-purple-700" />
+                    <span>Tuteur Légal / Famille Payeuse :</span>
+                  </span>
+                  <span className="text-sm font-bold text-slate-950 block mt-0.5">
+                    {selectedReceipt.guardianName || selectedReceipt.studentName}
+                  </span>
+                  {selectedReceipt.guardianPhone && (
+                    <span className="text-[11px] text-slate-700 font-mono block mt-0.5 flex items-center gap-1">
+                      <Phone className="h-2.5 w-2.5" />
+                      <span>{selectedReceipt.guardianPhone}</span>
+                    </span>
+                  )}
+                  <span className="text-[10.5px] text-slate-600 block mt-1">
+                    Règlement groupé couvrant :{' '}
+                    <strong className="text-indigo-900">
+                      {selectedReceipt.studentBreakdown?.length || 2} enfants inscrits
+                    </strong>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-[10px] font-bold uppercase text-slate-500 block">
+                    Bénéficiaire / Élève :
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 block mt-0.5">
+                    {selectedReceipt.studentName}
+                  </span>
+                  <span className="text-[11px] text-slate-600 block mt-0.5">
+                    Catégorie : <span className="font-semibold text-slate-800">{selectedReceipt.category}</span>
+                  </span>
+                  <span className="text-[10.5px] text-slate-600 block mt-0.5 font-medium">
+                    Date d'inscription : <span className="font-bold text-slate-900">{studentEnrollmentDate}</span>
+                  </span>
+                </>
+              )}
             </div>
 
             <div className="text-right flex flex-col items-end">
               <span className="text-[10px] font-bold uppercase text-slate-500 block">
                 Mode de Règlement :
               </span>
-              <span className="text-xs font-semibold text-slate-800 block mt-0.5">
+              <span className="text-xs font-bold text-slate-900 block mt-0.5 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                 {selectedReceipt.paymentMethod}
               </span>
-              <div className="flex items-center gap-1.5 mt-1">
+              <div className="flex items-center gap-1.5 mt-1.5">
                 {selectedReceipt.agentAvatar && (
                   <img
                     src={selectedReceipt.agentAvatar}
@@ -184,60 +249,121 @@ export const ReceiptModal: React.FC = () => {
           </div>
 
           {/* Details Table */}
-          <table className="w-full text-left my-4 border border-slate-200 rounded">
-            <thead>
-              <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 text-[11px]">
-                <th className="py-2 px-3 font-semibold">Désignation de la prestation</th>
-                <th className="py-2 px-3 font-semibold text-center">Quantité</th>
-                <th className="py-2 px-3 font-semibold text-right">Montant Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 text-slate-800 text-xs">
-              <tr>
-                <td className="py-2.5 px-3">
-                  <span className="font-semibold block">{selectedReceipt.category}</span>
-                  <span className="text-[11px] text-slate-500">
-                    {selectedReceipt.notes || "Prestation pédagogique, encadrement académique et cours d'appuis"}
-                  </span>
-                </td>
-                <td className="py-2.5 px-3 text-center">1</td>
-                <td className="py-2.5 px-3 text-right font-mono font-bold">
-                  {selectedReceipt.amount.toLocaleString()} FCFA
-                </td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-slate-900 bg-slate-50">
-                <td colSpan={2} className="py-2 px-3 font-bold text-right text-xs text-slate-900 uppercase">
-                  TOTAL ENCAISSÉ :
-                </td>
-                <td className="py-2 px-3 font-mono font-extrabold text-right text-sm text-indigo-950">
-                  {selectedReceipt.amount.toLocaleString()} FCFA
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+          {isMulti && selectedReceipt.studentBreakdown && selectedReceipt.studentBreakdown.length > 0 ? (
+            /* Multi-student family breakdown table */
+            <table className="w-full text-left my-4 border border-slate-200 rounded">
+              <thead>
+                <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 text-[10.5px]">
+                  <th className="py-2 px-2.5 w-6 text-center">N°</th>
+                  <th className="py-2 px-3">Élève Bénéficiaire (Fratrie)</th>
+                  <th className="py-2 px-3">Classe / Niveau</th>
+                  <th className="py-2 px-3">Désignation / Objet</th>
+                  <th className="py-2 px-3 text-right">Montant Encaissé</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 text-slate-800 text-xs">
+                {selectedReceipt.studentBreakdown.map((item, idx) => (
+                  <tr key={item.studentId || idx} className="hover:bg-slate-50/50">
+                    <td className="py-2.5 px-2.5 text-center font-mono text-slate-500 font-bold text-[11px]">
+                      {idx + 1}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className="font-bold text-slate-950 block">{item.studentName}</span>
+                      {item.studentMatricule && (
+                        <span className="text-[10px] text-slate-500 font-mono">{item.studentMatricule}</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className="font-semibold text-slate-800">{item.level}</span>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className="text-[11px] text-slate-700 block">
+                        {item.category || 'Scolarité Mensuelle'}
+                      </span>
+                      {item.notes && (
+                        <span className="text-[10px] text-slate-500 italic block">{item.notes}</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-950">
+                      {item.amount.toLocaleString()} FCFA
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-slate-900 bg-slate-50">
+                  <td colSpan={4} className="py-2 px-3 font-bold text-right text-xs text-slate-900 uppercase">
+                    TOTAL GÉNÉRAL ENCAISSÉ :
+                  </td>
+                  <td className="py-2 px-3 font-mono font-black text-right text-sm text-indigo-950">
+                    {selectedReceipt.amount.toLocaleString()} FCFA
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          ) : (
+            /* Standard single-student table */
+            <table className="w-full text-left my-4 border border-slate-200 rounded">
+              <thead>
+                <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 text-[11px]">
+                  <th className="py-2 px-3 font-semibold">Désignation de la prestation</th>
+                  <th className="py-2 px-3 font-semibold text-center">Quantité</th>
+                  <th className="py-2 px-3 font-semibold text-right">Montant Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 text-slate-800 text-xs">
+                <tr>
+                  <td className="py-2.5 px-3">
+                    <span className="font-semibold block">{selectedReceipt.category}</span>
+                    <span className="text-[11px] text-slate-500">
+                      {selectedReceipt.notes || "Prestation pédagogique, encadrement académique et cours d'appuis"}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3 text-center">1</td>
+                  <td className="py-2.5 px-3 text-right font-mono font-bold">
+                    {selectedReceipt.amount.toLocaleString()} FCFA
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-slate-900 bg-slate-50">
+                  <td colSpan={2} className="py-2 px-3 font-bold text-right text-xs text-slate-900 uppercase">
+                    TOTAL ENCAISSÉ :
+                  </td>
+                  <td className="py-2 px-3 font-mono font-extrabold text-right text-sm text-indigo-950">
+                    {selectedReceipt.amount.toLocaleString()} FCFA
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
+
+          {/* Amount in French Words (Administrative Requirement) */}
+          <div className="my-2.5 p-2.5 rounded bg-slate-50 border border-slate-200 text-[10.5px] text-slate-800">
+            <span>Arrêté la présente quittance à la somme totale de : </span>
+            <strong className="text-indigo-950 uppercase">{amountInWords} Francs CFA</strong>.
+          </div>
 
           {/* Legal references strip */}
           <div className="bg-slate-50 border border-slate-200 rounded p-2 text-[9px] text-slate-600 flex justify-between items-center">
-            <span>Cabinet d'Appuis Scolaire MANI · Niamey 2000</span>
+            <span>Cabinet d'Appuis Scolaire MANI · Quartier Niamey 2000</span>
             <span className="font-mono">NIF: 153633/P | RCCM: NE-NIM-A10-05126</span>
             <span className="font-semibold text-slate-800">Quittance réglée le {formattedPaymentDate}</span>
           </div>
 
           {/* Security & Stamp Section */}
-          <div className="mt-6 flex justify-between items-end border-t border-slate-200 pt-4">
+          <div className="mt-5 flex justify-between items-end border-t border-slate-200 pt-3">
             <div className="max-w-xs">
               <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
                 <ShieldCheck className="h-4 w-4 text-emerald-600" />
                 <span>Certification d'Authenticité</span>
               </div>
-              <p className="text-[10px] text-slate-500 mt-1 leading-tight">
+              <p className="text-[9.5px] text-slate-500 mt-1 leading-tight">
                 {selectedReceipt.syncStatus === 'synced'
-                  ? `Reçu officiel validé le ${formattedPaymentDate} et archivé sur le serveur central Cloud du Cabinet d'Appuis Scolaire MANI.`
-                  : `Écriture certifiée en caisse le ${formattedPaymentDate}. Enregistrement central conforme.`}
+                  ? `Reçu officiel validé le ${formattedPaymentDate} et archivé sur le serveur Cloud CAS MANI.`
+                  : `Écriture certifiée en caisse le ${formattedPaymentDate}. Enregistrement conforme.`}
               </p>
-              <div className="mt-1.5 text-[9px] font-mono text-slate-400">
+              <div className="mt-1 text-[8.5px] font-mono text-slate-400">
                 CERT-ID: CAS-MANI-{selectedReceipt.receiptNumber}-N2000
               </div>
             </div>
@@ -252,7 +378,9 @@ export const ReceiptModal: React.FC = () => {
                 />
                 <div className="text-left">
                   <div className="font-extrabold text-[9px] text-indigo-950">CABINET D'APPUIS SCOLAIRE MANI</div>
-                  <div className="text-[10px] text-emerald-700 font-black">✓ ENCAISSÉ LE {formattedPaymentDate.split(' à ')[0]}</div>
+                  <div className="text-[10px] text-emerald-700 font-black">
+                    ✓ ENCAISSÉ LE {formattedPaymentDate.split(' à ')[0]}
+                  </div>
                   <div className="text-[8px] text-slate-700 font-mono">NIF: 153633/P · RCCM: NE-NIM-A10-05126</div>
                   <div className="text-[7.5px] text-slate-600">CENTRE PÉDAGOGIQUE NIAMEY 2000</div>
                 </div>
@@ -264,7 +392,11 @@ export const ReceiptModal: React.FC = () => {
 
         {/* Modal footer (hidden in print) */}
         <div className="border-t border-slate-800 bg-slate-850 px-6 py-3.5 flex justify-between items-center text-xs text-slate-400 print:hidden">
-          <span className="text-[11px] text-slate-400">Reçu officiel certifié · Prêt pour PDF ou Impression</span>
+          <span className="text-[11px] text-slate-400">
+            {isMulti
+              ? `Reçu groupé certifié (${selectedReceipt.studentBreakdown?.length || 2} enfants)`
+              : 'Reçu officiel certifié'} · Prêt pour PDF ou Impression
+          </span>
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => setSelectedReceipt(null)}

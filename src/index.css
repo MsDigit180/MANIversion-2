@@ -46,17 +46,21 @@
 }
 
 /* ==========================================================================
-   ADVANCED MULTI-PAGE PRINT STYLES (TABLE REPEATING HEADERS & CLEAN PAGE BREAKS)
+   ADVANCED MULTI-PAGE PRINT STYLES (A4 LANDSCAPE & REPEATING COLUMN HEADERS)
    ========================================================================== */
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 10mm 8mm 12mm 8mm;
+    size: A4 landscape;
+    margin: 10mm 10mm 12mm 10mm;
   }
 
-  /* Hide the rest of the interactive UI when printing */
+  /* Hide interactive UI elements */
   body * {
     visibility: hidden;
+  }
+
+  .print\:hidden {
+    display: none !important;
   }
 
   /* Unlock all document heights and scroll containers for multi-page flow */
@@ -65,9 +69,11 @@
     min-height: 100% !important;
     overflow: visible !important;
     background: #ffffff !important;
-    color: #0f172a !important;
+    color: #111827 !important;
     margin: 0 !important;
     padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   /* Force modal backdrop and scrollable parents to unfold completely */
@@ -75,6 +81,7 @@
   .overflow-hidden,
   .overflow-y-auto,
   .overflow-x-auto,
+  .max-h-\[94vh\],
   .max-h-\[92vh\],
   .max-h-\[90vh\],
   .max-h-\[85vh\],
@@ -110,7 +117,7 @@
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
-    color: #0f172a !important;
+    color: #111827 !important;
     display: block !important;
     box-shadow: none !important;
     border: none !important;
@@ -119,6 +126,7 @@
   /* Table multi-page repeating header & footer engine */
   table.print-table {
     width: 100% !important;
+    table-layout: fixed !important;
     border-collapse: collapse !important;
     page-break-inside: auto !important;
     break-inside: auto !important;
@@ -142,6 +150,12 @@
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     break-inside: avoid-page !important;
+  }
+
+  table.print-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
   }
 
   /* Ensure background watermarks print gracefully without obscuring text */

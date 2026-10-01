@@ -16,6 +16,8 @@ import {
   AgentRole,
   Tutor,
   isSuperAdminRole,
+  TutoringGroup,
+  MultiStudentReceiptItem,
 } from '../types';
 import { calculateMonthlyHours } from '../utils/dateUtils';
 import { validateTutorAssignment, isPrimaryStudent } from '../utils/tutorAssignmentValidation';
@@ -121,6 +123,16 @@ interface AppContextType {
       agentAvatar?: string;
     }
   ) => Promise<PaymentReceipt>;
+  addFamilyPayment: (data: {
+    guardianName: string;
+    guardianPhone?: string;
+    paymentMethod: string;
+    paymentDate?: string;
+    cashierName?: string;
+    notes?: string;
+    studentBreakdown: MultiStudentReceiptItem[];
+    autoReactivate?: boolean;
+  }) => Promise<PaymentReceipt>;
   exams: ExamApplication[];
   addExam: (
     exam: Omit<ExamApplication, 'id' | 'dossierNumber' | 'syncStatus' | 'agentId' | 'agentName' | 'agentRole' | 'agentAvatar'> & {
@@ -203,6 +215,12 @@ interface AppContextType {
   setIsSyncDrawerOpen: (b: boolean) => void;
   isSearchOpen: boolean;
   setIsSearchOpen: (b: boolean) => void;
+  isGroupDetailModalOpen: boolean;
+  setIsGroupDetailModalOpen: (b: boolean) => void;
+  selectedGroupForDetail: TutoringGroup | null;
+  setSelectedGroupForDetail: (g: TutoringGroup | null) => void;
+  familyPaymentTargetParent: { guardianName: string; guardianPhone: string; studentIds?: string[] } | null;
+  setFamilyPaymentTargetParent: (target: { guardianName: string; guardianPhone: string; studentIds?: string[] } | null) => void;
   selectedReceipt: PaymentReceipt | null;
   setSelectedReceipt: (r: PaymentReceipt | null) => void;
   toastMessage: { text: string; type: 'success' | 'info' | 'warning' } | null;
@@ -311,6 +329,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedTutorForAssignment, setSelectedTutorForAssignment] = useState<Tutor | null>(null);
   const [isSyncDrawerOpen, setIsSyncDrawerOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isGroupDetailModalOpen, setIsGroupDetailModalOpen] = useState(false);
+  const [selectedGroupForDetail, setSelectedGroupForDetail] = useState<TutoringGroup | null>(null);
+  const [familyPaymentTargetParent, setFamilyPaymentTargetParent] = useState<{ guardianName: string; guardianPhone: string; studentIds?: string[] } | null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceipt | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -1325,6 +1346,123 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newPayment;
   };
 
+  const addFamilyPayment = async (data: {
+    guardianName: string;
+    guardianPhone?: string;
+    paymentMethod: string;
+    paymentDate?: string;
+    cashierName?: string;
+    notes?: string;
+    studentBreakdown: MultiStudentReceiptItem[];
+    autoReactivate?: boolean;
+  }): Promise<PaymentReceipt> => {
+    const totalAmount = data.studentBreakdown.reduce((sum, item) => sum + item.amount, 0);
+    const receiptNumber = `REC-2026-${String(payments.length + 942).padStart(4, '0')}`;
+    const agentId = currentUser.id;
+    const agentName = currentUser.fullName;
+    const agentRole = currentUser.role;
+    const agentAvatar = currentUser.avatar;
+
+    const finalPaymentDate = formatReceiptPaymentDate(data.paymentDate || getCurrentFrenchDateTime());
+
+    const childrenNames = data.studentBreakdown.map((item) => item.studentName).join(', ');
+    const studentTitle = `Famille ${data.guardianName} (${data.studentBreakdown.length} élèves : ${childrenNames})`;
+
+    const newPayment: PaymentReceipt = {
+      id: `pay-${Date.now()}`,
+      receiptNumber,
+      isMultiStudent: true,
+      guardianName: data.guardianName,
+      guardianPhone: data.guardianPhone,
+      studentName: studentTitle,
+      category: 'Scolarité Mensuelle (Reçu Groupé Famille)',
+      amount: totalAmount,
+      paymentMethod: data.paymentMethod,
+      paymentDate: finalPaymentDate,
+      cashierName: data.cashierName || `${agentName} (${agentRole})`,
+      status: 'Validé',
+      syncStatus: 'synced',
+      notes: data.notes || `Règlement global fratrie pour ${data.studentBreakdown.length} élèves.`,
+      studentBreakdown: data.studentBreakdown,
+      agentId,
+      agentName,
+      agentRole,
+      agentAvatar,
+    };
+
+    const newOp: OperationItem = {
+      id: `op-${Date.now()}`,
+      type: 'paiement',
+      title: 'Reçu Groupé Famille',
+      subtitle: `${data.guardianName} · ${data.studentBreakdown.length} élèves · Reçu ${receiptNumber}`,
+      referenceId: receiptNumber,
+      amount: totalAmount,
+      timestamp: 'À l\'instant',
+      syncStatus: 'synced',
+      metaBadge: data.paymentMethod,
+      agentId,
+      agentName,
+      agentRole,
+      agentAvatar,
+    };
+
+    // Optimistic updates
+    setPayments((prev) => [newPayment, ...prev]);
+    setOperations((prev) => [newOp, ...prev]);
+
+    const breakdownMap = new Map(data.studentBreakdown.map((item) => [item.studentId, item.amount]));
+
+    setStudents((prev) =>
+      prev.map((s) => {
+        if (breakdownMap.has(s.id)) {
+          const addedAmount = breakdownMap.get(s.id)!;
+          const updatedPaid = (s.paidAmount || 0) + addedAmount;
+          const updatedStatus = updatedPaid >= s.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+          const shouldReactivate = data.autoReactivate && s.tutoringStatus !== 'Actif';
+          return {
+            ...s,
+            paidAmount: updatedPaid,
+            paymentStatus: updatedStatus,
+            tutoringStatus: shouldReactivate ? 'Actif' : s.tutoringStatus,
+            stopDate: shouldReactivate ? undefined : s.stopDate,
+            stopReason: shouldReactivate ? undefined : s.stopReason,
+          };
+        }
+        return s;
+      })
+    );
+
+    const writes: Promise<any>[] = [
+      setDoc(doc(db, COLLECTIONS.PAYMENTS, newPayment.id), sanitizeForFirestore(newPayment), { merge: true }),
+      setDoc(doc(db, COLLECTIONS.OPERATIONS, newOp.id), sanitizeForFirestore(newOp), { merge: true }),
+    ];
+
+    for (const item of data.studentBreakdown) {
+      const student = students.find((s) => s.id === item.studentId);
+      if (student) {
+        const updatedPaid = (student.paidAmount || 0) + item.amount;
+        const updatedStatus = updatedPaid >= student.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+        const shouldReactivate = data.autoReactivate && student.tutoringStatus !== 'Actif';
+        writes.push(
+          setDoc(
+            doc(db, COLLECTIONS.STUDENTS, student.id),
+            sanitizeForFirestore({
+              paidAmount: updatedPaid,
+              paymentStatus: updatedStatus,
+              ...(shouldReactivate ? { tutoringStatus: 'Actif', stopDate: null, stopReason: null } : {}),
+            }),
+            { merge: true }
+          )
+        );
+      }
+    }
+
+    await safeFirestoreWrite(Promise.all(writes), 1200);
+
+    showToast(`Reçu Groupé Famille ${receiptNumber} émis (${totalAmount.toLocaleString()} FCFA pour ${data.studentBreakdown.length} élèves).`, 'success');
+    return newPayment;
+  };
+
   const addExam = async (
     examData: Omit<ExamApplication, 'id' | 'dossierNumber' | 'syncStatus' | 'agentId' | 'agentName' | 'agentRole' | 'agentAvatar'> & {
       agentId?: string;
@@ -1659,6 +1797,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resumeStudentTutoring,
         payments,
         addPayment,
+        addFamilyPayment,
         exams,
         addExam,
         toggleExamPiece,
@@ -1717,6 +1856,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsSyncDrawerOpen,
         isSearchOpen,
         setIsSearchOpen,
+        isGroupDetailModalOpen,
+        setIsGroupDetailModalOpen,
+        selectedGroupForDetail,
+        setSelectedGroupForDetail,
+        familyPaymentTargetParent,
+        setFamilyPaymentTargetParent,
         selectedReceipt,
         setSelectedReceipt,
         toastMessage,
