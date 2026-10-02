@@ -28,6 +28,7 @@ import {
   Trash2,
   Sparkles,
   Layers,
+  UserPlus,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Student } from '../../types';
@@ -36,6 +37,7 @@ import { StudentDetailModal } from '../modals/StudentDetailModal';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
 import { GroupDetailModal } from '../modals/GroupDetailModal';
 import { AllGroupsModal } from '../modals/AllGroupsModal';
+import { SelectGroupForStudentModal } from '../modals/SelectGroupForStudentModal';
 import { formatSessionHours, calculateWeeklyHours, calculateTotalVolume } from '../../utils/dateUtils';
 import { extractTutoringGroups } from '../../utils/groupUtils';
 import { getStudentSiblings } from '../../utils/familyUtils';
@@ -79,6 +81,7 @@ export const InscriptionsTab: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [studentForGroupAssignment, setStudentForGroupAssignment] = useState<Student | null>(null);
 
   // Statistics counters
   const totalStudents = students.length;
@@ -650,7 +653,7 @@ export const InscriptionsTab: React.FC = () => {
                         <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-semibold mt-0.5 ml-1">
                           = {formatSessionHours(calculateWeeklyHours(weeklySessions))} / sem. (1h30/s)
                         </div>
-                        {stu.groupId && (
+                        {stu.groupId ? (
                           <button
                             type="button"
                             onClick={() => {
@@ -668,6 +671,16 @@ export const InscriptionsTab: React.FC = () => {
                             <Layers className="h-2.5 w-2.5 text-indigo-500 group-hover:scale-110 transition-transform" />
                             <span>Groupe: {stu.groupId}</span>
                             <Eye className="h-2.5 w-2.5 text-indigo-400 opacity-60 group-hover:opacity-100 ml-0.5" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setStudentForGroupAssignment(stu)}
+                            className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 bg-slate-100 hover:bg-indigo-50 dark:bg-slate-750 dark:hover:bg-indigo-950/40 border border-dashed border-slate-300 dark:border-slate-700 rounded-md px-1.5 py-0.5 mt-1 ml-1 cursor-pointer transition-colors"
+                            title="Ajouter cet élève à un groupe d'encadrement collectif"
+                          >
+                            <UserPlus className="h-2.5 w-2.5 text-slate-400" />
+                            <span>+ Groupe</span>
                           </button>
                         )}
                       </td>
@@ -943,6 +956,13 @@ export const InscriptionsTab: React.FC = () => {
           setStudentToDelete(null);
         }}
         isDeleting={isDeleting}
+      />
+
+      {/* Select Group For Student Modal */}
+      <SelectGroupForStudentModal
+        isOpen={!!studentForGroupAssignment}
+        onClose={() => setStudentForGroupAssignment(null)}
+        student={studentForGroupAssignment}
       />
     </div>
   );

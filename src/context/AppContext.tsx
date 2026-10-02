@@ -169,6 +169,19 @@ interface AppContextType {
     studentId: string,
     subjectToRemove?: string
   ) => Promise<void>;
+  assignStudentToGroup: (
+    studentId: string,
+    groupId: string,
+    groupName?: string,
+    timeSlot?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  removeStudentFromGroup: (studentId: string) => Promise<void>;
+  assignTutorToGroup: (
+    tutorId: string,
+    groupId: string,
+    subjects: string[]
+  ) => Promise<{ success: boolean; error?: string }>;
+  unassignTutorFromGroup: (tutorId: string, groupId: string) => Promise<void>;
   updateStudent: (id: string, data: Partial<Student>) => Promise<void>;
   deleteStudent: (id: string) => Promise<void>;
   updateExam: (id: string, data: Partial<ExamApplication>) => Promise<void>;
@@ -911,6 +924,277 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     showToast(`Affectation retirée entre ${student.fullName} et ${tutor.fullName}.`, 'info');
+  };
+
+  const assignStudentToGroup = async (
+    studentId: string,
+    groupId: string,
+    groupName?: string,
+    timeSlot?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    const student = students.find((s) => s.id === studentId);
+    if (!student) {
+      showToast('Élève introuvable.', 'warning');
+      return { success: false, error: 'Élève introuvable' };
+    }
+
+    const cleanGroupId = groupId.trim().toUpperCase();
+    if (!cleanGroupId) {
+      showToast("L'identifiant du groupe ne peut pas être vide.", 'warning');
+      return { success: false, error: 'Identifiant groupe vide' };
+    }
+
+    // Récupérer le nom et le créneau par défaut s'il existe déjà des pairs dans ce groupe
+    const peerInGroup = students.find(
+      (s) => s.groupId && s.groupId.trim().toUpperCase() === cleanGroupId && s.id !== studentId
+    );
+    const resolvedGroupName = groupName?.trim() || peerInGroup?.groupName || `Groupe ${cleanGroupId}`;
+    const resolvedTimeSlot = timeSlot?.trim() || peerInGroup?.timeSlot || student.timeSlot || 'Créneau mutualisé';
+
+    // Hériter des encadreurs déjà affectés au groupe si disponible
+    let inheritedTutorAssignments = [...(student.tutorAssignments || [])];
+    let inheritedTutorIds = [...(student.tutorIds || [])];
+    const tutorUpdatePromises: Promise<any>[] = [];
+
+    if (peerInGroup && peerInGroup.tutorAssignments && peerInGroup.tutorAssignments.length > 0) {
+      for (const peerAssignment of peerInGroup.tutorAssignments) {
+        if (!inheritedTutorAssignments.some((a) => a.tutorId === peerAssignment.tutorId)) {
+          inheritedTutorAssignments.push({
+            ...peerAssignment,
+            assignedAt: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+          });
+          if (!inheritedTutorIds.includes(peerAssignment.tutorId)) {
+            inheritedTutorIds.push(peerAssignment.tutorId);
+          }
+          const tutor = tutors.find((t) => t.id === peerAssignment.tutorId);
+          if (tutor) {
+            const nextStudentIds = Array.from(new Set([...(tutor.assignedStudentIds || []), student.id]));
+            const nextSubjects = {
+              ...(tutor.assignedStudentSubjects || {}),
+              [student.id]: peerAssignment.subjects,
+            };
+            const tutorStudents = students.filter((s) => nextStudentIds.includes(s.id) || s.id === student.id);
+            const totalWeeklySessions = tutorStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
+            const updatedTutor: Tutor = {
+              ...tutor,
+              assignedStudentIds: nextStudentIds,
+              assignedStudentSubjects: nextSubjects,
+              totalHours: calculateMonthlyHours(totalWeeklySessions),
+            };
+            setTutors((prev) => prev.map((t) => (t.id === tutor.id ? updatedTutor : t)));
+            tutorUpdatePromises.push(
+              setDoc(doc(db, COLLECTIONS.TUTORS, tutor.id), sanitizeForFirestore(updatedTutor), { merge: true })
+            );
+          }
+        }
+      }
+    }
+
+    const updatedStudent: Student = {
+      ...student,
+      groupId: cleanGroupId,
+      groupName: resolvedGroupName,
+      timeSlot: resolvedTimeSlot,
+      tutorAssignments: inheritedTutorAssignments,
+      tutorIds: inheritedTutorIds,
+    };
+
+    setStudents((prev) => prev.map((s) => (s.id === student.id ? updatedStudent : s)));
+
+    await safeFirestoreWrite(
+      Promise.all([
+        setDoc(doc(db, COLLECTIONS.STUDENTS, student.id), sanitizeForFirestore(updatedStudent), { merge: true }),
+        ...tutorUpdatePromises,
+      ]),
+      1200
+    );
+
+    showToast(`Élève ${student.fullName} affecté avec succès au groupe ${resolvedGroupName} (${cleanGroupId}).`, 'success');
+    return { success: true };
+  };
+
+  const removeStudentFromGroup = async (studentId: string) => {
+    const student = students.find((s) => s.id === studentId);
+    if (!student) return;
+
+    const oldGroupId = student.groupId;
+    const updatedStudent: Student = {
+      ...student,
+      groupId: undefined,
+      groupName: undefined,
+    };
+
+    setStudents((prev) => prev.map((s) => (s.id === student.id ? updatedStudent : s)));
+
+    await safeFirestoreWrite(
+      setDoc(
+        doc(db, COLLECTIONS.STUDENTS, student.id),
+        sanitizeForFirestore({ groupId: null, groupName: null }),
+        { merge: true }
+      ),
+      1200
+    );
+
+    showToast(`Élève ${student.fullName} retiré du groupe ${oldGroupId || ''}.`, 'info');
+  };
+
+  const assignTutorToGroup = async (
+    tutorId: string,
+    groupId: string,
+    subjects: string[]
+  ): Promise<{ success: boolean; error?: string }> => {
+    const tutor = tutors.find((t) => t.id === tutorId);
+    if (!tutor) {
+      showToast('Encadreur introuvable.', 'warning');
+      return { success: false, error: 'Encadreur introuvable' };
+    }
+
+    const cleanGroupId = groupId.trim().toUpperCase();
+    const groupStudents = students.filter(
+      (s) => s.groupId && s.groupId.trim().toUpperCase() === cleanGroupId
+    );
+
+    if (groupStudents.length === 0) {
+      showToast('Aucun élève trouvé dans ce groupe.', 'warning');
+      return { success: false, error: 'Groupe vide' };
+    }
+
+    const assignedDateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    const studentWrites: Promise<any>[] = [];
+    const updatedStudentsList: Student[] = [];
+
+    for (const student of groupStudents) {
+      const isPrimary = isPrimaryStudent(student);
+      const effectiveSubjects = subjects.length > 0 ? subjects : (student.subjects || []);
+
+      const existingAssignments = (student.tutorAssignments || []).filter((a) => a.tutorId !== tutor.id);
+      const newAssignment = {
+        tutorId: tutor.id,
+        tutorName: tutor.fullName,
+        tutorAvatar: tutor.avatar,
+        tutorPhone: tutor.phone,
+        subjects: effectiveSubjects,
+        assignedAt: assignedDateStr,
+      };
+
+      const nextTutorIds = isPrimary
+        ? [tutor.id]
+        : Array.from(new Set([...(student.tutorIds || []), tutor.id]));
+
+      const updatedStudent: Student = {
+        ...student,
+        tutorId: isPrimary ? tutor.id : student.tutorId,
+        tutorIds: nextTutorIds,
+        tutorAssignments: [...existingAssignments, newAssignment],
+      };
+
+      updatedStudentsList.push(updatedStudent);
+      studentWrites.push(
+        setDoc(doc(db, COLLECTIONS.STUDENTS, student.id), sanitizeForFirestore(updatedStudent), { merge: true })
+      );
+    }
+
+    const addedStudentIds = groupStudents.map((s) => s.id);
+    const nextAssignedStudentIds = Array.from(new Set([...(tutor.assignedStudentIds || []), ...addedStudentIds]));
+    const nextAssignedSubjects = { ...(tutor.assignedStudentSubjects || {}) };
+    for (const s of groupStudents) {
+      nextAssignedSubjects[s.id] = subjects.length > 0 ? subjects : (s.subjects || []);
+    }
+
+    const allAssignedStudents = students
+      .filter((s) => nextAssignedStudentIds.includes(s.id))
+      .concat(updatedStudentsList.filter((us) => !students.some((s) => s.id === us.id)));
+    const totalWeeklySessions = allAssignedStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
+    const updatedTutor: Tutor = {
+      ...tutor,
+      assignedStudentIds: nextAssignedStudentIds,
+      assignedStudentSubjects: nextAssignedSubjects,
+      totalHours: calculateMonthlyHours(totalWeeklySessions),
+    };
+
+    setStudents((prev) =>
+      prev.map((s) => {
+        const found = updatedStudentsList.find((us) => us.id === s.id);
+        return found || s;
+      })
+    );
+    setTutors((prev) => prev.map((t) => (t.id === tutor.id ? updatedTutor : t)));
+
+    await safeFirestoreWrite(
+      Promise.all([
+        setDoc(doc(db, COLLECTIONS.TUTORS, tutor.id), sanitizeForFirestore(updatedTutor), { merge: true }),
+        ...studentWrites,
+      ]),
+      1200
+    );
+
+    showToast(
+      `✅ Encadreur ${tutor.fullName} affecté au groupe ${cleanGroupId} (${groupStudents.length} élèves) pour : ${subjects.join(', ')}.`,
+      'success'
+    );
+    return { success: true };
+  };
+
+  const unassignTutorFromGroup = async (tutorId: string, groupId: string) => {
+    const tutor = tutors.find((t) => t.id === tutorId);
+    if (!tutor) return;
+
+    const cleanGroupId = groupId.trim().toUpperCase();
+    const groupStudents = students.filter(
+      (s) => s.groupId && s.groupId.trim().toUpperCase() === cleanGroupId
+    );
+
+    const groupStudentIds = groupStudents.map((s) => s.id);
+    const studentWrites: Promise<any>[] = [];
+    const updatedStudentsList: Student[] = [];
+
+    for (const student of groupStudents) {
+      const updatedStudent: Student = {
+        ...student,
+        tutorId: student.tutorId === tutorId ? undefined : student.tutorId,
+        tutorIds: (student.tutorIds || []).filter((id) => id !== tutorId),
+        tutorAssignments: (student.tutorAssignments || []).filter((a) => a.tutorId !== tutorId),
+      };
+      updatedStudentsList.push(updatedStudent);
+      studentWrites.push(
+        setDoc(doc(db, COLLECTIONS.STUDENTS, student.id), sanitizeForFirestore(updatedStudent), { merge: true })
+      );
+    }
+
+    const nextAssignedStudentIds = (tutor.assignedStudentIds || []).filter(
+      (id) => !groupStudentIds.includes(id)
+    );
+    const nextAssignedSubjects = { ...(tutor.assignedStudentSubjects || {}) };
+    for (const sid of groupStudentIds) {
+      delete nextAssignedSubjects[sid];
+    }
+
+    const remainingTutorStudents = students.filter((s) => nextAssignedStudentIds.includes(s.id));
+    const totalWeeklySessions = remainingTutorStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
+    const updatedTutor: Tutor = {
+      ...tutor,
+      assignedStudentIds: nextAssignedStudentIds,
+      assignedStudentSubjects: nextAssignedSubjects,
+      totalHours: calculateMonthlyHours(totalWeeklySessions),
+    };
+
+    setStudents((prev) =>
+      prev.map((s) => {
+        const found = updatedStudentsList.find((us) => us.id === s.id);
+        return found || s;
+      })
+    );
+    setTutors((prev) => prev.map((t) => (t.id === tutor.id ? updatedTutor : t)));
+
+    await safeFirestoreWrite(
+      Promise.all([
+        setDoc(doc(db, COLLECTIONS.TUTORS, tutor.id), sanitizeForFirestore(updatedTutor), { merge: true }),
+        ...studentWrites,
+      ]),
+      1200
+    );
+
+    showToast(`Désaffectation effectuée : ${tutor.fullName} retiré du groupe ${cleanGroupId}.`, 'info');
   };
 
   const login = (usernameInput: string, passwordInput: string) => {
@@ -1814,6 +2098,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteTutor,
         assignTutorToStudent,
         unassignTutorFromStudent,
+        assignStudentToGroup,
+        removeStudentFromGroup,
+        assignTutorToGroup,
+        unassignTutorFromGroup,
         updateStudent,
         deleteStudent,
         updateExam,

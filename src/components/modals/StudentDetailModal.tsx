@@ -23,6 +23,7 @@ import {
   Layers,
   Users,
   Sparkles,
+  UserPlus,
 } from 'lucide-react';
 import { Student } from '../../types';
 import { useApp } from '../../context/AppContext';
@@ -34,6 +35,7 @@ import {
   getPrimaryTutorForStudent,
   getStudentPedagogicalCoverage,
 } from '../../utils/tutorAssignmentValidation';
+import { SelectGroupForStudentModal } from './SelectGroupForStudentModal';
 
 interface StudentDetailModalProps {
   isOpen: boolean;
@@ -66,6 +68,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'tutors' | 'payments' | 'supplies' | 'exams'>('tutors');
+  const [isSelectGroupModalOpen, setIsSelectGroupModalOpen] = useState(false);
 
   if (!isOpen || !student) return null;
 
@@ -398,18 +401,28 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   </div>
                 </div>
 
-                {studentGroup && (
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                  {studentGroup && (
+                    <button
+                      onClick={() => {
+                        setSelectedGroupForDetail(studentGroup);
+                        setIsGroupDetailModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+                    >
+                      <Layers className="h-3.5 w-3.5" />
+                      <span>Fiche Groupe ({groupMates.length + 1} él.)</span>
+                    </button>
+                  )}
                   <button
-                    onClick={() => {
-                      setSelectedGroupForDetail(studentGroup);
-                      setIsGroupDetailModalOpen(true);
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer self-start sm:self-auto"
+                    onClick={() => setIsSelectGroupModalOpen(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+                    title="Changer de groupe d'encadrement ou retirer de ce groupe"
                   >
-                    <Layers className="h-3.5 w-3.5" />
-                    <span>Voir la fiche complète du groupe ({groupMates.length + 1} élèves)</span>
+                    <Edit className="h-3 w-3" />
+                    <span>Changer</span>
                   </button>
-                )}
+                </div>
               </div>
 
               {/* Fellow students in the same group */}
@@ -456,6 +469,33 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* GROUPE D'ENCADREMENT : Cas où l'élève n'est pas encore en groupe */}
+          {!student.groupId && (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                  <Layers className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                    Groupe d'Encadrement Collectif
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Cet élève est actuellement en encadrement individuel (aucun groupe mutualisé assigné).
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsSelectGroupModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer self-start sm:self-auto shrink-0"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                <span>Affecter à un Groupe</span>
+              </button>
             </div>
           )}
 
@@ -809,6 +849,13 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modal Affectation à un groupe */}
+      <SelectGroupForStudentModal
+        isOpen={isSelectGroupModalOpen}
+        onClose={() => setIsSelectGroupModalOpen(false)}
+        student={student}
+      />
     </div>
   );
 };

@@ -23,6 +23,7 @@ import { useApp } from '../../context/AppContext';
 import { Tutor, Student } from '../../types';
 import { NewEncadreurModal } from '../modals/NewEncadreurModal';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
+import { AssignTutorToGroupModal } from '../modals/AssignTutorToGroupModal';
 import {
   formatSessionHours,
   calculateWeeklyHours,
@@ -60,6 +61,7 @@ export const EncadreursTab: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [tutorToDelete, setTutorToDelete] = useState<Tutor | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [tutorForGroupAssignment, setTutorForGroupAssignment] = useState<Tutor | null>(null);
 
   // Helper pour calculer les heures déduites d'un encadreur (1 séance = 1.5h = 1h 30mn)
   const getTutorHours = (t: Tutor) => {
@@ -444,11 +446,19 @@ export const EncadreursTab: React.FC = () => {
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleOpenAssignModalForTutor(tutor)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 transition-colors text-[11px] font-semibold cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 transition-colors text-[11px] font-semibold cursor-pointer"
                               title="Affecter un élève à cet encadreur"
                             >
                               <BookOpen className="h-3 w-3" />
-                              <span>Affecter</span>
+                              <span>Élève</span>
+                            </button>
+                            <button
+                              onClick={() => setTutorForGroupAssignment(tutor)}
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors text-[11px] font-semibold cursor-pointer"
+                              title="Affecter cet encadreur à un groupe d'encadrement collectif"
+                            >
+                              <Layers className="h-3 w-3" />
+                              <span>+ Groupe</span>
                             </button>
                             <button
                               onClick={() => {
@@ -694,6 +704,13 @@ export const EncadreursTab: React.FC = () => {
           setTutorToDelete(null);
         }}
         isDeleting={isDeleting}
+      />
+
+      {/* Assign Tutor to Group Modal */}
+      <AssignTutorToGroupModal
+        isOpen={!!tutorForGroupAssignment}
+        onClose={() => setTutorForGroupAssignment(null)}
+        initialTutor={tutorForGroupAssignment}
       />
     </div>
   );
