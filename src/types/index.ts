@@ -271,6 +271,39 @@ export interface Tutor {
   agentAvatar?: string;
 }
 
+export interface InvoiceStudentItem {
+  studentId: string;
+  studentMatricule: string;
+  studentName: string;
+  level: string;
+  stream: string;
+  subjects: string[];
+  sessionsPerWeek: number;
+  monthlyFee: number;
+  paidAmount: number;
+  balanceRemaining: number;
+  tutoringStatus: Student['tutoringStatus'];
+}
+
+export interface MonthlyInvoice {
+  id: string; // e.g. "inv-2026-10-stu-1" or "inv-2026-10-fam-1"
+  invoiceNumber: string; // e.g. "FAC-2026-10-0042"
+  month: string; // e.g. "2026-10"
+  monthLabel: string; // e.g. "Octobre 2026"
+  issueDate: string; // e.g. "01/10/2026"
+  dueDate: string; // e.g. "10/10/2026"
+  guardianName: string;
+  guardianPhone: string;
+  isFamilyInvoice: boolean;
+  studentItems: InvoiceStudentItem[];
+  totalMonthlyFee: number;
+  totalPaid: number;
+  netDue: number;
+  status: 'Payée' | 'Partielle' | 'En attente' | 'En retard';
+  notes?: string;
+  createdAt: string;
+}
+
 export interface MultiStudentReceiptItem {
   studentId: string;
   studentMatricule?: string;
