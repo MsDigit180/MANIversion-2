@@ -1,4 +1,4 @@
-import cabAppuisLogo from './images/cab_appuis_logo_1790760656054.jpg';
+import cabAppuisLogo from './images/cab_appuis_logo.png';
 
 export const CAB_APPUIS_LOGO = cabAppuisLogo;
 

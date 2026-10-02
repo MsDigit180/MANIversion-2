@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { LiveClock } from '../common/LiveClock';
+import { CAB_APPUIS_LOGO } from '../../assets/logo';
 
 export const TopBar: React.FC = () => {
   const {
@@ -78,9 +79,11 @@ export const TopBar: React.FC = () => {
           onClick={() => setCurrentTab('dashboard')}
           className="flex items-center gap-2.5 focus:outline-none cursor-pointer"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-xs font-black text-white shadow-sm ring-1 ring-indigo-500/30">
-            MANI
-          </div>
+          <img
+            src={CAB_APPUIS_LOGO}
+            alt="Logo Cabinet MANI"
+            className="h-9 w-9 shrink-0 rounded-xl object-contain border border-indigo-200 dark:border-slate-700 bg-white p-0.5 shadow-sm"
+          />
           <div className="flex flex-col text-left">
             <span className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-slate-100 leading-none">
               Cabinet MANI
