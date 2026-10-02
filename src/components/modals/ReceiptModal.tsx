@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Printer,
@@ -49,11 +50,15 @@ export const ReceiptModal: React.FC = () => {
   const studentEnrollmentDate = studentRecord?.enrollmentDate || '29/09/2026';
 
   const handlePrint = () => {
-    window.print();
+    document.body.classList.add('is-printing-invoice');
+    setTimeout(() => {
+      window.print();
+    }, 50);
   };
 
   const handleExportPDF = () => {
     setExporting(true);
+    document.body.classList.add('is-printing-invoice');
     setTimeout(() => {
       window.print();
       setExporting(false);
@@ -63,9 +68,12 @@ export const ReceiptModal: React.FC = () => {
   const formattedPaymentDate = formatReceiptPaymentDate(selectedReceipt.paymentDate);
   const amountInWords = numberToFrenchWords(selectedReceipt.amount);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className={`w-full ${isMulti ? 'max-w-2xl' : 'max-w-xl'} rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden`}>
+  const modalContent = (
+    <div
+      id="print-modal-portal"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static print:z-auto print:block animate-in fade-in duration-150"
+    >
+      <div className={`w-full ${isMulti ? 'max-w-2xl' : 'max-w-xl'} rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden print:max-h-none print:h-auto print:border-none print:shadow-none print:bg-white print:overflow-visible`}>
         {/* Top bar controls (hidden in print) */}
         <div className="flex items-center justify-between border-b border-slate-800 bg-slate-850 px-6 py-3.5 print:hidden">
           <div className="flex items-center gap-2">
@@ -440,4 +448,6 @@ export const ReceiptModal: React.FC = () => {
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };

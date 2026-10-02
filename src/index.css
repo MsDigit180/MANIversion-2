@@ -64,14 +64,10 @@
     display: none !important;
   }
 
-  /* Si un modal de document est ouvert pour impression, cacher tout le layout principal en arrière-plan */
-  body:has(#printable-invoice-modal-content) #app-main-layout,
-  body:has(#printable-receipt) #app-main-layout,
-  body:has(.official-invoice-sheet) #app-main-layout {
+  /* Quand le portail d'impression du modal est actif, cacher le dashboard principal #root */
+  body:has(#print-modal-portal) #root,
+  body.is-printing-invoice #root {
     display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    overflow: hidden !important;
   }
 
   /* Unlock all document heights and scroll containers for printing */

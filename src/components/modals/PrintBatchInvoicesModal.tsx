@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Printer,
@@ -20,13 +21,49 @@ export const PrintBatchInvoicesModal: React.FC<PrintBatchInvoicesModalProps> = (
   isOpen,
   onClose,
 }) => {
-  if (!isOpen) return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleBeforePrint = () => {
+      document.body.classList.add('is-printing-invoice');
+    };
+    const handleAfterPrint = () => {
+      document.body.classList.remove('is-printing-invoice');
+    };
+
+    window.addEventListener('beforeprint', handleBeforePrint);
+    window.addEventListener('afterprint', handleAfterPrint);
+
+    return () => {
+      window.removeEventListener('beforeprint', handleBeforePrint);
+      window.removeEventListener('afterprint', handleAfterPrint);
+      document.body.classList.remove('is-printing-invoice');
+    };
+  }, [isOpen]);
+
+  if (!isOpen || !mounted) return null;
 
   const totalAmountToCollect = invoices.reduce((sum, inv) => sum + inv.netDue, 0);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-5xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[94vh]">
+  const handlePrint = () => {
+    document.body.classList.add('is-printing-invoice');
+    setTimeout(() => {
+      window.print();
+    }, 50);
+  };
+
+  const modalContent = (
+    <div
+      id="print-modal-portal"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-xs p-4 print:p-0 print:bg-white print:static print:z-auto print:block animate-in fade-in duration-150"
+    >
+      <div className="w-full max-w-5xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[94vh] print:max-h-none print:h-auto print:border-none print:shadow-none print:bg-white print:overflow-visible">
         {/* Top bar controls (hidden in print) */}
         <div className="flex items-center justify-between border-b border-slate-800 bg-slate-850 px-6 py-4 print:hidden">
           <div className="flex items-center gap-3">
@@ -46,7 +83,7 @@ export const PrintBatchInvoicesModal: React.FC<PrintBatchInvoicesModalProps> = (
 
           <div className="flex items-center gap-2.5">
             <button
-              onClick={() => window.print()}
+              onClick={handlePrint}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow transition-colors cursor-pointer"
             >
               <Printer className="h-4 w-4" />
@@ -68,9 +105,17 @@ export const PrintBatchInvoicesModal: React.FC<PrintBatchInvoicesModalProps> = (
               @media print {
                 @page {
                   size: A4 portrait;
-                  margin: 0;
+                  margin: 0 !important;
                 }
-                body {
+                #root,
+                body.is-printing-invoice #root,
+                body:has(#print-modal-portal) #root {
+                  display: none !important;
+                }
+                .print\\:hidden {
+                  display: none !important;
+                }
+                html, body {
                   margin: 0 !important;
                   padding: 0 !important;
                   background: white !important;
@@ -78,17 +123,14 @@ export const PrintBatchInvoicesModal: React.FC<PrintBatchInvoicesModalProps> = (
                   -webkit-print-color-adjust: exact !important;
                   print-color-adjust: exact !important;
                 }
-                .print\\:hidden {
-                  display: none !important;
-                }
                 .batch-invoice-page {
                   page-break-after: always !important;
                   break-after: page !important;
                   page-break-inside: avoid !important;
                   break-inside: avoid !important;
                   width: 210mm !important;
-                  height: 296mm !important;
-                  max-height: 296mm !important;
+                  height: 297mm !important;
+                  max-height: 297mm !important;
                   padding: 0 !important;
                   margin: 0 auto !important;
                   border: none !important;
@@ -102,7 +144,7 @@ export const PrintBatchInvoicesModal: React.FC<PrintBatchInvoicesModalProps> = (
         />
 
         {/* Scrollable Document Container */}
-        <div className="overflow-y-auto p-6 space-y-8 bg-slate-950/70 printable-document flex flex-col items-center">
+        <div className="overflow-y-auto p-6 space-y-8 bg-slate-950/70 printable-document flex flex-col items-center print:p-0 print:m-0 print:space-y-0 print:bg-white">
           {invoices.map((invoice) => (
             <div
               key={invoice.id}
@@ -128,4 +170,6 @@ export const PrintBatchInvoicesModal: React.FC<PrintBatchInvoicesModalProps> = (
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
