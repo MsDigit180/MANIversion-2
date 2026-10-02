@@ -26,7 +26,7 @@ export const PrintBatchInvoicesModal: React.FC<PrintBatchInvoicesModalProps> = (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-4xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[94vh]">
+      <div className="w-full max-w-5xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[94vh]">
         {/* Top bar controls (hidden in print) */}
         <div className="flex items-center justify-between border-b border-slate-800 bg-slate-850 px-6 py-4 print:hidden">
           <div className="flex items-center gap-3">
@@ -50,7 +50,7 @@ export const PrintBatchInvoicesModal: React.FC<PrintBatchInvoicesModalProps> = (
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow transition-colors cursor-pointer"
             >
               <Printer className="h-4 w-4" />
-              <span>Imprimer Tout le Lot ({invoices.length} factures)</span>
+              <span>Lancer l'impression du lot ({invoices.length} factures)</span>
             </button>
             <button
               onClick={onClose}
@@ -68,9 +68,11 @@ export const PrintBatchInvoicesModal: React.FC<PrintBatchInvoicesModalProps> = (
               @media print {
                 @page {
                   size: A4 portrait;
-                  margin: 12mm;
+                  margin: 0;
                 }
                 body {
+                  margin: 0 !important;
+                  padding: 0 !important;
                   background: white !important;
                   color: #111827 !important;
                   -webkit-print-color-adjust: exact !important;
@@ -84,16 +86,14 @@ export const PrintBatchInvoicesModal: React.FC<PrintBatchInvoicesModalProps> = (
                   break-after: page !important;
                   page-break-inside: avoid !important;
                   break-inside: avoid !important;
-                  height: 273mm !important;
-                  max-height: 273mm !important;
+                  width: 210mm !important;
+                  height: 296mm !important;
+                  max-height: 296mm !important;
                   padding: 0 !important;
-                  margin: 0 !important;
+                  margin: 0 auto !important;
                   border: none !important;
                   box-sizing: border-box !important;
                   overflow: hidden !important;
-                  display: flex !important;
-                  flex-direction: column !important;
-                  justify-content: space-between !important;
                   background: white !important;
                 }
               }
@@ -106,11 +106,10 @@ export const PrintBatchInvoicesModal: React.FC<PrintBatchInvoicesModalProps> = (
           {invoices.map((invoice) => (
             <div
               key={invoice.id}
-              className="w-full max-w-[210mm] bg-white text-slate-900 p-8 print:p-0 rounded-xl border border-slate-300 print:border-none shadow-xl relative overflow-hidden batch-invoice-page single-page-doc"
+              className="w-[210mm] max-w-full bg-white text-slate-900 rounded-sm border border-slate-300 print:border-none shadow-xl relative overflow-hidden batch-invoice-page"
             >
               <OfficialInvoiceA4Document
                 invoice={invoice}
-                layoutOption="with-coupon"
               />
             </div>
           ))}

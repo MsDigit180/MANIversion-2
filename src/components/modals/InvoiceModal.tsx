@@ -15,8 +15,6 @@ import {
   Building,
   ShieldCheck,
   Scissors,
-  LayoutGrid,
-  FileSpreadsheet,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MonthlyInvoice, InvoiceStudentItem } from '../../types';
@@ -27,7 +25,6 @@ import {
 } from '../../utils/invoiceUtils';
 import {
   OfficialInvoiceA4Document,
-  InvoiceLayoutOption,
   OfficialInvoiceData,
 } from '../invoices/OfficialInvoiceA4Document';
 
@@ -37,7 +34,6 @@ export interface InvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPayInvoice?: (invoice: MonthlyInvoice) => void;
-  defaultLayoutOption?: InvoiceLayoutOption;
 }
 
 export const InvoiceModal: React.FC<InvoiceModalProps> = ({
@@ -46,12 +42,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   isOpen,
   onClose,
   onPayInvoice,
-  defaultLayoutOption = 'with-coupon',
 }) => {
   const { showToast, setIsNewPaymentModalOpen, setFamilyPaymentTargetParent, currentUser } = useApp();
   const [exporting, setExporting] = useState(false);
   const [copiedSMS, setCopiedSMS] = useState(false);
-  const [layoutOption, setLayoutOption] = useState<InvoiceLayoutOption>(defaultLayoutOption);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -139,51 +133,28 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-4xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[96vh]">
+      <div className="w-full max-w-5xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[96vh]">
         {/* ============================================================== */}
-        {/* TOP BAR / CONTROLS (MASQUÉ À L'IMPRESSION)                      */}
+        {/* TOP BAR / CONTROLS (MASQUÉ À L'IMPRESSION VIA print:hidden)     */}
         {/* ============================================================== */}
         <div className="flex flex-wrap items-center justify-between border-b border-slate-800 bg-slate-850 px-4 sm:px-6 py-3 gap-2 print:hidden">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-indigo-400" />
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-              <span className="text-xs font-bold text-white">
-                Facture Scolarité · <span className="font-mono text-indigo-300">{invoiceNumber}</span>
-              </span>
-              <span className="text-[11px] text-slate-400 font-medium">({monthLabel})</span>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+              <FileText className="h-5 w-5" />
             </div>
-          </div>
-
-          {/* SÉLECTEUR DES 2 OPTIONS D'ARCHITECTURE A4 (COUPON VS PLEINE PAGE) */}
-          <div className="flex items-center rounded-xl bg-slate-800 p-0.5 border border-slate-700">
-            <button
-              type="button"
-              onClick={() => setLayoutOption('with-coupon')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                layoutOption === 'with-coupon'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-              title="Page A4 structurée avec talon de caisse détachable et ligne de découpe"
-            >
-              <Scissors className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Avec Talon Découpable</span>
-              <span className="sm:hidden">Talon</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setLayoutOption('full-page')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                layoutOption === 'full-page'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-              title="Page A4 pleine page aérée sans souche de découpe"
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Pleine Page Aérée</span>
-              <span className="sm:hidden">Pleine Page</span>
-            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-white">
+                  Facture Scolarité · <span className="font-mono text-indigo-300">{invoiceNumber}</span>
+                </span>
+                <span className="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded font-medium">
+                  {monthLabel}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Format Officiel A4 Pleine Page (210mm × 297mm) avec Souche de Caisse
+              </p>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -194,7 +165,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               title="Ouvrir WhatsApp avec le message pré-rempli pour ce parent"
             >
               <MessageCircle className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">Envoyer WhatsApp</span>
+              <span className="hidden sm:inline">WhatsApp</span>
             </button>
 
             {/* Copy SMS Button */}
@@ -212,18 +183,20 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               onClick={handleExportPDF}
               disabled={exporting}
               className="flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors shadow cursor-pointer"
+              title="Exporter au format PDF A4"
             >
               <Download className="h-3.5 w-3.5" />
               <span>{exporting ? 'Export...' : 'PDF'}</span>
             </button>
 
-            {/* Print Button */}
+            {/* Print Button principal */}
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors shadow cursor-pointer"
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white transition-colors shadow-sm cursor-pointer"
+              title="Lancer l'impression directe"
             >
               <Printer className="h-3.5 w-3.5" />
-              <span>Imprimer</span>
+              <span>Lancer l'impression</span>
             </button>
 
             {/* Close Button */}
@@ -238,7 +211,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         </div>
 
         {/* ============================================================== */}
-        {/* CSS PRINT STRICT & PARFAITEMENT ÉTALONNÉ POUR A4 PORTRAIT     */}
+        {/* CSS PRINT STRICT & PARFAITEMENT ÉTALONNÉ POUR A4 PLEINE PAGE   */}
         {/* ============================================================== */}
         <style
           dangerouslySetInnerHTML={{
@@ -246,9 +219,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               @media print {
                 @page {
                   size: A4 portrait;
-                  margin: 12mm;
+                  margin: 0;
                 }
                 body {
+                  margin: 0 !important;
+                  padding: 0 !important;
                   background: white !important;
                   color: #111827 !important;
                   -webkit-print-color-adjust: exact !important;
@@ -258,17 +233,14 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                   display: none !important;
                 }
                 #printable-invoice-modal-content {
-                  width: 100% !important;
-                  max-width: 100% !important;
-                  margin: 0 !important;
+                  width: 210mm !important;
+                  height: 296mm !important;
+                  max-height: 296mm !important;
+                  margin: 0 auto !important;
                   padding: 0 !important;
                   border: none !important;
                   box-shadow: none !important;
                   background: white !important;
-                }
-                .official-invoice-sheet {
-                  height: 273mm !important;
-                  max-height: 273mm !important;
                   page-break-inside: avoid !important;
                   break-inside: avoid !important;
                   page-break-after: avoid !important;
@@ -276,31 +248,42 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                   overflow: hidden !important;
                   box-sizing: border-box !important;
                 }
+                .official-invoice-sheet {
+                  width: 210mm !important;
+                  height: 296mm !important;
+                  max-height: 296mm !important;
+                  padding: 12mm !important;
+                  margin: 0 auto !important;
+                  display: flex !important;
+                  flex-direction: column !important;
+                  justify-content: space-between !important;
+                  box-sizing: border-box !important;
+                  overflow: hidden !important;
+                }
               }
             `,
           }}
         />
 
         {/* ============================================================== */}
-        {/* APERÇU ÉCRAN RÉALISTE DU DOCUMENT A4                          */}
+        {/* APERÇU ÉCRAN RÉALISTE DU DOCUMENT A4 FULL HEIGHT              */}
         {/* ============================================================== */}
-        <div className="overflow-y-auto p-4 sm:p-6 bg-slate-950/60 flex justify-center printable-document">
+        <div className="overflow-y-auto p-4 sm:p-8 bg-slate-950/70 flex justify-center printable-document">
           {/* Cadre Feuille Papier A4 Blanche avec Ombre Réaliste */}
           <div
             id="printable-invoice-modal-content"
-            className="w-full max-w-[210mm] bg-white text-slate-900 rounded-xl shadow-2xl p-6 sm:p-8 print:p-0 border border-slate-200 print:border-none min-h-[260mm] print:min-h-0"
+            className="w-[210mm] max-w-full bg-white text-slate-900 rounded-sm shadow-2xl print:shadow-none border border-slate-200 print:border-none"
           >
             <OfficialInvoiceA4Document
               invoice={invoice}
               customData={customData}
-              layoutOption={layoutOption}
               cashierName={currentUser?.fullName || 'Direction CAS-MANI'}
             />
           </div>
         </div>
 
         {/* ============================================================== */}
-        {/* MODAL FOOTER (MASQUÉ À L'IMPRESSION)                           */}
+        {/* MODAL FOOTER (MASQUÉ À L'IMPRESSION VIA print:hidden)         */}
         {/* ============================================================== */}
         <div className="border-t border-slate-800 bg-slate-850 px-4 sm:px-6 py-3.5 flex flex-wrap justify-between items-center text-xs text-slate-400 gap-3 print:hidden">
           <div className="flex items-center gap-2">
@@ -334,7 +317,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow transition-colors cursor-pointer"
             >
               <Printer className="h-4 w-4" />
-              <span>Imprimer la Facture</span>
+              <span>Lancer l'impression</span>
             </button>
           </div>
         </div>
