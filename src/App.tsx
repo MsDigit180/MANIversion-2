@@ -90,7 +90,10 @@ const DashboardContent: React.FC = () => {
   };
 
   return (
-    <div className={`flex h-screen w-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-200 ${theme === 'dark' ? 'dark' : ''}`}>
+    <div
+      id="app-main-layout"
+      className={`flex h-screen w-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-200 ${theme === 'dark' ? 'dark' : ''}`}
+    >
       {/* Retractable Sidebar */}
       <Sidebar />
 

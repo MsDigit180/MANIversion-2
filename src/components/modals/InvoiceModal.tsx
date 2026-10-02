@@ -3,21 +3,14 @@ import {
   X,
   Printer,
   Download,
-  Calendar,
   FileText,
-  Users,
-  Phone,
   MessageCircle,
   Copy,
   CheckCircle2,
-  AlertTriangle,
   CreditCard,
-  Building,
-  ShieldCheck,
-  Scissors,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { MonthlyInvoice, InvoiceStudentItem } from '../../types';
+import { MonthlyInvoice } from '../../types';
 import {
   generateWhatsAppInvoiceMessage,
   generateSMSInvoiceMessage,
@@ -152,7 +145,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Format Officiel A4 Pleine Page (210mm × 297mm) avec Souche de Caisse
+                Format Officiel A4 Simple Page (210mm × 297mm) · Page Unique Garantie
               </p>
             </div>
           </div>
@@ -193,10 +186,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             <button
               onClick={handlePrint}
               className="flex items-center gap-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white transition-colors shadow-sm cursor-pointer"
-              title="Lancer l'impression directe"
+              title="Lancer l'impression directe (1 page)"
             >
               <Printer className="h-3.5 w-3.5" />
-              <span>Lancer l'impression</span>
+              <span>Lancer l'impression (1 page)</span>
             </button>
 
             {/* Close Button */}
@@ -211,7 +204,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         </div>
 
         {/* ============================================================== */}
-        {/* CSS PRINT STRICT & PARFAITEMENT ÉTALONNÉ POUR A4 PLEINE PAGE   */}
+        {/* CSS PRINT STRICT : ISOLATION ABSOLUE & EXACTEMENT 1 SEULE PAGE */}
         {/* ============================================================== */}
         <style
           dangerouslySetInnerHTML={{
@@ -219,46 +212,77 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               @media print {
                 @page {
                   size: A4 portrait;
-                  margin: 0;
+                  margin: 0 !important;
                 }
-                body {
+
+                /* Cacher immédiatement l'application en arrière-plan */
+                #app-main-layout {
+                  display: none !important;
+                  visibility: hidden !important;
+                  height: 0 !important;
+                  overflow: hidden !important;
+                }
+
+                /* Cacher tous les éléments interactifs du modal */
+                .print\\:hidden {
+                  display: none !important;
+                  visibility: hidden !important;
+                }
+
+                /* Verrouiller la feuille physique sur exactement 1 page A4 */
+                html, body {
+                  width: 210mm !important;
+                  height: 297mm !important;
+                  max-height: 297mm !important;
                   margin: 0 !important;
                   padding: 0 !important;
                   background: white !important;
                   color: #111827 !important;
+                  overflow: hidden !important;
                   -webkit-print-color-adjust: exact !important;
                   print-color-adjust: exact !important;
                 }
-                .print\\:hidden {
-                  display: none !important;
-                }
+
+                /* Positionner le conteneur imprimable à top: 0 pour éviter tout décalage */
                 #printable-invoice-modal-content {
+                  position: fixed !important;
+                  top: 0 !important;
+                  left: 0 !important;
                   width: 210mm !important;
-                  height: 296mm !important;
-                  max-height: 296mm !important;
-                  margin: 0 auto !important;
+                  height: 297mm !important;
+                  max-height: 297mm !important;
+                  margin: 0 !important;
                   padding: 0 !important;
                   border: none !important;
                   box-shadow: none !important;
                   background: white !important;
-                  page-break-inside: avoid !important;
-                  break-inside: avoid !important;
+                  overflow: hidden !important;
+                  z-index: 9999999 !important;
+                  page-break-before: avoid !important;
+                  break-before: avoid !important;
                   page-break-after: avoid !important;
                   break-after: avoid !important;
-                  overflow: hidden !important;
-                  box-sizing: border-box !important;
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
                 }
+
                 .official-invoice-sheet {
                   width: 210mm !important;
-                  height: 296mm !important;
-                  max-height: 296mm !important;
-                  padding: 12mm !important;
-                  margin: 0 auto !important;
+                  height: 297mm !important;
+                  max-height: 297mm !important;
+                  padding: 10mm !important;
+                  margin: 0 !important;
                   display: flex !important;
                   flex-direction: column !important;
                   justify-content: space-between !important;
                   box-sizing: border-box !important;
                   overflow: hidden !important;
+                  page-break-before: avoid !important;
+                  break-before: avoid !important;
+                  page-break-after: avoid !important;
+                  break-after: avoid !important;
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
                 }
               }
             `,
@@ -268,8 +292,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         {/* ============================================================== */}
         {/* APERÇU ÉCRAN RÉALISTE DU DOCUMENT A4 FULL HEIGHT              */}
         {/* ============================================================== */}
-        <div className="overflow-y-auto p-4 sm:p-8 bg-slate-950/70 flex justify-center printable-document">
-          {/* Cadre Feuille Papier A4 Blanche avec Ombre Réaliste */}
+        <div className="overflow-y-auto p-4 sm:p-6 bg-slate-950/70 flex justify-center printable-document">
           <div
             id="printable-invoice-modal-content"
             className="w-[210mm] max-w-full bg-white text-slate-900 rounded-sm shadow-2xl print:shadow-none border border-slate-200 print:border-none"
@@ -317,7 +340,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow transition-colors cursor-pointer"
             >
               <Printer className="h-4 w-4" />
-              <span>Lancer l'impression</span>
+              <span>Imprimer (1 page)</span>
             </button>
           </div>
         </div>
