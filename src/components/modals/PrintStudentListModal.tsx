@@ -236,6 +236,20 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
           </div>
         </div>
 
+        {/* Scoped print style for A4 landscape register */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              @media print {
+                @page {
+                  size: A4 landscape !important;
+                  margin: 8mm 8mm 8mm 8mm !important;
+                }
+              }
+            `,
+          }}
+        />
+
         {/* Printable Document Sheet Container */}
         <div
           id="printable-receipt"

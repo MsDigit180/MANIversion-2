@@ -102,56 +102,70 @@ export const ReceiptModal: React.FC = () => {
           </div>
         </div>
 
+        {/* Scoped print style for clean single-page A4 portrait */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              @media print {
+                @page {
+                  size: A4 portrait !important;
+                  margin: 6mm 8mm 6mm 8mm !important;
+                }
+              }
+            `,
+          }}
+        />
+
         {/* Printable Receipt Paper Container */}
         <div
           id="printable-receipt"
-          className="relative p-7 sm:p-8 bg-white text-slate-900 text-xs font-sans overflow-hidden"
+          className="relative p-6 sm:p-8 print:p-4 bg-white text-slate-900 text-xs font-sans overflow-hidden single-page-doc print:max-h-[280mm] print:overflow-hidden print:flex print:flex-col print:justify-between"
         >
           {/* Subtle Authentic Security Watermark */}
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none overflow-hidden opacity-[0.06] print:opacity-[0.08]">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none overflow-hidden opacity-[0.05] print:opacity-[0.06]">
             <img
               src={CAB_APPUIS_LOGO}
               alt="Filigrane Cabinet d'Appuis Scolaire MANI"
-              className="w-96 h-96 object-contain filter grayscale"
+              className="w-80 h-80 print:w-72 print:h-72 object-contain filter grayscale"
             />
           </div>
 
           {/* Header */}
-          <div className="relative z-10 flex justify-between items-start border-b-2 border-slate-900 pb-4">
-            <div className="flex items-start gap-3.5">
+          <div className="relative z-10 flex justify-between items-start border-b-2 border-slate-900 pb-3 print:pb-2">
+            <div className="flex items-start gap-3">
               <img
                 src={CAB_APPUIS_LOGO}
                 alt="Logo Cabinet d'Appuis Scolaire MANI"
-                className="w-16 h-16 rounded-xl object-contain border border-slate-200 shadow-sm shrink-0 bg-white p-0.5 print:border-slate-400"
+                className="w-14 h-14 print:w-12 print:h-12 rounded-xl object-contain border border-slate-200 shadow-sm shrink-0 bg-white p-0.5 print:border-slate-400"
               />
               <div>
                 <div className="flex items-center gap-2">
-                  <div className="bg-indigo-900 text-white font-black text-sm px-2.5 py-0.5 rounded shadow-sm tracking-wide">
+                  <div className="bg-indigo-900 text-white font-black text-xs px-2 py-0.5 rounded shadow-sm tracking-wide">
                     CAS-MANI
                   </div>
-                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  <span className="text-[9.5px] print:text-[8.5px] font-bold text-emerald-800 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                     Agrément & Enregistrement Officiel
                   </span>
                 </div>
 
-                <h1 className="text-base font-black tracking-tight uppercase text-slate-950 mt-1">
+                <h1 className="text-sm print:text-xs font-black tracking-tight uppercase text-slate-950 mt-0.5">
                   Cabinet d'Appuis Scolaire MANI
                 </h1>
-                <p className="text-[11px] font-bold text-indigo-950">
+                <p className="text-[10px] print:text-[9px] font-bold text-indigo-950">
                   {isMulti
                     ? 'Quittance Officielle de Paiement Groupé · Fratrie & Famille'
                     : "Encadrement Pédagogique, Cours d'Appuis & Prépa Concours"}
                 </p>
 
-                <div className="mt-1 text-[9.5px] text-slate-700 space-y-0.5">
+                <div className="mt-0.5 text-[9px] print:text-[8px] text-slate-700 space-y-0.5">
                   <p className="font-medium">
                     📍 <span className="font-semibold">Adresse :</span> Quartier Niamey 2000, Niamey (République du Niger)
                   </p>
-                  <div className="flex flex-wrap items-center gap-x-3 text-[9.5px] font-semibold text-slate-900">
-                    <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                  <div className="flex flex-wrap items-center gap-x-2 text-[8.5px] print:text-[8px] font-semibold text-slate-900">
+                    <span className="bg-slate-100 px-1 py-0.2 rounded border border-slate-200">
                       NIF : <span className="font-mono font-bold text-indigo-900">153633/P</span>
                     </span>
-                    <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                    <span className="bg-slate-100 px-1 py-0.2 rounded border border-slate-200">
                       RCCM : <span className="font-mono font-bold text-indigo-900">NE-NIM-A10-05126</span>
                     </span>
                     <span className="text-slate-800">
@@ -163,20 +177,20 @@ export const ReceiptModal: React.FC = () => {
             </div>
 
             <div className="text-right shrink-0">
-              <span className="inline-block bg-slate-100 text-slate-900 border-2 border-slate-900 font-mono font-extrabold text-xs px-3 py-1 rounded shadow-sm">
+              <span className="inline-block bg-slate-100 text-slate-900 border-2 border-slate-900 font-mono font-extrabold text-[11px] print:text-[10px] px-2.5 py-0.5 rounded shadow-sm">
                 REÇU N° {selectedReceipt.receiptNumber}
               </span>
-              <p className="text-[10.5px] text-slate-700 mt-1.5 font-medium flex items-center justify-end gap-1">
+              <p className="text-[10px] print:text-[9px] text-slate-700 mt-1 font-medium flex items-center justify-end gap-1">
                 <Calendar className="h-3 w-3 text-indigo-700" />
                 <span>
                   Date de Paiement : <span className="font-bold text-slate-900">{formattedPaymentDate}</span>
                 </span>
               </p>
-              <p className="text-[9px] text-slate-500 font-mono">
+              <p className="text-[8.5px] print:text-[8px] text-slate-500 font-mono">
                 Site : Niamey 2000 · Année Scolaire 2026/2027
               </p>
               {isMulti && (
-                <span className="inline-block mt-1 bg-purple-100 text-purple-900 border border-purple-300 font-bold text-[9.5px] px-2 py-0.5 rounded uppercase">
+                <span className="inline-block mt-0.5 bg-purple-100 text-purple-900 border border-purple-300 font-bold text-[9px] print:text-[8px] px-1.5 py-0.2 rounded uppercase">
                   Reçu Groupé Famille
                 </span>
               )}
@@ -184,24 +198,24 @@ export const ReceiptModal: React.FC = () => {
           </div>
 
           {/* Beneficiary Details Box */}
-          <div className="grid grid-cols-2 gap-4 my-4 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+          <div className="grid grid-cols-2 gap-3 my-2.5 print:my-1.5 bg-slate-50 p-2.5 print:p-2 rounded-lg border border-slate-200 text-xs print:text-[10px]">
             <div>
               {isMulti ? (
                 <>
-                  <span className="text-[10px] font-bold uppercase text-purple-900 block flex items-center gap-1">
+                  <span className="text-[9.5px] print:text-[8.5px] font-bold uppercase text-purple-900 block flex items-center gap-1">
                     <Users className="h-3 w-3 text-purple-700" />
                     <span>Tuteur Légal / Famille Payeuse :</span>
                   </span>
-                  <span className="text-sm font-bold text-slate-950 block mt-0.5">
+                  <span className="text-xs print:text-[11px] font-bold text-slate-950 block mt-0.5">
                     {selectedReceipt.guardianName || selectedReceipt.studentName}
                   </span>
                   {selectedReceipt.guardianPhone && (
-                    <span className="text-[11px] text-slate-700 font-mono block mt-0.5 flex items-center gap-1">
+                    <span className="text-[10.5px] print:text-[9.5px] text-slate-700 font-mono block mt-0.5 flex items-center gap-1">
                       <Phone className="h-2.5 w-2.5" />
                       <span>{selectedReceipt.guardianPhone}</span>
                     </span>
                   )}
-                  <span className="text-[10.5px] text-slate-600 block mt-1">
+                  <span className="text-[10px] print:text-[9px] text-slate-600 block mt-0.5">
                     Règlement groupé couvrant :{' '}
                     <strong className="text-indigo-900">
                       {selectedReceipt.studentBreakdown?.length || 2} enfants inscrits
@@ -210,38 +224,40 @@ export const ReceiptModal: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <span className="text-[10px] font-bold uppercase text-slate-500 block">
+                  <span className="text-[9.5px] print:text-[8.5px] font-bold uppercase text-slate-500 block">
                     Bénéficiaire / Élève :
                   </span>
-                  <span className="text-sm font-bold text-slate-900 block mt-0.5">
+                  <span className="text-xs print:text-[11px] font-bold text-slate-900 block mt-0.5">
                     {selectedReceipt.studentName}
                   </span>
-                  <span className="text-[11px] text-slate-600 block mt-0.5">
+                  <span className="text-[10.5px] print:text-[9.5px] text-slate-600 block mt-0.5">
                     Catégorie : <span className="font-semibold text-slate-800">{selectedReceipt.category}</span>
                   </span>
-                  <span className="text-[10.5px] text-slate-600 block mt-0.5 font-medium">
+                  <span className="text-[10px] print:text-[9px] text-slate-600 block mt-0.5 font-medium">
                     Date d'inscription : <span className="font-bold text-slate-900">{studentEnrollmentDate}</span>
                   </span>
                 </>
               )}
             </div>
 
-            <div className="text-right flex flex-col items-end">
-              <span className="text-[10px] font-bold uppercase text-slate-500 block">
-                Mode de Règlement :
-              </span>
-              <span className="text-xs font-bold text-slate-900 block mt-0.5 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                {selectedReceipt.paymentMethod}
-              </span>
-              <div className="flex items-center gap-1.5 mt-1.5">
+            <div className="text-right flex flex-col items-end justify-between">
+              <div>
+                <span className="text-[9.5px] print:text-[8.5px] font-bold uppercase text-slate-500 block">
+                  Mode de Règlement :
+                </span>
+                <span className="text-[11px] print:text-[10px] font-bold text-slate-900 inline-block mt-0.5 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                  {selectedReceipt.paymentMethod}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-1">
                 {selectedReceipt.agentAvatar && (
                   <img
                     src={selectedReceipt.agentAvatar}
                     alt={selectedReceipt.agentName}
-                    className="h-5 w-5 rounded-full object-cover ring-1 ring-slate-300"
+                    className="h-4 w-4 rounded-full object-cover ring-1 ring-slate-300"
                   />
                 )}
-                <span className="text-[11px] text-slate-600">
+                <span className="text-[10px] print:text-[9px] text-slate-600">
                   Caissier : <span className="font-semibold text-slate-800">{selectedReceipt.cashierName}</span>
                 </span>
               </div>
@@ -251,40 +267,40 @@ export const ReceiptModal: React.FC = () => {
           {/* Details Table */}
           {isMulti && selectedReceipt.studentBreakdown && selectedReceipt.studentBreakdown.length > 0 ? (
             /* Multi-student family breakdown table */
-            <table className="w-full text-left my-4 border border-slate-200 rounded">
+            <table className="w-full text-left my-2 print:my-1.5 border border-slate-200 rounded text-[11px] print:text-[9.5px]">
               <thead>
-                <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 text-[10.5px]">
-                  <th className="py-2 px-2.5 w-6 text-center">N°</th>
-                  <th className="py-2 px-3">Élève Bénéficiaire (Fratrie)</th>
-                  <th className="py-2 px-3">Classe / Niveau</th>
-                  <th className="py-2 px-3">Désignation / Objet</th>
-                  <th className="py-2 px-3 text-right">Montant Encaissé</th>
+                <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 text-[10px] print:text-[9px]">
+                  <th className="py-1.5 print:py-1 px-2 w-6 text-center">N°</th>
+                  <th className="py-1.5 print:py-1 px-2.5">Élève Bénéficiaire (Fratrie)</th>
+                  <th className="py-1.5 print:py-1 px-2">Classe / Niveau</th>
+                  <th className="py-1.5 print:py-1 px-2">Désignation / Objet</th>
+                  <th className="py-1.5 print:py-1 px-2.5 text-right font-bold">Montant Encaissé</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 text-slate-800 text-xs">
+              <tbody className="divide-y divide-slate-200 text-slate-800">
                 {selectedReceipt.studentBreakdown.map((item, idx) => (
                   <tr key={item.studentId || idx} className="hover:bg-slate-50/50">
-                    <td className="py-2.5 px-2.5 text-center font-mono text-slate-500 font-bold text-[11px]">
+                    <td className="py-1.5 print:py-1 px-2 text-center font-mono text-slate-500 font-bold">
                       {idx + 1}
                     </td>
-                    <td className="py-2.5 px-3">
+                    <td className="py-1.5 print:py-1 px-2.5">
                       <span className="font-bold text-slate-950 block">{item.studentName}</span>
                       {item.studentMatricule && (
-                        <span className="text-[10px] text-slate-500 font-mono">{item.studentMatricule}</span>
+                        <span className="text-[9.5px] print:text-[8.5px] text-slate-500 font-mono">{item.studentMatricule}</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3">
+                    <td className="py-1.5 print:py-1 px-2">
                       <span className="font-semibold text-slate-800">{item.level}</span>
                     </td>
-                    <td className="py-2.5 px-3">
-                      <span className="text-[11px] text-slate-700 block">
+                    <td className="py-1.5 print:py-1 px-2">
+                      <span className="text-[10px] print:text-[9px] text-slate-700 block">
                         {item.category || 'Scolarité Mensuelle'}
                       </span>
                       {item.notes && (
-                        <span className="text-[10px] text-slate-500 italic block">{item.notes}</span>
+                        <span className="text-[9px] print:text-[8px] text-slate-500 italic block">{item.notes}</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-950">
+                    <td className="py-1.5 print:py-1 px-2.5 text-right font-mono font-bold text-slate-950">
                       {item.amount.toLocaleString()} FCFA
                     </td>
                   </tr>
@@ -292,10 +308,10 @@ export const ReceiptModal: React.FC = () => {
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-slate-900 bg-slate-50">
-                  <td colSpan={4} className="py-2 px-3 font-bold text-right text-xs text-slate-900 uppercase">
+                  <td colSpan={4} className="py-1.5 print:py-1 px-2.5 font-bold text-right text-[10px] print:text-[9px] text-slate-900 uppercase">
                     TOTAL GÉNÉRAL ENCAISSÉ :
                   </td>
-                  <td className="py-2 px-3 font-mono font-black text-right text-sm text-indigo-950">
+                  <td className="py-1.5 print:py-1 px-2.5 font-mono font-black text-right text-xs print:text-[11px] text-indigo-950">
                     {selectedReceipt.amount.toLocaleString()} FCFA
                   </td>
                 </tr>
@@ -303,34 +319,34 @@ export const ReceiptModal: React.FC = () => {
             </table>
           ) : (
             /* Standard single-student table */
-            <table className="w-full text-left my-4 border border-slate-200 rounded">
+            <table className="w-full text-left my-2 print:my-1.5 border border-slate-200 rounded text-[11px] print:text-[9.5px]">
               <thead>
-                <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 text-[11px]">
-                  <th className="py-2 px-3 font-semibold">Désignation de la prestation</th>
-                  <th className="py-2 px-3 font-semibold text-center">Quantité</th>
-                  <th className="py-2 px-3 font-semibold text-right">Montant Total</th>
+                <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 text-[10px] print:text-[9px]">
+                  <th className="py-1.5 print:py-1 px-3 font-semibold">Désignation de la prestation</th>
+                  <th className="py-1.5 print:py-1 px-3 font-semibold text-center w-20">Quantité</th>
+                  <th className="py-1.5 print:py-1 px-3 font-semibold text-right w-36">Montant Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 text-slate-800 text-xs">
+              <tbody className="divide-y divide-slate-200 text-slate-800">
                 <tr>
-                  <td className="py-2.5 px-3">
+                  <td className="py-2 print:py-1.5 px-3">
                     <span className="font-semibold block">{selectedReceipt.category}</span>
-                    <span className="text-[11px] text-slate-500">
+                    <span className="text-[10px] print:text-[9px] text-slate-500">
                       {selectedReceipt.notes || "Prestation pédagogique, encadrement académique et cours d'appuis"}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 text-center">1</td>
-                  <td className="py-2.5 px-3 text-right font-mono font-bold">
+                  <td className="py-2 print:py-1.5 px-3 text-center font-mono">1</td>
+                  <td className="py-2 print:py-1.5 px-3 text-right font-mono font-bold">
                     {selectedReceipt.amount.toLocaleString()} FCFA
                   </td>
                 </tr>
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-slate-900 bg-slate-50">
-                  <td colSpan={2} className="py-2 px-3 font-bold text-right text-xs text-slate-900 uppercase">
+                  <td colSpan={2} className="py-1.5 print:py-1 px-3 font-bold text-right text-[10px] print:text-[9px] text-slate-900 uppercase">
                     TOTAL ENCAISSÉ :
                   </td>
-                  <td className="py-2 px-3 font-mono font-extrabold text-right text-sm text-indigo-950">
+                  <td className="py-1.5 print:py-1 px-3 font-mono font-extrabold text-right text-xs print:text-[11px] text-indigo-950">
                     {selectedReceipt.amount.toLocaleString()} FCFA
                   </td>
                 </tr>
@@ -339,53 +355,53 @@ export const ReceiptModal: React.FC = () => {
           )}
 
           {/* Amount in French Words (Administrative Requirement) */}
-          <div className="my-2.5 p-2.5 rounded bg-slate-50 border border-slate-200 text-[10.5px] text-slate-800">
+          <div className="my-2 print:my-1 p-2 print:p-1.5 rounded bg-slate-50 border border-slate-200 text-[10px] print:text-[9px] text-slate-800">
             <span>Arrêté la présente quittance à la somme totale de : </span>
             <strong className="text-indigo-950 uppercase">{amountInWords} Francs CFA</strong>.
           </div>
 
           {/* Legal references strip */}
-          <div className="bg-slate-50 border border-slate-200 rounded p-2 text-[9px] text-slate-600 flex justify-between items-center">
+          <div className="bg-slate-50 border border-slate-200 rounded p-1.5 print:p-1 text-[8.5px] print:text-[8px] text-slate-600 flex justify-between items-center">
             <span>Cabinet d'Appuis Scolaire MANI · Quartier Niamey 2000</span>
             <span className="font-mono">NIF: 153633/P | RCCM: NE-NIM-A10-05126</span>
             <span className="font-semibold text-slate-800">Quittance réglée le {formattedPaymentDate}</span>
           </div>
 
           {/* Security & Stamp Section */}
-          <div className="mt-5 flex justify-between items-end border-t border-slate-200 pt-3">
+          <div className="mt-2.5 print:mt-1.5 flex justify-between items-end border-t border-slate-200 pt-2 print:pt-1">
             <div className="max-w-xs">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+              <div className="flex items-center gap-1 text-[10px] print:text-[9px] font-semibold text-slate-700">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                 <span>Certification d'Authenticité</span>
               </div>
-              <p className="text-[9.5px] text-slate-500 mt-1 leading-tight">
+              <p className="text-[8.5px] print:text-[8px] text-slate-500 mt-0.5 leading-tight">
                 {selectedReceipt.syncStatus === 'synced'
                   ? `Reçu officiel validé le ${formattedPaymentDate} et archivé sur le serveur Cloud CAS MANI.`
                   : `Écriture certifiée en caisse le ${formattedPaymentDate}. Enregistrement conforme.`}
               </p>
-              <div className="mt-1 text-[8.5px] font-mono text-slate-400">
+              <div className="mt-0.5 text-[8px] print:text-[7.5px] font-mono text-slate-400">
                 CERT-ID: CAS-MANI-{selectedReceipt.receiptNumber}-N2000
               </div>
             </div>
 
             {/* Official Stamp with logo */}
             <div className="flex flex-col items-center">
-              <div className="flex items-center gap-2 border-2 border-indigo-900 text-indigo-900 rounded-lg p-2 text-center uppercase tracking-wider font-bold text-[8.5px] rotate-[-2deg] opacity-95 shadow-sm bg-indigo-50/50">
+              <div className="flex items-center gap-2 border-2 border-indigo-900 text-indigo-900 rounded-lg p-1.5 text-center uppercase tracking-wider font-bold text-[8px] rotate-[-1deg] opacity-95 shadow-sm bg-indigo-50/50">
                 <img
                   src={CAB_APPUIS_LOGO}
                   alt="Sceau Officiel"
-                  className="w-10 h-10 rounded-full object-contain shrink-0 border border-indigo-900 bg-white"
+                  className="w-8 h-8 rounded-full object-contain shrink-0 border border-indigo-900 bg-white"
                 />
                 <div className="text-left">
-                  <div className="font-extrabold text-[9px] text-indigo-950">CABINET D'APPUIS SCOLAIRE MANI</div>
-                  <div className="text-[10px] text-emerald-700 font-black">
+                  <div className="font-extrabold text-[8.5px] text-indigo-950">CABINET D'APPUIS SCOLAIRE MANI</div>
+                  <div className="text-[9px] text-emerald-700 font-black">
                     ✓ ENCAISSÉ LE {formattedPaymentDate.split(' à ')[0]}
                   </div>
-                  <div className="text-[8px] text-slate-700 font-mono">NIF: 153633/P · RCCM: NE-NIM-A10-05126</div>
-                  <div className="text-[7.5px] text-slate-600">CENTRE PÉDAGOGIQUE NIAMEY 2000</div>
+                  <div className="text-[7.5px] text-slate-700 font-mono">NIF: 153633/P · RCCM: NE-NIM-A10-05126</div>
+                  <div className="text-[7px] text-slate-600">CENTRE PÉDAGOGIQUE NIAMEY 2000</div>
                 </div>
               </div>
-              <span className="text-[9px] text-slate-500 mt-1">Visa & Cachet Officiel de la Caisse</span>
+              <span className="text-[8px] text-slate-500 mt-0.5">Visa & Cachet Officiel de la Caisse</span>
             </div>
           </div>
         </div>

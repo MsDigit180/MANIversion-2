@@ -46,12 +46,17 @@
 }
 
 /* ==========================================================================
-   ADVANCED MULTI-PAGE PRINT STYLES (A4 LANDSCAPE & REPEATING COLUMN HEADERS)
+   ADVANCED PRINT STYLES & STRICT SINGLE-PAGE ENGINE (A4 PORTRAIT / LANDSCAPE)
    ========================================================================== */
 @media print {
   @page {
+    size: A4 portrait;
+    margin: 6mm 8mm 6mm 8mm;
+  }
+
+  @page landscape-page {
     size: A4 landscape;
-    margin: 10mm 10mm 12mm 10mm;
+    margin: 8mm 8mm 8mm 8mm;
   }
 
   /* Hide interactive UI elements */
@@ -63,7 +68,7 @@
     display: none !important;
   }
 
-  /* Unlock all document heights and scroll containers for multi-page flow */
+  /* Unlock all document heights and scroll containers for printing */
   html, body {
     height: auto !important;
     min-height: 100% !important;
@@ -121,6 +126,37 @@
     display: block !important;
     box-shadow: none !important;
     border: none !important;
+  }
+
+  /* Strict Single-Page Document Enforcement */
+  .single-page-doc {
+    max-height: 282mm !important;
+    height: auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Batch Invoices: strictly one single page per invoice card */
+  .batch-invoice-page {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    height: 280mm !important;
+    max-height: 280mm !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .print-landscape {
+    page: landscape-page;
   }
 
   /* Table multi-page repeating header & footer engine */

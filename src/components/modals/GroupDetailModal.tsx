@@ -182,10 +182,32 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
             </div>
           </div>
 
+          {/* Scoped print style for clean single-page A4 portrait */}
+          <style
+            dangerouslySetInnerHTML={{
+              __html: `
+                @media print {
+                  @page {
+                    size: A4 portrait !important;
+                    margin: 6mm 8mm 6mm 8mm !important;
+                  }
+                  .printable-document {
+                    background: white !important;
+                    color: #0f172a !important;
+                    padding: 8px !important;
+                  }
+                  .printable-document * {
+                    color: #0f172a !important;
+                  }
+                }
+              `,
+            }}
+          />
+
           {/* Modal Scrollable Content */}
-          <div className="overflow-y-auto p-6 space-y-6 printable-document">
+          <div className="overflow-y-auto p-6 space-y-6 printable-document single-page-doc print:space-y-3 print:p-2 print:max-h-[280mm] print:overflow-hidden">
             {/* Header Chapeau pour l'impression */}
-            <div className="hidden print:flex items-start justify-between border-b-2 border-slate-900 pb-3 mb-4">
+            <div className="hidden print:flex items-start justify-between border-b-2 border-slate-900 pb-2 mb-2">
               <div className="flex items-center gap-3">
                 <img src={CAB_APPUIS_LOGO} alt="Logo" className="w-14 h-14 object-contain" />
                 <div>

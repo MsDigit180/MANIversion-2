@@ -161,51 +161,65 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           </div>
         </div>
 
+        {/* Scoped print style for clean single-page A4 portrait */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              @media print {
+                @page {
+                  size: A4 portrait !important;
+                  margin: 6mm 8mm 6mm 8mm !important;
+                }
+              }
+            `,
+          }}
+        />
+
         {/* Scrollable Printable Document Container */}
-        <div className="overflow-y-auto p-6 sm:p-8 bg-white text-slate-900 text-xs font-sans relative printable-document">
+        <div className="overflow-y-auto p-6 sm:p-8 print:p-4 bg-white text-slate-900 text-xs font-sans relative printable-document single-page-doc print:max-h-[280mm] print:overflow-hidden print:flex print:flex-col print:justify-between">
           {/* Subtle Security Watermark */}
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none overflow-hidden opacity-[0.06] print:opacity-[0.08]">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none overflow-hidden opacity-[0.05] print:opacity-[0.06]">
             <img
               src={CAB_APPUIS_LOGO}
               alt="Filigrane Cabinet d'Appuis Scolaire MANI"
-              className="w-96 h-96 object-contain filter grayscale"
+              className="w-80 h-80 print:w-72 print:h-72 object-contain filter grayscale"
             />
           </div>
 
           {/* Official Document Header */}
-          <div className="relative z-10 flex justify-between items-start border-b-2 border-slate-900 pb-4">
-            <div className="flex items-start gap-3.5">
+          <div className="relative z-10 flex justify-between items-start border-b-2 border-slate-900 pb-3 print:pb-2">
+            <div className="flex items-start gap-3">
               <img
                 src={CAB_APPUIS_LOGO}
                 alt="Logo Cabinet d'Appuis Scolaire MANI"
-                className="w-16 h-16 rounded-xl object-contain border border-slate-200 shadow-sm shrink-0 bg-white p-0.5 print:border-slate-400"
+                className="w-14 h-14 print:w-12 print:h-12 rounded-xl object-contain border border-slate-200 shadow-sm shrink-0 bg-white p-0.5 print:border-slate-400"
               />
               <div>
                 <div className="flex items-center gap-2">
-                  <div className="bg-indigo-900 text-white font-black text-sm px-2.5 py-0.5 rounded shadow-sm tracking-wide">
+                  <div className="bg-indigo-900 text-white font-black text-xs px-2 py-0.5 rounded shadow-sm tracking-wide">
                     CAS-MANI
                   </div>
-                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  <span className="text-[9.5px] print:text-[8.5px] font-bold text-emerald-800 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                     Agrément & Enregistrement Officiel
                   </span>
                 </div>
 
-                <h1 className="text-base font-black tracking-tight uppercase text-slate-950 mt-1">
+                <h1 className="text-sm print:text-xs font-black tracking-tight uppercase text-slate-950 mt-0.5">
                   Cabinet d'Appuis Scolaire MANI
                 </h1>
-                <p className="text-[11px] font-bold text-indigo-950">
+                <p className="text-[10px] print:text-[9px] font-bold text-indigo-950">
                   Encadrement Pédagogique, Cours d'Appuis & Prépa Concours
                 </p>
 
-                <div className="mt-1 text-[9.5px] text-slate-700 space-y-0.5">
+                <div className="mt-0.5 text-[9px] print:text-[8px] text-slate-700 space-y-0.5">
                   <p className="font-medium">
                     📍 <span className="font-semibold">Adresse :</span> Quartier Niamey 2000, Niamey (République du Niger)
                   </p>
-                  <div className="flex flex-wrap items-center gap-x-3 text-[9.5px] font-semibold text-slate-900">
-                    <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                  <div className="flex flex-wrap items-center gap-x-2 text-[8.5px] print:text-[8px] font-semibold text-slate-900">
+                    <span className="bg-slate-100 px-1 py-0.2 rounded border border-slate-200">
                       NIF : <span className="font-mono font-bold text-indigo-900">153633/P</span>
                     </span>
-                    <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                    <span className="bg-slate-100 px-1 py-0.2 rounded border border-slate-200">
                       RCCM : <span className="font-mono font-bold text-indigo-900">NE-NIM-A10-05126</span>
                     </span>
                     <span className="text-slate-800">
@@ -217,58 +231,58 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </div>
 
             <div className="text-right shrink-0">
-              <span className="inline-block bg-slate-900 text-white font-mono font-extrabold text-xs px-3 py-1 rounded shadow-sm">
+              <span className="inline-block bg-slate-900 text-white font-mono font-extrabold text-[11px] print:text-[10px] px-2.5 py-0.5 rounded shadow-sm">
                 FACTURE N° {invoice.invoiceNumber}
               </span>
-              <div className="text-[11px] text-slate-800 mt-1.5 font-bold uppercase tracking-wide">
+              <div className="text-[10px] print:text-[9px] text-slate-800 mt-1 font-bold uppercase tracking-wide">
                 AVIS D'ÉCHÉANCE MENSUEL
               </div>
-              <p className="text-[10px] text-slate-600 mt-0.5">
+              <p className="text-[9.5px] print:text-[8.5px] text-slate-600 mt-0.5">
                 Période : <strong className="text-indigo-950 font-bold">{invoice.monthLabel}</strong>
               </p>
-              <div className="mt-1.5 inline-block bg-rose-50 border border-rose-300 px-2 py-0.5 rounded text-[10px] text-rose-900 font-bold">
+              <div className="mt-1 inline-block bg-rose-50 border border-rose-300 px-1.5 py-0.5 rounded text-[9px] text-rose-900 font-bold">
                 ⏰ Échéance : {invoice.dueDate}
               </div>
             </div>
           </div>
 
           {/* Client / Guardian Box */}
-          <div className="grid grid-cols-2 gap-4 my-4 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+          <div className="grid grid-cols-2 gap-3 my-2.5 print:my-1.5 bg-slate-50 p-2.5 print:p-2 rounded-lg border border-slate-200 text-xs print:text-[10px]">
             <div>
-              <span className="text-[10px] font-bold uppercase text-indigo-900 block flex items-center gap-1">
-                <Users className="h-3.5 w-3.5 text-indigo-700" />
+              <span className="text-[9.5px] print:text-[8.5px] font-bold uppercase text-indigo-900 block flex items-center gap-1">
+                <Users className="h-3 w-3 text-indigo-700" />
                 <span>Facturé à / Tuteur Légal :</span>
               </span>
-              <span className="text-sm font-bold text-slate-950 block mt-0.5">
+              <span className="text-xs print:text-[11px] font-bold text-slate-950 block mt-0.5">
                 {invoice.guardianName}
               </span>
               {invoice.guardianPhone && (
-                <span className="text-[11px] text-slate-700 font-mono block mt-0.5 flex items-center gap-1">
+                <span className="text-[10.5px] print:text-[9.5px] text-slate-700 font-mono block mt-0.5 flex items-center gap-1">
                   <Phone className="h-2.5 w-2.5" />
                   <span>{invoice.guardianPhone}</span>
                 </span>
               )}
-              <span className="text-[10px] text-slate-500 block mt-0.5">
+              <span className="text-[9.5px] print:text-[8.5px] text-slate-500 block mt-0.5">
                 Niamey (République du Niger)
               </span>
             </div>
 
             <div className="text-right flex flex-col items-end justify-between">
               <div>
-                <span className="text-[10px] font-bold uppercase text-slate-500 block">
+                <span className="text-[9.5px] print:text-[8.5px] font-bold uppercase text-slate-500 block">
                   Date d'Émission :
                 </span>
-                <span className="text-xs font-bold text-slate-900 block mt-0.5">
+                <span className="text-[11px] print:text-[10px] font-bold text-slate-900 block mt-0.5">
                   {invoice.issueDate}
                 </span>
               </div>
 
               <div>
-                <span className="text-[10px] font-bold uppercase text-slate-500 block">
+                <span className="text-[9.5px] print:text-[8.5px] font-bold uppercase text-slate-500 block">
                   Statut du Règlement :
                 </span>
                 <span
-                  className={`inline-block px-2.5 py-0.5 rounded text-[10.5px] font-bold uppercase mt-0.5 ${
+                  className={`inline-block px-2 py-0.5 rounded text-[10px] print:text-[9px] font-bold uppercase mt-0.5 ${
                     invoice.status === 'Payée'
                       ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                       : invoice.status === 'Partielle'
@@ -285,50 +299,50 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           </div>
 
           {/* Details Table */}
-          <table className="w-full text-left my-4 border border-slate-200 rounded">
+          <table className="w-full text-left my-2 print:my-1.5 border border-slate-200 rounded text-[11px] print:text-[9.5px]">
             <thead>
-              <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 text-[10.5px]">
-                <th className="py-2 px-2.5 w-7 text-center">N°</th>
-                <th className="py-2 px-3">Élève & Matricule</th>
-                <th className="py-2 px-3">Classe / Cycle</th>
-                <th className="py-2 px-3">Encadrement & Matières</th>
-                <th className="py-2 px-3 text-right">Mensualité</th>
-                <th className="py-2 px-3 text-right">Déjà Versé</th>
-                <th className="py-2 px-3 text-right">Net à Payer</th>
+              <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 text-[10px] print:text-[9px]">
+                <th className="py-1.5 print:py-1 px-2 text-center w-6">N°</th>
+                <th className="py-1.5 print:py-1 px-2.5">Élève & Matricule</th>
+                <th className="py-1.5 print:py-1 px-2">Classe / Cycle</th>
+                <th className="py-1.5 print:py-1 px-2">Encadrement</th>
+                <th className="py-1.5 print:py-1 px-2 text-right">Mensualité</th>
+                <th className="py-1.5 print:py-1 px-2 text-right">Déjà Versé</th>
+                <th className="py-1.5 print:py-1 px-2.5 text-right font-bold">Net à Payer</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 text-slate-800 text-xs">
+            <tbody className="divide-y divide-slate-200 text-slate-800">
               {invoice.studentItems.map((item, idx) => {
                 const weeklyHours = calculateWeeklyHours(item.sessionsPerWeek || 3);
                 return (
                   <tr key={item.studentId || idx} className="hover:bg-slate-50/50">
-                    <td className="py-2.5 px-2.5 text-center font-mono text-slate-500 font-bold text-[11px]">
+                    <td className="py-1.5 print:py-1 px-2 text-center font-mono text-slate-500 font-bold">
                       {idx + 1}
                     </td>
-                    <td className="py-2.5 px-3">
+                    <td className="py-1.5 print:py-1 px-2.5">
                       <span className="font-bold text-slate-950 block">{item.studentName}</span>
-                      <span className="text-[10px] text-slate-500 font-mono">{item.studentMatricule}</span>
+                      <span className="text-[9.5px] print:text-[8.5px] text-slate-500 font-mono">{item.studentMatricule}</span>
                     </td>
-                    <td className="py-2.5 px-3">
+                    <td className="py-1.5 print:py-1 px-2">
                       <span className="font-semibold text-slate-800 block">{item.level}</span>
-                      <span className="text-[10px] text-slate-500">{item.stream}</span>
+                      <span className="text-[9.5px] print:text-[8.5px] text-slate-500">{item.stream}</span>
                     </td>
-                    <td className="py-2.5 px-3">
-                      <span className="text-[11px] text-indigo-950 font-semibold block">
+                    <td className="py-1.5 print:py-1 px-2">
+                      <span className="text-[10px] print:text-[9px] text-indigo-950 font-semibold block">
                         {item.sessionsPerWeek || 3} séa./sem. ({formatSessionHours(weeklyHours)})
                       </span>
-                      <span className="text-[10px] text-slate-500 truncate block max-w-[170px]">
+                      <span className="text-[9px] print:text-[8px] text-slate-500 truncate block max-w-[150px]">
                         {item.subjects.join(', ')}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-slate-700">
-                      {item.monthlyFee.toLocaleString()} FCFA
+                    <td className="py-1.5 print:py-1 px-2 text-right font-mono text-slate-700">
+                      {item.monthlyFee.toLocaleString()} F
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-emerald-700">
-                      {item.paidAmount > 0 ? `${item.paidAmount.toLocaleString()} FCFA` : '-'}
+                    <td className="py-1.5 print:py-1 px-2 text-right font-mono text-emerald-700">
+                      {item.paidAmount > 0 ? `${item.paidAmount.toLocaleString()} F` : '-'}
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-950">
-                      {item.balanceRemaining.toLocaleString()} FCFA
+                    <td className="py-1.5 print:py-1 px-2.5 text-right font-mono font-bold text-slate-950">
+                      {item.balanceRemaining.toLocaleString()} F
                     </td>
                   </tr>
                 );
@@ -336,16 +350,16 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-slate-900 bg-slate-50 text-slate-900 font-bold">
-                <td colSpan={4} className="py-2.5 px-3 text-right uppercase text-xs">
+                <td colSpan={4} className="py-1.5 print:py-1 px-2.5 text-right uppercase text-[10px] print:text-[9px]">
                   TOTAL GÉNÉRAL À RECOUVRER :
                 </td>
-                <td className="py-2.5 px-3 text-right font-mono text-xs text-slate-800">
-                  {invoice.totalMonthlyFee.toLocaleString()} FCFA
+                <td className="py-1.5 print:py-1 px-2 text-right font-mono text-[10.5px] print:text-[9.5px] text-slate-800">
+                  {invoice.totalMonthlyFee.toLocaleString()} F
                 </td>
-                <td className="py-2.5 px-3 text-right font-mono text-xs text-emerald-700">
-                  {invoice.totalPaid > 0 ? `${invoice.totalPaid.toLocaleString()} FCFA` : '0 FCFA'}
+                <td className="py-1.5 print:py-1 px-2 text-right font-mono text-[10.5px] print:text-[9.5px] text-emerald-700">
+                  {invoice.totalPaid > 0 ? `${invoice.totalPaid.toLocaleString()} F` : '0 F'}
                 </td>
-                <td className="py-2.5 px-3 font-mono font-black text-right text-sm text-indigo-950">
+                <td className="py-1.5 print:py-1 px-2.5 font-mono font-black text-right text-xs print:text-[11px] text-indigo-950">
                   {invoice.netDue.toLocaleString()} FCFA
                 </td>
               </tr>
@@ -353,69 +367,69 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           </table>
 
           {/* Amount in French Words */}
-          <div className="my-3 p-3 rounded bg-slate-50 border border-slate-200 text-[11px] text-slate-800">
+          <div className="my-2 print:my-1 p-2 print:p-1.5 rounded bg-slate-50 border border-slate-200 text-[10px] print:text-[9px] text-slate-800">
             <span>Arrêtée la présente facture à la somme nette à payer de : </span>
             <strong className="text-indigo-950 uppercase">{amountInWords} Francs CFA</strong>.
           </div>
 
-          {/* Authorized Payment Channels Strip */}
-          <div className="my-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-3 text-[10px] text-slate-700 space-y-1">
-            <div className="font-bold text-indigo-950 text-[11px] flex items-center gap-1 mb-1">
-              <CreditCard className="h-3.5 w-3.5 text-indigo-700" />
-              <span>Modalités & Coordonnées de Paiement Agréées (Niger) :</span>
+          {/* Authorized Payment Channels Strip (MyNita & Amana on +227 92285737) */}
+          <div className="my-2 print:my-1 rounded-lg border border-indigo-200 bg-indigo-50/50 p-2.5 print:p-1.5 text-[9.5px] print:text-[8.5px] text-slate-700 space-y-1">
+            <div className="font-bold text-indigo-950 text-[10px] print:text-[9px] flex items-center gap-1">
+              <CreditCard className="h-3 w-3 text-indigo-700" />
+              <span>Modalités de Paiement Agréées (Niger) :</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
-              <div className="bg-white/80 p-1.5 rounded border border-indigo-100">
-                • <strong>Dépôt MyNita :</strong> <span className="font-mono font-bold text-indigo-900 text-xs">+227 92 28 57 37</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              <div className="bg-white/90 p-1.5 rounded border border-indigo-100">
+                • <strong>Dépôt MyNita :</strong><br /><span className="font-mono font-bold text-indigo-900 text-[10.5px] print:text-[9.5px]">+227 92 28 57 37</span>
               </div>
-              <div className="bg-white/80 p-1.5 rounded border border-indigo-100">
-                • <strong>Dépôt Amana Transfert :</strong> <span className="font-mono font-bold text-indigo-900 text-xs">+227 92 28 57 37</span>
+              <div className="bg-white/90 p-1.5 rounded border border-indigo-100">
+                • <strong>Dépôt Amana :</strong><br /><span className="font-mono font-bold text-indigo-900 text-[10.5px] print:text-[9.5px]">+227 92 28 57 37</span>
               </div>
-              <div className="bg-white/80 p-1.5 rounded border border-indigo-100">
-                • <strong>Guichet Caisse :</strong> Siège Cabinet MANI (Niamey 2000)
+              <div className="bg-white/90 p-1.5 rounded border border-indigo-100">
+                • <strong>Caisse Physique :</strong><br /><span>Siège Niamey 2000</span>
               </div>
-              <div className="bg-white/80 p-1.5 rounded border border-indigo-100">
-                • <strong>Contact Caisse / Support :</strong> <span className="font-mono font-semibold">+227 92 28 57 37</span>
+              <div className="bg-white/90 p-1.5 rounded border border-indigo-100">
+                • <strong>Contact Caisse :</strong><br /><span className="font-mono font-semibold">+227 92 28 57 37</span>
               </div>
             </div>
-            <p className="text-[9px] text-slate-500 italic mt-1 pt-1 border-t border-indigo-100">
-              * Veuillez mentionner le numéro de facture ({invoice.invoiceNumber}) ou le nom de l'élève lors de votre dépôt MyNita / Amana (+227 92285737) pour validation instantanée de votre quittance officielle.
+            <p className="text-[8.5px] print:text-[8px] text-slate-500 italic pt-0.5">
+              * Mentionner le N° de facture ({invoice.invoiceNumber}) ou le nom de l'élève lors de votre dépôt MyNita / Amana au <strong>+227 92285737</strong>.
             </p>
           </div>
 
           {/* Legal references & Certification */}
-          <div className="mt-4 flex justify-between items-end border-t border-slate-200 pt-3">
+          <div className="mt-2.5 print:mt-1.5 flex justify-between items-end border-t border-slate-200 pt-2 print:pt-1">
             <div className="max-w-xs">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
-                <ShieldCheck className="h-4 w-4 text-indigo-700" />
+              <div className="flex items-center gap-1 text-[10px] print:text-[9px] font-semibold text-slate-700">
+                <ShieldCheck className="h-3.5 w-3.5 text-indigo-700" />
                 <span>Engagement Pédagogique & Continuité</span>
               </div>
-              <p className="text-[9.5px] text-slate-500 mt-1 leading-tight">
-                Le règlement ponctuel des frais d'encadrement garantit la continuité des plannings de cours, la rémunération des encadreurs et le suivi pédagogique personnalisé de vos enfants.
+              <p className="text-[8.5px] print:text-[8px] text-slate-500 mt-0.5 leading-tight">
+                Le règlement ponctuel des frais garantit la continuité des plannings de cours, la rémunération des encadreurs et le suivi personnalisé de vos enfants.
               </p>
-              <div className="mt-1 text-[8.5px] font-mono text-slate-400">
+              <div className="mt-0.5 text-[8px] print:text-[7.5px] font-mono text-slate-400">
                 RÉF-FACT: CAS-MANI-{invoice.invoiceNumber}-N2000
               </div>
             </div>
 
             {/* Official Stamp */}
             <div className="flex flex-col items-center">
-              <div className="flex items-center gap-2 border-2 border-indigo-900 text-indigo-900 rounded-lg p-2 text-center uppercase tracking-wider font-bold text-[8.5px] rotate-[-2deg] opacity-95 shadow-sm bg-indigo-50/50">
+              <div className="flex items-center gap-2 border-2 border-indigo-900 text-indigo-900 rounded-lg p-1.5 text-center uppercase tracking-wider font-bold text-[8px] rotate-[-1deg] opacity-95 shadow-sm bg-indigo-50/50">
                 <img
                   src={CAB_APPUIS_LOGO}
                   alt="Sceau Officiel"
-                  className="w-10 h-10 rounded-full object-contain shrink-0 border border-indigo-900 bg-white"
+                  className="w-8 h-8 rounded-full object-contain shrink-0 border border-indigo-900 bg-white"
                 />
                 <div className="text-left">
-                  <div className="font-extrabold text-[9px] text-indigo-950">CABINET D'APPUIS SCOLAIRE MANI</div>
-                  <div className="text-[10px] text-indigo-900 font-black">
+                  <div className="font-extrabold text-[8.5px] text-indigo-950">CABINET D'APPUIS SCOLAIRE MANI</div>
+                  <div className="text-[9px] text-indigo-900 font-black">
                     SERVICE DE COMPTABILITÉ & RECOUVREMENT
                   </div>
-                  <div className="text-[8px] text-slate-700 font-mono">NIF: 153633/P · RCCM: NE-NIM-A10-05126</div>
-                  <div className="text-[7.5px] text-slate-600">CENTRE PÉDAGOGIQUE NIAMEY 2000</div>
+                  <div className="text-[7.5px] text-slate-700 font-mono">NIF: 153633/P · RCCM: NE-NIM-A10-05126</div>
+                  <div className="text-[7px] text-slate-600">CENTRE PÉDAGOGIQUE NIAMEY 2000</div>
                 </div>
               </div>
-              <span className="text-[9px] text-slate-500 mt-1">Visa & Cachet Officiel du Cabinet</span>
+              <span className="text-[8px] text-slate-500 mt-0.5">Visa & Cachet Officiel du Cabinet</span>
             </div>
           </div>
         </div>
