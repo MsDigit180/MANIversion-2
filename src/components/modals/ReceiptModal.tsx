@@ -109,7 +109,7 @@ export const ReceiptModal: React.FC = () => {
               @media print {
                 @page {
                   size: A4 portrait !important;
-                  margin: 6mm 8mm 6mm 8mm !important;
+                  margin: 12mm !important;
                 }
               }
             `,

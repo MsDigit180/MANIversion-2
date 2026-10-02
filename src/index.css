@@ -51,7 +51,7 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 6mm 8mm 6mm 8mm;
+    margin: 12mm;
   }
 
   @page landscape-page {
