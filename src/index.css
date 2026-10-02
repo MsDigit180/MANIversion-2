@@ -89,6 +89,8 @@
   #printable-receipt *,
   #printable-invoice-modal-content,
   #printable-invoice-modal-content *,
+  #printable-receipt-modal-content,
+  #printable-receipt-modal-content *,
   .printable-document,
   .printable-document * {
     visibility: visible !important;
@@ -96,7 +98,8 @@
     print-color-adjust: exact !important;
   }
 
-  #printable-invoice-modal-content {
+  #printable-invoice-modal-content,
+  #printable-receipt-modal-content {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -118,7 +121,8 @@
     break-inside: avoid !important;
   }
 
-  .official-invoice-sheet {
+  .official-invoice-sheet,
+  .official-receipt-sheet {
     width: 210mm !important;
     height: 297mm !important;
     max-height: 297mm !important;
