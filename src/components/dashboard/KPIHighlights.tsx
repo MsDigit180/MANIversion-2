@@ -168,7 +168,7 @@ export const KPIHighlights: React.FC = () => {
         </div>
 
         <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-          <span>{inventory.length} références catalogue</span>
+          <span>{safeInventory.length} références catalogue</span>
           <span aria-hidden="true">·</span>
           {lowStockCount > 0 ? (
             <span className="text-rose-600 dark:text-rose-400 font-semibold">{lowStockCount} alerte stock</span>

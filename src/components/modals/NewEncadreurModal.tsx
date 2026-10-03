@@ -44,6 +44,9 @@ export const NewEncadreurModal: React.FC<NewEncadreurModalProps> = ({
 }) => {
   const { addTutor, updateTutor, updateStudent, students, tutors, showToast } = useApp();
 
+  const safeStudents = students || [];
+  const safeTutors = tutors || [];
+
   const [fullName, setFullName] = useState('');
   const [gender, setGender] = useState<'Masculin (M)' | 'Féminin (F)'>('Masculin (M)');
   const [phone, setPhone] = useState('');
@@ -61,19 +64,19 @@ export const NewEncadreurModal: React.FC<NewEncadreurModalProps> = ({
 
   useEffect(() => {
     if (editingTutor) {
-      setFullName(editingTutor.fullName);
+      setFullName(editingTutor.fullName || '');
       setGender(editingTutor.gender || 'Masculin (M)');
-      setPhone(editingTutor.phone);
-      setEmail(editingTutor.email);
+      setPhone(editingTutor.phone || '');
+      setEmail(editingTutor.email || '');
       setAvatar(editingTutor.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80');
-      setSubjectsStr(editingTutor.subjects.join(', '));
+      setSubjectsStr((editingTutor.subjects || []).join(', '));
       setSelectedLevels(editingTutor.levels || ['Collège']);
       const currentIds = editingTutor.assignedStudentIds || [];
       setSelectedStudentIds(currentIds);
       setStudentSubjectsMap(editingTutor.assignedStudentSubjects || {});
 
       // Déduction volume horaire : 1 séance = 1h 30mn
-      const currentAssigned = students.filter((s) => currentIds.includes(s.id));
+      const currentAssigned = safeStudents.filter((s) => currentIds.includes(s.id));
       const sessionsCount = currentAssigned.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
       const deducedMonthly = calculateMonthlyHours(sessionsCount);
       setTotalHours(editingTutor.totalHours ?? (deducedMonthly > 0 ? deducedMonthly : 18));
@@ -92,7 +95,7 @@ export const NewEncadreurModal: React.FC<NewEncadreurModalProps> = ({
     setValidationError(null);
     setExpandedStudentId(null);
     setStudentSearch('');
-  }, [editingTutor, isOpen, students]);
+  }, [editingTutor, isOpen, safeStudents]);
 
   if (!isOpen) return null;
 
@@ -122,7 +125,7 @@ export const NewEncadreurModal: React.FC<NewEncadreurModalProps> = ({
     .filter(Boolean);
 
   // Volume horaire déduit : 1 séance = 1h 30mn
-  const assignedStudents = students.filter((s) => selectedStudentIds.includes(s.id));
+  const assignedStudents = safeStudents.filter((s) => selectedStudentIds.includes(s.id));
   const totalWeeklySessions = assignedStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
   const weeklyHours = calculateWeeklyHours(totalWeeklySessions);
   const monthlyHours = calculateMonthlyHours(totalWeeklySessions);

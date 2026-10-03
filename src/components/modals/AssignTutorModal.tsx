@@ -57,37 +57,40 @@ export const AssignTutorModal: React.FC<AssignTutorModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
 
+  const safeStudents = students || [];
+  const safeTutors = tutors || [];
+
   // Initialisation lors de l'ouverture
   useEffect(() => {
     if (isOpen) {
       if (initialStudent) {
         setSelectedStudentId(initialStudent.id);
-      } else if (students.length > 0) {
-        setSelectedStudentId(students[0].id);
+      } else if (safeStudents.length > 0) {
+        setSelectedStudentId(safeStudents[0].id);
       } else {
         setSelectedStudentId('');
       }
 
       if (initialTutor) {
         setSelectedTutorId(initialTutor.id);
-      } else if (tutors.length > 0) {
-        setSelectedTutorId(tutors[0].id);
+      } else if (safeTutors.length > 0) {
+        setSelectedTutorId(safeTutors[0].id);
       } else {
         setSelectedTutorId('');
       }
 
       setSelectedSubjects([]);
     }
-  }, [isOpen, initialStudent, initialTutor, students, tutors]);
+  }, [isOpen, initialStudent, initialTutor, safeStudents, safeTutors]);
 
   const selectedStudent = useMemo(
-    () => students.find((s) => s.id === selectedStudentId) || null,
-    [students, selectedStudentId]
+    () => safeStudents.find((s) => s.id === selectedStudentId) || null,
+    [safeStudents, selectedStudentId]
   );
 
   const selectedTutor = useMemo(
-    () => tutors.find((t) => t.id === selectedTutorId) || null,
-    [tutors, selectedTutorId]
+    () => safeTutors.find((t) => t.id === selectedTutorId) || null,
+    [safeTutors, selectedTutorId]
   );
 
   const isPrimary = useMemo(
@@ -98,14 +101,14 @@ export const AssignTutorModal: React.FC<AssignTutorModalProps> = ({
   // Encadreur primaire actuel
   const currentPrimaryTutor = useMemo(() => {
     if (!selectedStudent || !isPrimary) return null;
-    return getPrimaryTutorForStudent(selectedStudent, tutors);
-  }, [selectedStudent, isPrimary, tutors]);
+    return getPrimaryTutorForStudent(selectedStudent, safeTutors);
+  }, [selectedStudent, isPrimary, safeTutors]);
 
   // Carte des matières déjà couvertes par d'autres encadreurs pour cet élève
   const assignedSubjectsMap = useMemo(() => {
     if (!selectedStudent) return new Map();
-    return getAssignedSubjectsMapForStudent(selectedStudent, tutors, selectedTutorId);
-  }, [selectedStudent, tutors, selectedTutorId]);
+    return getAssignedSubjectsMapForStudent(selectedStudent, safeTutors, selectedTutorId);
+  }, [selectedStudent, safeTutors, selectedTutorId]);
 
   // Pré-sélection des matières lorsque le tuteur ou l'élève change
   useEffect(() => {
@@ -116,7 +119,7 @@ export const AssignTutorModal: React.FC<AssignTutorModalProps> = ({
 
     if (isPrimary) {
       // Pour le primaire, l'encadreur prend en charge l'ensemble des matières
-      setSelectedSubjects(selectedStudent.subjects);
+      setSelectedSubjects(selectedStudent.subjects || []);
       return;
     }
 
@@ -128,8 +131,8 @@ export const AssignTutorModal: React.FC<AssignTutorModalProps> = ({
       setSelectedSubjects(currentSubjectsWithThisTutor);
     } else {
       // Suggérer les matières enseignées par ce tuteur qui sont dans le programme de l'élève et pas encore couvertes
-      const availableMatches = selectedStudent.subjects.filter((stuSubj) => {
-        const isTaughtByTutor = selectedTutor.subjects.some(
+      const availableMatches = (selectedStudent.subjects || []).filter((stuSubj) => {
+        const isTaughtByTutor = (selectedTutor.subjects || []).some(
           (tSubj) => normalizeSubjectName(tSubj) === normalizeSubjectName(stuSubj)
         );
         const isAlreadyCoveredByOther = assignedSubjectsMap.has(
@@ -150,10 +153,10 @@ export const AssignTutorModal: React.FC<AssignTutorModalProps> = ({
     return validateTutorAssignment({
       student: selectedStudent,
       targetTutorId: selectedTutor.id,
-      targetSubjects: isPrimary ? selectedStudent.subjects : selectedSubjects,
-      allTutors: tutors,
+      targetSubjects: isPrimary ? (selectedStudent.subjects || []) : selectedSubjects,
+      allTutors: safeTutors,
     });
-  }, [selectedStudent, selectedTutor, selectedSubjects, isPrimary, tutors]);
+  }, [selectedStudent, selectedTutor, selectedSubjects, isPrimary, safeTutors]);
 
   if (!isOpen) return null;
 
@@ -224,11 +227,11 @@ export const AssignTutorModal: React.FC<AssignTutorModalProps> = ({
     }
   };
 
-  const filteredStudents = students.filter(
+  const filteredStudents = safeStudents.filter(
     (s) =>
-      s.fullName.toLowerCase().includes(studentSearch.toLowerCase()) ||
-      s.matricule.toLowerCase().includes(studentSearch.toLowerCase()) ||
-      s.level.toLowerCase().includes(studentSearch.toLowerCase())
+      (s.fullName || '').toLowerCase().includes(studentSearch.toLowerCase()) ||
+      (s.matricule || '').toLowerCase().includes(studentSearch.toLowerCase()) ||
+      (s.level || '').toLowerCase().includes(studentSearch.toLowerCase())
   );
 
   return (
@@ -274,9 +277,9 @@ export const AssignTutorModal: React.FC<AssignTutorModalProps> = ({
               onChange={(e) => setSelectedStudentId(e.target.value)}
               className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none cursor-pointer font-medium"
             >
-              {students.map((s) => (
+              {safeStudents.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.fullName} ({s.matricule}) — {s.level} [{s.stream}] ({s.sessionsPerWeek || 3} séa./sem.)
+                  {s.fullName || 'Élève'} ({s.matricule || 'N/A'}) — {s.level || 'Non spécifié'} [{s.stream || 'Général'}] ({s.sessionsPerWeek || 3} séa./sem.)
                 </option>
               ))}
             </select>
@@ -389,9 +392,9 @@ export const AssignTutorModal: React.FC<AssignTutorModalProps> = ({
               onChange={(e) => setSelectedTutorId(e.target.value)}
               className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none cursor-pointer font-medium"
             >
-              {tutors.map((t) => (
+              {safeTutors.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.fullName} ({t.matricule}) — Matières : {t.subjects.join(', ')} [{t.levels.join(', ')}]
+                  {t.fullName || 'Enseignant'} ({t.matricule || 'N/A'}) — Matières : {(t.subjects || []).join(', ')} [{(t.levels || []).join(', ')}]
                 </option>
               ))}
             </select>

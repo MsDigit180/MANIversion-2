@@ -77,7 +77,8 @@ export const NewPaymentModal: React.FC = () => {
     }>
   >([]);
 
-  const families = getAllFamilies(students);
+  const safeStudents = students || [];
+  const families = getAllFamilies(safeStudents);
 
   // If opened via family quick action from another view
   useEffect(() => {
@@ -378,9 +379,9 @@ export const NewPaymentModal: React.FC = () => {
                   className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none cursor-pointer"
                 >
                   <option value="">-- Sélectionner un élève inscrit --</option>
-                  {students.map((s) => (
+                  {safeStudents.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.fullName} ({s.matricule} · {s.level}) {s.tutoringStatus !== 'Actif' ? `[${s.tutoringStatus}]` : ''}
+                      {s.fullName || 'Élève'} ({s.matricule || 'N/A'} · {s.level || 'Niveau'}) {s.tutoringStatus !== 'Actif' ? `[${s.tutoringStatus}]` : ''}
                     </option>
                   ))}
                 </select>
@@ -396,8 +397,8 @@ export const NewPaymentModal: React.FC = () => {
                         Fratrie détectée ({detectedSiblings.length + 1} enfants pour ce tuteur)
                       </p>
                       <p className="text-[11px] text-purple-300 mt-0.5">
-                        Tuteur : <strong>{selectedStudent.guardianName}</strong> · Autres enfants :{' '}
-                        {detectedSiblings.map((sib) => `${sib.fullName} (${sib.level})`).join(', ')}.
+                        Tuteur : <strong>{selectedStudent.guardianName || 'Tuteur'}</strong> · Autres enfants :{' '}
+                        {detectedSiblings.map((sib) => `${sib.fullName || 'Enfant'} (${sib.level || 'Niveau'})`).join(', ')}.
                       </p>
                     </div>
                   </div>
@@ -549,7 +550,7 @@ export const NewPaymentModal: React.FC = () => {
                     <option value="">-- Choisir une famille répertoriée --</option>
                     {families.map((fam) => (
                       <option key={fam.familyKey} value={fam.familyKey}>
-                        {fam.guardianName} ({fam.students.length} enfants · {fam.students.map((s) => s.fullName.split(' ')[0]).join(', ')})
+                        {fam.guardianName || 'Tuteur'} ({fam.students?.length || 0} enfants · {(fam.students || []).map((s) => (s.fullName || 'Élève').split(' ')[0]).join(', ')})
                       </option>
                     ))}
                   </select>
@@ -567,9 +568,9 @@ export const NewPaymentModal: React.FC = () => {
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-purple-500 focus:outline-none cursor-pointer"
                   >
                     <option value="">+ Ajouter un élève spécifique...</option>
-                    {students.map((s) => (
+                    {safeStudents.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.fullName} ({s.level} · Tuteur: {s.guardianName})
+                        {s.fullName || 'Élève'} ({s.level || 'Niveau'} · Tuteur: {s.guardianName || 'N/A'})
                       </option>
                     ))}
                   </select>
