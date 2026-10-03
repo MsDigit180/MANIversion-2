@@ -427,7 +427,7 @@ export const OfficialInvoiceA4Document: React.FC<OfficialInvoiceA4DocumentProps>
           <div className="grid grid-cols-3 gap-2">
             <div className="bg-white p-1.5 rounded border border-indigo-100">
               <span className="font-bold text-indigo-900 block text-[8.5px]">
-                📱 Dépôt MyNita :
+                📱 Nita Transfert :
               </span>
               <span className="font-mono font-black text-indigo-950 text-[10.5px] block">
                 +227 92 28 57 37
@@ -592,7 +592,7 @@ export const OfficialInvoiceA4Document: React.FC<OfficialInvoiceA4DocumentProps>
               <div>
                 <span className="text-[7.5px] uppercase text-slate-500 block font-semibold">Règlement :</span>
                 <div className="flex gap-1 mt-0.2 text-[7px] text-slate-700 font-medium">
-                  <span className="border border-slate-300 px-1 rounded bg-white">MyNita</span>
+                  <span className="border border-slate-300 px-1 rounded bg-white">Nita</span>
                   <span className="border border-slate-300 px-1 rounded bg-white">Amana</span>
                   <span className="border border-slate-300 px-1 rounded bg-white">Espèces</span>
                 </div>

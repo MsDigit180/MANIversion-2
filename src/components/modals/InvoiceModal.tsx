@@ -105,7 +105,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       showToast('Texte SMS de la facture copié dans le presse-papiers !', 'success');
       setTimeout(() => setCopiedSMS(false), 3000);
     } else {
-      const text = `CABINET MANI: Facture N° ${customData?.invoiceNumber || 'CAS'} de ${customData?.netDue?.toLocaleString() || 0} FCFA pour ${customData?.studentName}. Dépôt MyNita/Amana au +227 92 28 57 37.`;
+      const text = `CABINET MANI: Facture N° ${customData?.invoiceNumber || 'CAS'} de ${customData?.netDue?.toLocaleString() || 0} FCFA pour ${customData?.studentName}. Dépôt Nita/Amana au +227 92 28 57 37.`;
       navigator.clipboard.writeText(text);
       setCopiedSMS(true);
       showToast('Texte SMS copié !', 'success');
@@ -123,7 +123,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       window.open(link, '_blank');
       showToast(`Ouverture de WhatsApp pour ${guardianName}...`, 'info');
     } else {
-      const message = `Bonjour M./Mme ${guardianName},\nVoici votre avis d'échéance de cours d'appuis CAS-MANI N° ${customData?.invoiceNumber} d'un montant de ${customData?.netDue?.toLocaleString()} FCFA.\nDépôt MyNita/Amana au +227 92 28 57 37.\nMerci pour votre confiance.`;
+      const message = `Bonjour M./Mme ${guardianName},\nVoici votre avis d'échéance de cours d'appuis CAS-MANI N° ${customData?.invoiceNumber} d'un montant de ${customData?.netDue?.toLocaleString()} FCFA.\nDépôt Nita Transfert / Amana au +227 92 28 57 37.\nMerci pour votre confiance.`;
       const link = getWhatsAppDirectLink(guardianPhone, message);
       window.open(link, '_blank');
       showToast(`Ouverture de WhatsApp pour ${guardianName}...`, 'info');

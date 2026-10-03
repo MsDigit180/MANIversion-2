@@ -766,7 +766,8 @@ export const NewPaymentModal: React.FC = () => {
               >
                 <option value="Airtel Money">Airtel Money (Niger)</option>
                 <option value="Moov Flooz">Moov Flooz (Niger)</option>
-                <option value="Al Izza / Nita Transfert">Al Izza / Nita Transfert</option>
+                <option value="Amana Transfert">Amana Transfert (Niger)</option>
+                <option value="Nita Transfert d'argent">Nita Transfert d'argent (Niger)</option>
                 <option value="Espèces">Espèces (Caisse / Guichet)</option>
                 <option value="Virement Bancaire">Virement Bancaire / Chèque</option>
                 <option value="Wave / Mobile Money">Wave / Mobile Money</option>

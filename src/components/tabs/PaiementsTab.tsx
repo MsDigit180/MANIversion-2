@@ -111,6 +111,8 @@ export const PaiementsTab: React.FC = () => {
       (p) =>
         p.paymentMethod.includes('Airtel') ||
         p.paymentMethod.includes('Flooz') ||
+        p.paymentMethod.includes('Amana') ||
+        p.paymentMethod.includes('Nita') ||
         p.paymentMethod.includes('Al Izza') ||
         p.paymentMethod.includes('Mobile') ||
         p.paymentMethod.includes('Wave')
@@ -299,11 +301,11 @@ export const PaiementsTab: React.FC = () => {
             </div>
 
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Virements / Al Izza (Niamey)</span>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Virements / Amana Transfert</span>
               <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-slate-200 tabular-nums">
                 {bankTotal.toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">SONIBANK / BOA / NITA</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">SONIBANK / BOA / AMANA</span>
             </div>
           </div>
 
@@ -342,7 +344,8 @@ export const PaiementsTab: React.FC = () => {
                 <option value="Espèces">Espèces</option>
                 <option value="Airtel">Airtel Money</option>
                 <option value="Flooz">Moov Flooz</option>
-                <option value="Al Izza">Al Izza / Nita</option>
+                <option value="Amana">Amana Transfert</option>
+                <option value="Nita">Nita Transfert d'argent</option>
               </select>
 
               <div className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-3 py-1.5">

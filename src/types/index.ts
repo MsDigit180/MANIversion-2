@@ -353,7 +353,8 @@ export interface PaymentReceipt {
     | 'Espèces'
     | 'Airtel Money'
     | 'Moov Flooz'
-    | 'Al Izza / Nita Transfert'
+    | 'Amana Transfert'
+    | "Nita Transfert d'argent"
     | 'Wave / Mobile Money'
     | 'Virement Bancaire'
     | string;

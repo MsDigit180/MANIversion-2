@@ -221,7 +221,7 @@ export function generateWhatsAppInvoiceMessage(invoice: MonthlyInvoice): string 
     .join('\n');
 
   const paymentChannels = `📱 *Modes de règlement agréés :*
-- *Dépôt MyNita :* +227 92 28 57 37
+- *Dépôt Nita Transfert d'argent :* +227 92 28 57 37
 - *Dépôt Amana Transfert :* +227 92 28 57 37
 - *Caisse physique :* Siège Cab-Appuis (Quartier Niamey 2000)`;
 
@@ -243,7 +243,7 @@ ${invoice.totalPaid > 0 ? `💵 *Total Déjà Versé :* ${invoice.totalPaid.toLo
 
 ${paymentChannels}
 
-_Merci d'indiquer le nom de l'élève ou le N° de facture lors de votre dépôt MyNita / Amana (+227 92285737) pour validation instantanée de votre reçu officiel._
+_Merci d'indiquer le nom de l'élève ou le N° de facture lors de votre dépôt Nita Transfert d'argent / Amana (+227 92285737) pour validation instantanée de votre reçu officiel._
 
 📞 Info & Support Caisse : +227 92 28 57 37 / 91 58 44 59
 Cabinet MANI — L'excellence de l'encadrement à vos côtés.`;
@@ -254,7 +254,7 @@ Cabinet MANI — L'excellence de l'encadrement à vos côtés.`;
  */
 export function generateSMSInvoiceMessage(invoice: MonthlyInvoice): string {
   const childrenNames = invoice.studentItems.map((s) => s.studentName.split(' ')[0]).join(' & ');
-  return `CAB-APPUIS: Facture ${invoice.monthLabel} (Réf ${invoice.invoiceNumber}) pour ${childrenNames}. Net a payer: ${invoice.netDue.toLocaleString()} FCFA avant le ${invoice.dueDate}. Depot MyNita ou Amana au: +227 92285737. Merci.`;
+  return `CAB-APPUIS: Facture ${invoice.monthLabel} (Réf ${invoice.invoiceNumber}) pour ${childrenNames}. Net a payer: ${invoice.netDue.toLocaleString()} FCFA avant le ${invoice.dueDate}. Depot Nita ou Amana au: +227 92285737. Merci.`;
 }
 
 /**
