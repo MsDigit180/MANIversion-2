@@ -226,13 +226,13 @@ export const SyncDrawerModal: React.FC = () => {
         {/* Footer Actions */}
         <div className="pt-4 border-t border-slate-800 space-y-2">
           <button
-            onClick={() => forceSeedCloudDatabase()}
+            onClick={() => triggerSync()}
             disabled={isSyncing}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/40 bg-indigo-600/20 py-2.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-600 hover:text-white disabled:opacity-40 transition-all cursor-pointer shadow"
           >
-            <Database className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
             <span>
-              {isSyncing ? 'Enregistrement en cours...' : 'Forcer l\'écriture des données dans Firestore'}
+              {isSyncing ? 'Synchronisation en cours...' : 'Actualiser depuis Google Firestore'}
             </span>
           </button>
 

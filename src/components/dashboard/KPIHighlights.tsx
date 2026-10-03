@@ -21,20 +21,21 @@ export const KPIHighlights: React.FC = () => {
   const stoppedUnpaidCount = students.filter((s) => s.tutoringStatus === 'Arrêté (Défaut de paiement)').length;
   const totalStudents = students.length;
 
-  // 2. Recouvrement & Paiements
-  const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0) + 3850000;
-  const totalUnpaid = 415000; // Impayés scolarité
-  const recoveryRate = Math.round((totalCollected / (totalCollected + totalUnpaid)) * 100);
+  // 2. Recouvrement & Paiements réels
+  const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
+  const totalExpected = students.reduce((sum, s) => sum + (s.monthlyFee || 0), 0);
+  const totalUnpaid = Math.max(0, totalExpected - totalCollected);
+  const recoveryRate = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : (totalCollected > 0 ? 100 : 0);
 
-  // 3. Candidatures Concours
-  const totalExams = exams.length + 38;
-  const validatedExams = exams.filter((e) => e.status === 'Validé').length + 24;
-  const pendingPiecesExams = exams.filter((e) => e.status === 'Pièces manquantes').length + 8;
+  // 3. Candidatures Concours réelles
+  const totalExams = exams.length;
+  const validatedExams = exams.filter((e) => e.status === 'Validé').length;
+  const pendingPiecesExams = exams.filter((e) => e.status === 'Pièces manquantes').length;
 
-  // 4. Stocks & Fournitures
+  // 4. Stocks & Fournitures réels
   const supplySales = payments
     .filter((p) => p.category === 'Fournitures')
-    .reduce((sum, p) => sum + p.amount, 0) + 620000;
+    .reduce((sum, p) => sum + p.amount, 0);
   const lowStockCount = inventory.filter((item) => item.stockQuantity <= item.minThreshold).length;
 
   return (

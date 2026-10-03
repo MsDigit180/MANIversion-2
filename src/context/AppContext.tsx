@@ -35,20 +35,21 @@ import {
   testFirebaseConnection,
   safeFirestoreWrite,
 } from '../firebase';
-import {
-  seedInitialFirestoreData,
-  SEED_AGENTS,
-  SEED_STUDENTS,
-  SEED_PAYMENTS,
-  SEED_EXAMS,
-  SEED_TUTORS,
-  SEED_INVENTORY,
-  SEED_SUPPLY_SALES,
-  SEED_OPERATIONS,
-  SEED_ALERTS,
-} from '../firebase/seedMigration';
 import { compressImage } from '../utils/imageOptimizer';
 import { getCurrentFrenchDateTime, getCurrentFrenchDate, formatReceiptPaymentDate } from '../utils/dateUtils';
+
+const DEFAULT_ADMIN_USER: Agent = {
+  id: 'agent-admin',
+  username: 'admin',
+  fullName: 'Administrateur Principal',
+  gender: 'Masculin (M)',
+  role: 'Admin Principal',
+  email: 'MsLawali85@gmail.com',
+  phone: '+227 91 58 44 59',
+  campus: 'Site Niamey 2000 (Siège Principal)',
+  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  active: true,
+};
 
 interface AppContextType {
   // Theme Management
@@ -299,22 +300,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { username: 'admin', password: '1234' };
   });
 
-  // Entities initialized with seed datasets for instant rendering & offline resilience
-  const [agents, setAgents] = useState<Agent[]>(SEED_AGENTS);
+  // Entities strictly initialized with empty state - NO MOCK / EMPTY INITIAL STATE POLICY
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [currentUser, setCurrentUser] = useState<Agent>(() => {
-    const savedUserId = localStorage.getItem('cabappuis_current_user_id');
-    const matched = SEED_AGENTS.find((a) => a.id === savedUserId);
-    return matched || SEED_AGENTS[0];
+    return DEFAULT_ADMIN_USER;
   });
 
-  const [students, setStudents] = useState<Student[]>(SEED_STUDENTS);
-  const [payments, setPayments] = useState<PaymentReceipt[]>(SEED_PAYMENTS);
-  const [exams, setExams] = useState<ExamApplication[]>(SEED_EXAMS);
-  const [tutors, setTutors] = useState<Tutor[]>(SEED_TUTORS);
-  const [inventory, setInventory] = useState<InventoryItem[]>(SEED_INVENTORY);
-  const [supplySales, setSupplySales] = useState<SupplySale[]>(SEED_SUPPLY_SALES);
-  const [operations, setOperations] = useState<OperationItem[]>(SEED_OPERATIONS);
-  const [alerts, setAlerts] = useState<PriorityAlert[]>(SEED_ALERTS);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [payments, setPayments] = useState<PaymentReceipt[]>([]);
+  const [exams, setExams] = useState<ExamApplication[]>([]);
+  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [supplySales, setSupplySales] = useState<SupplySale[]>([]);
+  const [operations, setOperations] = useState<OperationItem[]>([]);
+  const [alerts, setAlerts] = useState<PriorityAlert[]>([]);
 
   // Navigation & Filters
   const [currentTab, setCurrentTab] = useState<TabKey>('dashboard');
@@ -366,9 +365,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const initializeFirestoreRealtime = async () => {
       try {
         setCloudSyncStatus('syncing');
-        // Test connection & seed without blocking
+        // Test connection without seeding dummy data
         testFirebaseConnection().catch(() => {});
-        seedInitialFirestoreData().catch(() => {});
         setIsFirebaseReady(true);
         setCloudSyncStatus('synced');
         setLastCloudSync(new Date().toLocaleTimeString('fr-FR'));
@@ -381,8 +379,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             snapshot.forEach((docSnap) => {
               list.push(docSnap.data() as Agent);
             });
+            setAgents(list);
             if (list.length > 0) {
-              setAgents(list);
               setCurrentUser((prev) => list.find((a) => a.id === prev.id) || list[0]);
             }
           },
@@ -402,10 +400,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 sessionsPerWeek: sData.sessionsPerWeek || 3,
               });
             });
-            if (list.length > 0) {
-              setStudents(list);
-              setLastCloudSync(new Date().toLocaleTimeString('fr-FR'));
-            }
+            setStudents(list);
+            setLastCloudSync(new Date().toLocaleTimeString('fr-FR'));
           },
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.STUDENTS)
         );
@@ -419,9 +415,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             snapshot.forEach((docSnap) => {
               list.push(docSnap.data() as PaymentReceipt);
             });
-            if (list.length > 0) {
-              setPayments(list);
-            }
+            setPayments(list);
           },
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.PAYMENTS)
         );
@@ -435,9 +429,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             snapshot.forEach((docSnap) => {
               list.push(docSnap.data() as ExamApplication);
             });
-            if (list.length > 0) {
-              setExams(list);
-            }
+            setExams(list);
           },
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.EXAMS)
         );
@@ -451,9 +443,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             snapshot.forEach((docSnap) => {
               list.push(docSnap.data() as Tutor);
             });
-            if (list.length > 0) {
-              setTutors(list);
-            }
+            setTutors(list);
           },
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.TUTORS)
         );
@@ -467,9 +457,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             snapshot.forEach((docSnap) => {
               list.push(docSnap.data() as InventoryItem);
             });
-            if (list.length > 0) {
-              setInventory(list);
-            }
+            setInventory(list);
           },
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.INVENTORY)
         );
@@ -483,9 +471,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             snapshot.forEach((docSnap) => {
               list.push(docSnap.data() as SupplySale);
             });
-            if (list.length > 0) {
-              setSupplySales(list);
-            }
+            setSupplySales(list);
           },
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.SUPPLY_SALES)
         );
@@ -499,9 +485,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             snapshot.forEach((docSnap) => {
               list.push(docSnap.data() as OperationItem);
             });
-            if (list.length > 0) {
-              setOperations(list);
-            }
+            setOperations(list);
           },
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.OPERATIONS)
         );
@@ -515,9 +499,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             snapshot.forEach((docSnap) => {
               list.push(docSnap.data() as PriorityAlert);
             });
-            if (list.length > 0) {
-              setAlerts(list);
-            }
+            setAlerts(list);
           },
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.ALERTS)
         );
@@ -545,6 +527,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isAdminPrincipal = isSuperAdminRole(currentUser.role);
 
   const addAgent = async (agentData: Omit<Agent, 'id' | 'active' | 'createdAt'>): Promise<Agent> => {
+    if (!agentData || typeof agentData !== 'object' || !agentData.fullName?.trim() || !agentData.username?.trim()) {
+      showToast("Payload invalide : aucune donnée fournie pour l'insertion.", 'warning');
+      throw new Error(JSON.stringify({ status: 'error', message: "Payload invalide : aucune donnée fournie pour l'insertion." }));
+    }
+
     if (!isSuperAdminRole(currentUser.role)) {
       showToast("Action réservée à l'Administrateur Principal", 'warning');
       throw new Error("Action réservée à l'Administrateur Principal");
@@ -714,6 +701,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addTutor = async (tutorData: Omit<Tutor, 'id' | 'matricule' | 'syncStatus' | 'agentId' | 'agentName' | 'agentRole' | 'agentAvatar'>): Promise<Tutor> => {
+    if (!tutorData || typeof tutorData !== 'object' || !tutorData.fullName?.trim()) {
+      showToast("Payload invalide : aucune donnée fournie pour l'insertion.", 'warning');
+      throw new Error(JSON.stringify({ status: 'error', message: "Payload invalide : aucune donnée fournie pour l'insertion." }));
+    }
+
     const id = `tutor-${Date.now()}`;
     const matricule = `ENC-2026-${String(Math.floor(Math.random() * 900) + 100)}`;
     const newTutor: Tutor = {
@@ -1301,16 +1293,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsSyncing(true);
     setCloudSyncStatus('syncing');
     try {
-      const res = await seedInitialFirestoreData(true);
-      if (res.success) {
-        setCloudSyncStatus('synced');
-        setLastCloudSync(new Date().toLocaleTimeString('fr-FR'));
-        showToast(`✅ Base Cloud Firestore initialisée avec succès : ${res.count} documents enregistrés physiquement !`, 'success');
-      } else {
-        setCloudSyncStatus('error');
-        showToast("Erreur lors de l'enregistrement des données dans Firestore.", 'warning');
-      }
-      return res;
+      await triggerSync();
+      showToast("Actualisation des données réelles terminée depuis Firestore.", 'info');
+      return { success: true, count: 0 };
     } catch (e) {
       setCloudSyncStatus('error');
       showToast("Erreur de communication avec Firestore.", 'warning');
@@ -1361,6 +1346,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       agentAvatar?: string;
     }
   ): Promise<Student> => {
+    if (!studentData || typeof studentData !== 'object' || !studentData.fullName?.trim()) {
+      showToast("Payload invalide : aucune donnée fournie pour l'insertion.", 'warning');
+      throw new Error(JSON.stringify({ status: 'error', message: "Payload invalide : aucune donnée fournie pour l'insertion." }));
+    }
+
     const matricule = `CAB-2026-${String(students.length + 150).padStart(4, '0')}`;
     const agentId = studentData.agentId || currentUser.id;
     const agentName = studentData.agentName || currentUser.fullName;
@@ -1543,6 +1533,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       agentAvatar?: string;
     }
   ): Promise<PaymentReceipt> => {
+    if (!paymentData || typeof paymentData !== 'object' || !paymentData.amount || paymentData.amount <= 0) {
+      showToast("Payload invalide : aucune donnée fournie pour l'insertion.", 'warning');
+      throw new Error(JSON.stringify({ status: 'error', message: "Payload invalide : aucune donnée fournie pour l'insertion." }));
+    }
+
     const receiptNumber = `REC-2026-${String(payments.length + 942).padStart(4, '0')}`;
     const agentId = paymentData.agentId || currentUser.id;
     const agentName = paymentData.agentName || currentUser.fullName;
@@ -1641,6 +1636,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     studentBreakdown: MultiStudentReceiptItem[];
     autoReactivate?: boolean;
   }): Promise<PaymentReceipt> => {
+    if (!data || typeof data !== 'object' || !data.studentBreakdown || !Array.isArray(data.studentBreakdown) || data.studentBreakdown.length === 0) {
+      showToast("Payload invalide : aucune donnée fournie pour l'insertion.", 'warning');
+      throw new Error(JSON.stringify({ status: 'error', message: "Payload invalide : aucune donnée fournie pour l'insertion." }));
+    }
+
     const totalAmount = data.studentBreakdown.reduce((sum, item) => sum + item.amount, 0);
     const receiptNumber = `REC-2026-${String(payments.length + 942).padStart(4, '0')}`;
     const agentId = currentUser.id;
@@ -1870,6 +1870,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       agentAvatar?: string;
     }
   ): Promise<ExamApplication> => {
+    if (!examData || typeof examData !== 'object' || !examData.candidateName?.trim() || !examData.examType?.trim()) {
+      showToast("Payload invalide : aucune donnée fournie pour l'insertion.", 'warning');
+      throw new Error(JSON.stringify({ status: 'error', message: "Payload invalide : aucune donnée fournie pour l'insertion." }));
+    }
+
     const dossierNumber = `CNR-2026-${String(exams.length + 23).padStart(3, '0')}`;
     const agentId = examData.agentId || currentUser.id;
     const agentName = examData.agentName || currentUser.fullName;
@@ -1985,6 +1990,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addProduct = async (productData: Omit<InventoryItem, 'id' | 'syncStatus'>) => {
+    if (!productData || typeof productData !== 'object' || !productData.name?.trim()) {
+      showToast("Payload invalide : aucune donnée fournie pour l'insertion.", 'warning');
+      throw new Error(JSON.stringify({ status: 'error', message: "Payload invalide : aucune donnée fournie pour l'insertion." }));
+    }
+
     const newProduct: InventoryItem = {
       ...productData,
       id: `inv-${Date.now()}`,
@@ -2035,6 +2045,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     paymentMethod: any,
     studentId?: string
   ) => {
+    if (!customerName?.trim() || !items || !Array.isArray(items) || items.length === 0) {
+      showToast("Payload invalide : aucune donnée fournie pour l'insertion.", 'warning');
+      throw new Error(JSON.stringify({ status: 'error', message: "Payload invalide : aucune donnée fournie pour l'insertion." }));
+    }
+
     const saleNumber = `VNT-2026-${String(Date.now()).slice(-4)}`;
 
     let totalAmount = 0;

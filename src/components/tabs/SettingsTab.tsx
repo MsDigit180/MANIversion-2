@@ -71,6 +71,7 @@ export const SettingsTab: React.FC = () => {
     payments,
     lastCloudSync,
     forceSeedCloudDatabase,
+    triggerSync,
     isSyncing,
   } = useApp();
 
@@ -1144,12 +1145,12 @@ export const SettingsTab: React.FC = () => {
               </button>
 
               <button
-                onClick={() => forceSeedCloudDatabase()}
+                onClick={() => triggerSync()}
                 disabled={isSyncing}
                 className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-emerald-300 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors cursor-pointer"
               >
                 <RefreshCw className={`h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? 'Enregistrement Firestore...' : 'Peupler / Écrire dans Firestore'}</span>
+                <span>{isSyncing ? 'Synchronisation Firestore...' : 'Actualiser les données Firestore'}</span>
               </button>
             </div>
             {cloudPingResult && (
