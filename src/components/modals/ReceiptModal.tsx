@@ -8,14 +8,18 @@ import {
   Calendar,
   CreditCard,
   CheckCircle2,
+  Trash2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { OfficialReceiptA4Document } from '../invoices/OfficialReceiptA4Document';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 export const ReceiptModal: React.FC = () => {
-  const { selectedReceipt, setSelectedReceipt, students } = useApp();
+  const { selectedReceipt, setSelectedReceipt, students, deletePayment } = useApp();
   const [exporting, setExporting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -271,6 +275,14 @@ export const ReceiptModal: React.FC = () => {
 
           <div className="flex items-center gap-2.5">
             <button
+              onClick={() => setIsConfirmDeleteOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-800/60 bg-rose-950/40 text-rose-400 hover:bg-rose-900/60 hover:text-white text-xs font-semibold transition-colors cursor-pointer mr-1"
+              title="Supprimer définitivement ce paiement"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Supprimer le paiement</span>
+            </button>
+            <button
               onClick={() => setSelectedReceipt(null)}
               className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
             >
@@ -286,6 +298,24 @@ export const ReceiptModal: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Confirmation de suppression du paiement */}
+      <ConfirmDeleteModal
+        isOpen={isConfirmDeleteOpen}
+        title="Supprimer ce paiement ?"
+        message={`Êtes-vous certain de vouloir supprimer définitivement le paiement N° ${selectedReceipt.receiptNumber} (${selectedReceipt.amount.toLocaleString()} FCFA pour "${selectedReceipt.studentName}") ?\n\nCette action annulera l'enregistrement de caisse et réajustera automatiquement les soldes et statuts financiers de l'élève ou de la famille.`}
+        isDeleting={isDeleting}
+        onClose={() => setIsConfirmDeleteOpen(false)}
+        onConfirm={async () => {
+          setIsDeleting(true);
+          try {
+            await deletePayment(selectedReceipt.id);
+            setIsConfirmDeleteOpen(false);
+          } finally {
+            setIsDeleting(false);
+          }
+        }}
+      />
     </div>
   );
 

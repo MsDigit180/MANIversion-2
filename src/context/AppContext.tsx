@@ -133,6 +133,7 @@ interface AppContextType {
     studentBreakdown: MultiStudentReceiptItem[];
     autoReactivate?: boolean;
   }) => Promise<PaymentReceipt>;
+  deletePayment: (paymentId: string) => Promise<void>;
   exams: ExamApplication[];
   addExam: (
     exam: Omit<ExamApplication, 'id' | 'dossierNumber' | 'syncStatus' | 'agentId' | 'agentName' | 'agentRole' | 'agentAvatar'> & {
@@ -1747,6 +1748,120 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newPayment;
   };
 
+  const deletePayment = async (paymentId: string): Promise<void> => {
+    const paymentToDelete = payments.find((p) => p.id === paymentId);
+    if (!paymentToDelete) {
+      showToast('Paiement introuvable.', 'warning');
+      return;
+    }
+
+    // 1. Optimistic update
+    setPayments((prev) => prev.filter((p) => p.id !== paymentId));
+    setOperations((prev) =>
+      prev.filter(
+        (op) =>
+          op.referenceId !== paymentToDelete.receiptNumber &&
+          op.id !== `op-${paymentToDelete.id}` &&
+          op.id !== paymentToDelete.id
+      )
+    );
+
+    const writes: Promise<any>[] = [
+      deleteDoc(doc(db, COLLECTIONS.PAYMENTS, paymentId)),
+    ];
+
+    // 2. Revert student paid amount & status
+    if (
+      paymentToDelete.isMultiStudent &&
+      paymentToDelete.studentBreakdown &&
+      paymentToDelete.studentBreakdown.length > 0
+    ) {
+      const breakdownMap = new Map(
+        paymentToDelete.studentBreakdown.map((item) => [item.studentId, item.amount])
+      );
+
+      setStudents((prev) =>
+        prev.map((s) => {
+          if (breakdownMap.has(s.id)) {
+            const deductedAmount = breakdownMap.get(s.id)!;
+            const updatedPaid = Math.max(0, (s.paidAmount || 0) - deductedAmount);
+            const updatedStatus =
+              updatedPaid >= s.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+            return {
+              ...s,
+              paidAmount: updatedPaid,
+              paymentStatus: updatedStatus,
+            };
+          }
+          return s;
+        })
+      );
+
+      for (const item of paymentToDelete.studentBreakdown) {
+        const student = students.find((s) => s.id === item.studentId);
+        if (student) {
+          const updatedPaid = Math.max(0, (student.paidAmount || 0) - item.amount);
+          const updatedStatus =
+            updatedPaid >= student.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+          writes.push(
+            setDoc(
+              doc(db, COLLECTIONS.STUDENTS, student.id),
+              sanitizeForFirestore({
+                paidAmount: updatedPaid,
+                paymentStatus: updatedStatus,
+              }),
+              { merge: true }
+            )
+          );
+        }
+      }
+    } else if (paymentToDelete.studentId) {
+      setStudents((prev) =>
+        prev.map((s) => {
+          if (s.id === paymentToDelete.studentId) {
+            const updatedPaid = Math.max(0, (s.paidAmount || 0) - paymentToDelete.amount);
+            const updatedStatus =
+              updatedPaid >= s.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+            return {
+              ...s,
+              paidAmount: updatedPaid,
+              paymentStatus: updatedStatus,
+            };
+          }
+          return s;
+        })
+      );
+
+      const student = students.find((s) => s.id === paymentToDelete.studentId);
+      if (student) {
+        const updatedPaid = Math.max(0, (student.paidAmount || 0) - paymentToDelete.amount);
+        const updatedStatus =
+          updatedPaid >= student.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+        writes.push(
+          setDoc(
+            doc(db, COLLECTIONS.STUDENTS, student.id),
+            sanitizeForFirestore({
+              paidAmount: updatedPaid,
+              paymentStatus: updatedStatus,
+            }),
+            { merge: true }
+          )
+        );
+      }
+    }
+
+    await safeFirestoreWrite(Promise.all(writes), 1200);
+
+    if (selectedReceipt?.id === paymentId) {
+      setSelectedReceipt(null);
+    }
+
+    showToast(
+      `Paiement N° ${paymentToDelete.receiptNumber} (${paymentToDelete.amount.toLocaleString()} FCFA) supprimé. Soldes réajustés.`,
+      'info'
+    );
+  };
+
   const addExam = async (
     examData: Omit<ExamApplication, 'id' | 'dossierNumber' | 'syncStatus' | 'agentId' | 'agentName' | 'agentRole' | 'agentAvatar'> & {
       agentId?: string;
@@ -2082,6 +2197,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         payments,
         addPayment,
         addFamilyPayment,
+        deletePayment,
         exams,
         addExam,
         toggleExamPiece,

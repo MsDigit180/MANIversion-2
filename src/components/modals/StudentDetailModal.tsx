@@ -24,8 +24,9 @@ import {
   Users,
   Sparkles,
   UserPlus,
+  Trash2,
 } from 'lucide-react';
-import { Student } from '../../types';
+import { Student, PaymentReceipt } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { formatSessionHours, calculateWeeklyHours } from '../../utils/dateUtils';
 import { getStudentsInSameGroup, getStudentGroup } from '../../utils/groupUtils';
@@ -36,6 +37,7 @@ import {
   getStudentPedagogicalCoverage,
 } from '../../utils/tutorAssignmentValidation';
 import { SelectGroupForStudentModal } from './SelectGroupForStudentModal';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface StudentDetailModalProps {
   isOpen: boolean;
@@ -65,10 +67,13 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     setSelectedGroupForDetail,
     setIsGroupDetailModalOpen,
     setFamilyPaymentTargetParent,
+    deletePayment,
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'tutors' | 'payments' | 'supplies' | 'exams'>('tutors');
   const [isSelectGroupModalOpen, setIsSelectGroupModalOpen] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<PaymentReceipt | null>(null);
+  const [isDeletingPayment, setIsDeletingPayment] = useState(false);
 
   if (!isOpen || !student) return null;
 
@@ -712,13 +717,22 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                           <span className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
                             {p.amount.toLocaleString()} FCFA
                           </span>
-                          <button
-                            onClick={() => setSelectedReceipt(p)}
-                            className="p-1 rounded text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
-                            title="Réimprimer le reçu"
-                          >
-                            <FileText className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => setSelectedReceipt(p)}
+                              className="p-1 rounded text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                              title="Aperçu / Imprimer le reçu"
+                            >
+                              <FileText className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => setPaymentToDelete(p)}
+                              className="p-1 rounded text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                              title="Supprimer ce paiement"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))
@@ -855,6 +869,29 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         isOpen={isSelectGroupModalOpen}
         onClose={() => setIsSelectGroupModalOpen(false)}
         student={student}
+      />
+
+      {/* Confirmation de suppression du paiement */}
+      <ConfirmDeleteModal
+        isOpen={!!paymentToDelete}
+        title="Supprimer ce paiement ?"
+        message={
+          paymentToDelete
+            ? `Êtes-vous certain de vouloir supprimer le paiement N° ${paymentToDelete.receiptNumber} (${paymentToDelete.amount.toLocaleString()} FCFA) pour ${student.fullName} ? Cette action réajustera son solde restant et son statut de paiement.`
+            : ''
+        }
+        isDeleting={isDeletingPayment}
+        onClose={() => setPaymentToDelete(null)}
+        onConfirm={async () => {
+          if (!paymentToDelete) return;
+          setIsDeletingPayment(true);
+          try {
+            await deletePayment(paymentToDelete.id);
+            setPaymentToDelete(null);
+          } finally {
+            setIsDeletingPayment(false);
+          }
+        }}
       />
     </div>
   );

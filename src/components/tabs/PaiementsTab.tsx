@@ -23,6 +23,7 @@ import {
   Check,
   ChevronRight,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PaymentReceipt, MonthlyInvoice, Student } from '../../types';
@@ -36,6 +37,7 @@ import {
 } from '../../utils/invoiceUtils';
 import { InvoiceModal } from '../modals/InvoiceModal';
 import { PrintBatchInvoicesModal } from '../modals/PrintBatchInvoicesModal';
+import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
 
 export const PaiementsTab: React.FC = () => {
   const {
@@ -44,8 +46,12 @@ export const PaiementsTab: React.FC = () => {
     setIsNewPaymentModalOpen,
     setSelectedReceipt,
     setFamilyPaymentTargetParent,
+    deletePayment,
     showToast,
   } = useApp();
+
+  const [paymentToDelete, setPaymentToDelete] = useState<PaymentReceipt | null>(null);
+  const [isDeletingPayment, setIsDeletingPayment] = useState(false);
 
   // Mode switcher: Receipts log vs. Monthly Invoices
   const [activeSubTab, setActiveSubTab] = useState<'receipts' | 'invoices'>('receipts');
@@ -469,13 +475,22 @@ export const PaiementsTab: React.FC = () => {
                           )}
                         </td>
                         <td className="py-3.5 px-4 text-right">
-                          <button
-                            onClick={() => setSelectedReceipt(pay)}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors ml-auto cursor-pointer"
-                            title="Aperçu / Imprimer le reçu officiel"
-                          >
-                            <Printer className="h-3.5 w-3.5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => setSelectedReceipt(pay)}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors cursor-pointer"
+                              title="Aperçu / Imprimer le reçu officiel"
+                            >
+                              <Printer className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setPaymentToDelete(pay)}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
+                              title="Supprimer définitivement ce paiement"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -842,6 +857,29 @@ export const PaiementsTab: React.FC = () => {
         monthLabel={formatYYYYMMToFrench(invoiceMonth)}
         isOpen={isBatchPrintModalOpen}
         onClose={() => setIsBatchPrintModalOpen(false)}
+      />
+
+      {/* Confirmation de suppression du paiement */}
+      <ConfirmDeleteModal
+        isOpen={!!paymentToDelete}
+        title="Supprimer ce paiement ?"
+        message={
+          paymentToDelete
+            ? `Êtes-vous certain de vouloir supprimer définitivement le paiement N° ${paymentToDelete.receiptNumber} d'un montant de ${paymentToDelete.amount.toLocaleString()} FCFA pour "${paymentToDelete.studentName}" ?\n\nCette action annulera l'enregistrement de caisse et déduira automatiquement ce montant des paiements effectués par l'élève / la famille, réajustant en temps réel son solde restant et son statut financier.`
+            : ''
+        }
+        isDeleting={isDeletingPayment}
+        onClose={() => setPaymentToDelete(null)}
+        onConfirm={async () => {
+          if (!paymentToDelete) return;
+          setIsDeletingPayment(true);
+          try {
+            await deletePayment(paymentToDelete.id);
+            setPaymentToDelete(null);
+          } finally {
+            setIsDeletingPayment(false);
+          }
+        }}
       />
     </div>
   );
