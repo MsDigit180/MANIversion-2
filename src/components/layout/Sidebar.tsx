@@ -11,7 +11,7 @@ import {
   Database,
   Wifi,
   WifiOff,
-  CloudCheck,
+  CheckCircle2,
   RefreshCw,
   Settings,
   Shield,
@@ -178,7 +178,7 @@ export const Sidebar: React.FC = () => {
           <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700 text-[11px]">
             <span className="text-slate-500 dark:text-slate-400">File locale :</span>
             <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-              {syncQueue.length} {syncQueue.length <= 1 ? 'action' : 'actions'}
+              {(syncQueue || []).length} {(syncQueue || []).length <= 1 ? 'action' : 'actions'}
             </span>
           </div>
         </div>

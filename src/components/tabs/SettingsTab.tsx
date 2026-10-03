@@ -76,31 +76,33 @@ export const SettingsTab: React.FC = () => {
   } = useApp();
 
   // Active role config
-  const currentRoleConfig = getRoleConfig(currentUser.role);
-  const isSuperAdmin = isAdminPrincipal || isSuperAdminRole(currentUser.role);
+  const currentRoleConfig = getRoleConfig(currentUser?.role || 'Admin Principal');
+  const isSuperAdmin = isAdminPrincipal || isSuperAdminRole(currentUser?.role || 'Admin Principal');
 
   // Profile edit state
-  const [profileName, setProfileName] = useState(currentUser.fullName);
-  const [profileEmail, setProfileEmail] = useState(currentUser.email);
-  const [profilePhone, setProfilePhone] = useState(currentUser.phone || '+227 96 00 11 22');
-  const [profileCampus, setProfileCampus] = useState(currentUser.campus || campus);
+  const [profileName, setProfileName] = useState(currentUser?.fullName || 'Administrateur');
+  const [profileEmail, setProfileEmail] = useState(currentUser?.email || 'admin@cabappuis.ne');
+  const [profilePhone, setProfilePhone] = useState(currentUser?.phone || '+227 96 00 11 22');
+  const [profileCampus, setProfileCampus] = useState(currentUser?.campus || campus);
   const [profileGender, setProfileGender] = useState<'Masculin (M)' | 'Féminin (F)'>(
-    currentUser.gender || 'Masculin (M)'
+    currentUser?.gender || 'Masculin (M)'
   );
-  const [profileRole, setProfileRole] = useState<AgentRole>(currentUser.role);
-  const [profileAvatar, setProfileAvatar] = useState(currentUser.avatar || AVATAR_PRESETS[0]);
+  const [profileRole, setProfileRole] = useState<AgentRole>(currentUser?.role || 'Admin Principal');
+  const [profileAvatar, setProfileAvatar] = useState(currentUser?.avatar || AVATAR_PRESETS[0]);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const profileFileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync profile form when currentUser changes (e.g., session switch)
   useEffect(() => {
-    setProfileName(currentUser.fullName);
-    setProfileEmail(currentUser.email);
-    setProfilePhone(currentUser.phone || '+227 96 00 11 22');
-    setProfileCampus(currentUser.campus || campus);
-    setProfileGender(currentUser.gender || 'Masculin (M)');
-    setProfileRole(currentUser.role);
-    setProfileAvatar(currentUser.avatar || AVATAR_PRESETS[0]);
+    if (currentUser) {
+      setProfileName(currentUser.fullName || 'Administrateur');
+      setProfileEmail(currentUser.email || 'admin@cabappuis.ne');
+      setProfilePhone(currentUser.phone || '+227 96 00 11 22');
+      setProfileCampus(currentUser.campus || campus);
+      setProfileGender(currentUser.gender || 'Masculin (M)');
+      setProfileRole(currentUser.role || 'Admin Principal');
+      setProfileAvatar(currentUser.avatar || AVATAR_PRESETS[0]);
+    }
   }, [currentUser, campus]);
 
   // Personal Password modification state

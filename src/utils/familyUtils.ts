@@ -38,12 +38,14 @@ export interface FamilyGroup {
 /**
  * Récupère les frères et sœurs (camarades de même tuteur) inscrits pour un élève donné.
  */
-export function getStudentSiblings(student: Student, allStudents: Student[]): Student[] {
+export function getStudentSiblings(student?: Student | null, allStudents?: Student[] | null): Student[] {
+  if (!student) return [];
+  const safeAll = allStudents || [];
   const phoneClean = normalizePhoneForMatching(student.guardianPhone);
   const nameClean = normalizeGuardianName(student.guardianName);
 
-  return allStudents.filter((s) => {
-    if (s.id === student.id) return false;
+  return safeAll.filter((s) => {
+    if (!s || s.id === student.id) return false;
 
     // Match sur le numéro de téléphone (très fiable au Niger)
     if (phoneClean && phoneClean.length >= 8) {
@@ -64,7 +66,8 @@ export function getStudentSiblings(student: Student, allStudents: Student[]): St
 /**
  * Regroupe tous les élèves par tuteur / famille pour l'encaissement groupé.
  */
-export function getAllFamilies(allStudents: Student[]): FamilyGroup[] {
+export function getAllFamilies(allStudents?: Student[] | null): FamilyGroup[] {
+  const safeAll = allStudents || [];
   const familyMap = new Map<string, {
     key: string;
     guardianName: string;
@@ -72,14 +75,15 @@ export function getAllFamilies(allStudents: Student[]): FamilyGroup[] {
     students: Student[];
   }>();
 
-  for (const s of allStudents) {
+  for (const s of safeAll) {
+    if (!s) continue;
     const phoneClean = normalizePhoneForMatching(s.guardianPhone);
     const nameClean = normalizeGuardianName(s.guardianName);
 
     // Clé de famille prioritaire sur le téléphone
     const key = phoneClean && phoneClean.length >= 8
       ? `TEL_${phoneClean}`
-      : (nameClean && nameClean.length >= 3 ? `NAME_${nameClean}` : `INDIV_${s.id}`);
+      : (nameClean && nameClean.length >= 3 ? `NAME_${nameClean}` : `INDIV_${s.id || Math.random()}`);
 
     if (!familyMap.has(key)) {
       familyMap.set(key, {
@@ -93,7 +97,7 @@ export function getAllFamilies(allStudents: Student[]): FamilyGroup[] {
     const fam = familyMap.get(key)!;
     fam.students.push(s);
     // Prefer the cleanest guardian name
-    if (s.guardianName && s.guardianName.length > fam.guardianName.length) {
+    if (s.guardianName && s.guardianName.length > (fam.guardianName?.length || 0)) {
       fam.guardianName = s.guardianName;
     }
     if (s.guardianPhone && !fam.guardianPhone) {

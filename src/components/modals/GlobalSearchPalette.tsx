@@ -40,37 +40,43 @@ export const GlobalSearchPalette: React.FC = () => {
 
   if (!isSearchOpen) return null;
 
-  const filteredStudents = query.trim()
-    ? students.filter(
+  const safeStudents = students || [];
+  const safePayments = payments || [];
+  const safeExams = exams || [];
+  const safeInventory = inventory || [];
+  const queryLower = query.trim().toLowerCase();
+
+  const filteredStudents = queryLower
+    ? safeStudents.filter(
         (s) =>
-          s.fullName.toLowerCase().includes(query.toLowerCase()) ||
-          s.matricule.toLowerCase().includes(query.toLowerCase()) ||
-          s.guardianName.toLowerCase().includes(query.toLowerCase())
+          (s.fullName || '').toLowerCase().includes(queryLower) ||
+          (s.matricule || '').toLowerCase().includes(queryLower) ||
+          (s.guardianName || '').toLowerCase().includes(queryLower)
       )
     : [];
 
-  const filteredPayments = query.trim()
-    ? payments.filter(
+  const filteredPayments = queryLower
+    ? safePayments.filter(
         (p) =>
-          p.receiptNumber.toLowerCase().includes(query.toLowerCase()) ||
-          p.studentName.toLowerCase().includes(query.toLowerCase())
+          (p.receiptNumber || '').toLowerCase().includes(queryLower) ||
+          (p.studentName || '').toLowerCase().includes(queryLower)
       )
     : [];
 
-  const filteredExams = query.trim()
-    ? exams.filter(
+  const filteredExams = queryLower
+    ? safeExams.filter(
         (e) =>
-          e.candidateName.toLowerCase().includes(query.toLowerCase()) ||
-          e.dossierNumber.toLowerCase().includes(query.toLowerCase()) ||
-          e.examType.toLowerCase().includes(query.toLowerCase())
+          (e.candidateName || '').toLowerCase().includes(queryLower) ||
+          (e.dossierNumber || '').toLowerCase().includes(queryLower) ||
+          (e.examType || '').toLowerCase().includes(queryLower)
       )
     : [];
 
-  const filteredInventory = query.trim()
-    ? inventory.filter(
+  const filteredInventory = queryLower
+    ? safeInventory.filter(
         (i) =>
-          i.name.toLowerCase().includes(query.toLowerCase()) ||
-          i.sku.toLowerCase().includes(query.toLowerCase())
+          (i.name || '').toLowerCase().includes(queryLower) ||
+          (i.sku || '').toLowerCase().includes(queryLower)
       )
     : [];
 
