@@ -75,7 +75,9 @@ export const InscriptionsTab: React.FC = () => {
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<Student | null>(null);
 
   // Groups extracted from students
-  const tutoringGroups = extractTutoringGroups(students, tutors);
+  const safeStudents = students || [];
+  const safeTutors = tutors || [];
+  const tutoringGroups = extractTutoringGroups(safeStudents, safeTutors);
 
   // Delete state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -84,30 +86,37 @@ export const InscriptionsTab: React.FC = () => {
   const [studentForGroupAssignment, setStudentForGroupAssignment] = useState<Student | null>(null);
 
   // Statistics counters
-  const totalStudents = students.length;
-  const maleCount = students.filter((s) => s.gender === 'Masculin (M)' || !s.gender).length;
-  const femaleCount = students.filter((s) => s.gender === 'Féminin (F)').length;
-  const activeStudents = students.filter((s) => s.tutoringStatus === 'Actif').length;
-  const stoppedDemand = students.filter((s) => s.tutoringStatus === 'Arrêté (À la demande)').length;
-  const stoppedUnpaid = students.filter((s) => s.tutoringStatus === 'Arrêté (Défaut de paiement)').length;
+  const totalStudents = safeStudents.length;
+  const maleCount = safeStudents.filter((s) => s.gender === 'Masculin (M)' || !s.gender).length;
+  const femaleCount = safeStudents.filter((s) => s.gender === 'Féminin (F)').length;
+  const activeStudents = safeStudents.filter((s) => s.tutoringStatus === 'Actif').length;
+  const stoppedDemand = safeStudents.filter((s) => s.tutoringStatus === 'Arrêté (À la demande)').length;
+  const stoppedUnpaid = safeStudents.filter((s) => s.tutoringStatus === 'Arrêté (Défaut de paiement)').length;
   
   // Volume net d'encadrement dédoublonné pour les élèves actifs
-  const activeVolume = calculateTotalVolume(students.filter((s) => s.tutoringStatus === 'Actif'));
+  const activeVolume = calculateTotalVolume(safeStudents.filter((s) => s.tutoringStatus === 'Actif'));
   const totalWeeklySessions = activeVolume.adjustedSessions;
   const totalWeeklyHours = activeVolume.adjustedHours;
 
-  const filteredStudents = students.filter((stu) => {
+  const filteredStudents = safeStudents.filter((stu) => {
+    const searchLower = (search || '').toLowerCase();
+    const fullNameSafe = (stu.fullName || '').toLowerCase();
+    const matriculeSafe = (stu.matricule || '').toLowerCase();
+    const guardianSafe = (stu.guardianName || '').toLowerCase();
+    const phoneSafe = stu.guardianPhone || '';
+    const levelSafe = stu.level || '';
+
     const matchesSearch =
-      stu.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      stu.matricule.toLowerCase().includes(search.toLowerCase()) ||
-      stu.guardianName.toLowerCase().includes(search.toLowerCase()) ||
-      stu.guardianPhone.includes(search);
+      fullNameSafe.includes(searchLower) ||
+      matriculeSafe.includes(searchLower) ||
+      guardianSafe.includes(searchLower) ||
+      phoneSafe.includes(searchLower);
 
     const matchesCycle =
       cycleFilter === 'all' ||
-      (cycleFilter === 'Primaire' && (stu.stream === 'Primaire' || stu.level.includes('CM') || stu.level.includes('CE') || stu.level.includes('CP') || stu.level.includes('CI'))) ||
-      (cycleFilter === 'Collège' && (stu.stream === 'Collège' || stu.level.includes('3ème') || stu.level.includes('4ème') || stu.level.includes('5ème') || stu.level.includes('6ème') || stu.level.includes('BEPC'))) ||
-      (cycleFilter === 'Lycée' && (stu.stream === 'Lycée' || stu.level.includes('Terminale') || stu.level.includes('Première') || stu.level.includes('Seconde') || stu.level.includes('Bac'))) ||
+      (cycleFilter === 'Primaire' && (stu.stream === 'Primaire' || levelSafe.includes('CM') || levelSafe.includes('CE') || levelSafe.includes('CP') || levelSafe.includes('CI'))) ||
+      (cycleFilter === 'Collège' && (stu.stream === 'Collège' || levelSafe.includes('3ème') || levelSafe.includes('4ème') || levelSafe.includes('5ème') || levelSafe.includes('6ème') || levelSafe.includes('BEPC'))) ||
+      (cycleFilter === 'Lycée' && (stu.stream === 'Lycée' || levelSafe.includes('Terminale') || levelSafe.includes('Première') || levelSafe.includes('Seconde') || levelSafe.includes('Bac'))) ||
       (cycleFilter === 'Concours' && stu.stream === 'Prépa Concours');
 
     const matchesGender =
@@ -572,7 +581,30 @@ export const InscriptionsTab: React.FC = () => {
             </thead>
 
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-              {sortedStudents.length === 0 ? (
+              {safeStudents.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                        <Users className="h-6 w-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Aucune inscription dans la base de données</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          La base de données est actuellement vide. Cliquez sur le bouton ci-dessous pour créer votre premier élève.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setIsNewStudentModalOpen(true)}
+                        className="mt-2 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors cursor-pointer"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                        <span>Nouvelle Inscription Élève</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : sortedStudents.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400">
                     <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -582,7 +614,7 @@ export const InscriptionsTab: React.FC = () => {
                 </tr>
               ) : (
                 sortedStudents.map((stu) => {
-                  const balanceDue = stu.monthlyFee - stu.paidAmount;
+                  const balanceDue = (stu.monthlyFee || 0) - (stu.paidAmount || 0);
                   const weeklySessions = stu.sessionsPerWeek || 3;
 
                   return (
@@ -596,7 +628,7 @@ export const InscriptionsTab: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2.5">
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-xs font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20">
-                            {stu.fullName
+                            {(stu.fullName || 'Élève')
                               .split(' ')
                               .map((n) => n[0])
                               .slice(0, 2)
@@ -607,12 +639,12 @@ export const InscriptionsTab: React.FC = () => {
                               onClick={() => setSelectedStudentForDetail(stu)}
                               className="font-bold text-xs text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 text-left transition-colors flex items-center gap-1 cursor-pointer"
                             >
-                              <span>{stu.fullName}</span>
+                              <span>{stu.fullName || 'Sans nom'}</span>
                               <Eye className="h-3 w-3 text-slate-400" />
                             </button>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
-                                {stu.matricule}
+                                {stu.matricule || 'N/A'}
                               </span>
                               {stu.gender && (
                                 <span
@@ -637,9 +669,9 @@ export const InscriptionsTab: React.FC = () => {
 
                       {/* Niveau & Matières */}
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-slate-900 dark:text-slate-100">{stu.level}</div>
+                        <div className="font-semibold text-slate-900 dark:text-slate-100">{stu.level || 'Non spécifié'}</div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[180px]">
-                          {stu.subjects.join(', ')}
+                          {(stu.subjects || []).join(', ') || 'Toutes matières'}
                         </div>
                       </td>
 

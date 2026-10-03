@@ -59,6 +59,7 @@ interface AppContextType {
 
   // Cloud & Firebase Status
   isFirebaseReady: boolean;
+  isLoading: boolean;
   cloudSyncStatus: 'synced' | 'syncing' | 'offline' | 'error';
   lastCloudSync: string;
 
@@ -279,6 +280,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Cloud & Firebase Status
   const [isFirebaseReady, setIsFirebaseReady] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'syncing' | 'offline' | 'error'>('synced');
   const [lastCloudSync, setLastCloudSync] = useState<string>(() => new Date().toLocaleTimeString('fr-FR'));
 
@@ -375,13 +377,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const unsubAgents = onSnapshot(
           collection(db, COLLECTIONS.AGENTS),
           (snapshot) => {
-            const list: Agent[] = [];
-            snapshot.forEach((docSnap) => {
-              list.push(docSnap.data() as Agent);
-            });
-            setAgents(list);
-            if (list.length > 0) {
-              setCurrentUser((prev) => list.find((a) => a.id === prev.id) || list[0]);
+            try {
+              const list: Agent[] = [];
+              snapshot.forEach((docSnap) => {
+                const aData = docSnap.data() as Agent;
+                if (aData) list.push(aData);
+              });
+              setAgents(list);
+              if (list.length > 0) {
+                setCurrentUser((prev) => list.find((a) => a.id === prev?.id) || list[0] || DEFAULT_ADMIN_USER);
+              } else {
+                setCurrentUser(DEFAULT_ADMIN_USER);
+              }
+            } catch (err) {
+              console.warn('Error parsing agents snapshot:', err);
             }
           },
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.AGENTS)
@@ -504,8 +513,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.ALERTS)
         );
         unsubscribes.push(unsubAlerts);
+        setIsLoading(false);
       } catch (e) {
         console.warn('Firestore realtime notice:', e);
+        setIsLoading(false);
       }
     };
 
@@ -1196,7 +1207,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (cleanUser.toLowerCase() === adminCredentials.username.toLowerCase() && cleanPass === adminCredentials.password) {
       setIsAuthenticated(true);
-      const adminAgent = agents.find((a) => a.username === 'admin') || agents[0];
+      const adminAgent = (agents || []).find((a) => a.username === 'admin') || DEFAULT_ADMIN_USER;
       setCurrentUser(adminAgent);
       localStorage.setItem('cabappuis_auth_session', 'true');
       localStorage.setItem('cabappuis_current_user_id', adminAgent.id);
@@ -2174,6 +2185,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTheme,
         toggleTheme,
         isFirebaseReady,
+        isLoading,
         cloudSyncStatus,
         lastCloudSync,
         isAuthenticated,

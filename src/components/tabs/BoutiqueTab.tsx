@@ -34,30 +34,37 @@ export const BoutiqueTab: React.FC = () => {
   const [stockStateFilter, setStockStateFilter] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
 
-  const filteredInventory = inventory.filter((item) => {
+  const safeInventory = inventory || [];
+
+  const filteredInventory = safeInventory.filter((item) => {
+    const searchLower = (search || '').toLowerCase();
+    const nameSafe = (item.name || '').toLowerCase();
+    const skuSafe = (item.sku || '').toLowerCase();
+    const suppSafe = (item.supplier || '').toLowerCase();
+
     const matchesSearch =
-      item.name.toLowerCase().includes(search.toLowerCase()) ||
-      item.sku.toLowerCase().includes(search.toLowerCase()) ||
-      (item.supplier && item.supplier.toLowerCase().includes(search.toLowerCase()));
+      nameSafe.includes(searchLower) ||
+      skuSafe.includes(searchLower) ||
+      suppSafe.includes(searchLower);
 
     const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
 
     let matchesStock = true;
     if (stockStateFilter === 'normal') {
-      matchesStock = item.stockQuantity > item.minThreshold;
+      matchesStock = (item.stockQuantity || 0) > (item.minThreshold || 0);
     } else if (stockStateFilter === 'critical') {
-      matchesStock = item.stockQuantity <= item.minThreshold && item.stockQuantity > 0;
+      matchesStock = (item.stockQuantity || 0) <= (item.minThreshold || 0) && (item.stockQuantity || 0) > 0;
     } else if (stockStateFilter === 'out') {
-      matchesStock = item.stockQuantity === 0;
+      matchesStock = (item.stockQuantity || 0) === 0;
     }
 
     return matchesSearch && matchesCategory && matchesStock;
   });
 
-  const totalStockValue = inventory.reduce((acc, curr) => acc + curr.unitPrice * curr.stockQuantity, 0);
-  const totalUnits = inventory.reduce((acc, curr) => acc + curr.stockQuantity, 0);
-  const lowStockItems = inventory.filter((i) => i.stockQuantity <= i.minThreshold && i.stockQuantity > 0);
-  const outOfStockItems = inventory.filter((i) => i.stockQuantity === 0);
+  const totalStockValue = safeInventory.reduce((acc, curr) => acc + (curr.unitPrice || 0) * (curr.stockQuantity || 0), 0);
+  const totalUnits = safeInventory.reduce((acc, curr) => acc + (curr.stockQuantity || 0), 0);
+  const lowStockItems = safeInventory.filter((i) => (i.stockQuantity || 0) <= (i.minThreshold || 0) && (i.stockQuantity || 0) > 0);
+  const outOfStockItems = safeInventory.filter((i) => (i.stockQuantity || 0) === 0);
 
   const handleOpenRestock = (item: InventoryItem) => {
     setSelectedProductForRestock(item);
@@ -180,7 +187,30 @@ export const BoutiqueTab: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredInventory.length === 0 ? (
+              {safeInventory.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                        <Package className="h-6 w-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Aucun article en stock dans la base de données</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Le catalogue de fournitures est actuellement vide. Cliquez sur le bouton ci-dessous pour créer votre premier article.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setIsNewProductModalOpen(true)}
+                        className="mt-2 inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-amber-500 transition-colors cursor-pointer"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Nouvel Article de Magasin</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredInventory.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400">
                     <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />

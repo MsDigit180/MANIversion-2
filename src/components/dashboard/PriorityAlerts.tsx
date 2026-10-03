@@ -15,6 +15,7 @@ import { PriorityAlert } from '../../types';
 
 export const PriorityAlerts: React.FC = () => {
   const { alerts, dismissAlert, showToast, setCurrentTab } = useApp();
+  const safeAlerts = alerts || [];
 
   const handleAction = (alert: PriorityAlert) => {
     switch (alert.actionKey) {
@@ -89,19 +90,19 @@ export const PriorityAlerts: React.FC = () => {
         </div>
 
         <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-xs font-mono text-slate-700 dark:text-slate-300">
-          {alerts.length} actives
+          {safeAlerts.length} actives
         </span>
       </div>
 
       <div className="mt-4 space-y-3">
-        {alerts.length === 0 ? (
+        {safeAlerts.length === 0 ? (
           <div className="py-8 text-center text-xs text-slate-400">
             <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2 opacity-80" />
             <p className="font-medium text-slate-700 dark:text-slate-300">Aucune alerte prioritaire en suspens</p>
             <p className="text-[11px] text-slate-400 mt-0.5">Tous les dossiers sont à jour.</p>
           </div>
         ) : (
-          alerts.map((alert) => (
+          safeAlerts.map((alert) => (
             <div
               key={alert.id}
               className="group relative rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 p-3.5 hover:border-slate-300 dark:hover:border-slate-700 transition-all"

@@ -63,9 +63,12 @@ export const EncadreursTab: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [tutorForGroupAssignment, setTutorForGroupAssignment] = useState<Tutor | null>(null);
 
+  const safeTutors = tutors || [];
+  const safeStudents = students || [];
+
   // Helper pour calculer les heures déduites d'un encadreur (1 séance = 1.5h = 1h 30mn)
   const getTutorHours = (t: Tutor) => {
-    const tStudents = students.filter((s) => t.assignedStudentIds?.includes(s.id));
+    const tStudents = safeStudents.filter((s) => t.assignedStudentIds?.includes(s.id));
     const tSessions = tStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
     const weekly = calculateWeeklyHours(tSessions);
     const monthly = calculateMonthlyHours(tSessions);
@@ -78,15 +81,21 @@ export const EncadreursTab: React.FC = () => {
   };
 
   // Filtrage et tri des encadreurs
-  const filteredTutors = tutors
+  const filteredTutors = safeTutors
     .filter((t) => {
+      const searchLower = (search || '').toLowerCase();
+      const nameSafe = (t.fullName || '').toLowerCase();
+      const matriculeSafe = (t.matricule || '').toLowerCase();
+      const subjectsSafe = t.subjects || [];
+      const levelsSafe = t.levels || [];
+
       const matchesSearch =
-        t.fullName.toLowerCase().includes(search.toLowerCase()) ||
-        t.matricule.toLowerCase().includes(search.toLowerCase()) ||
-        t.subjects.some((s) => s.toLowerCase().includes(search.toLowerCase()));
+        nameSafe.includes(searchLower) ||
+        matriculeSafe.includes(searchLower) ||
+        subjectsSafe.some((s) => (s || '').toLowerCase().includes(searchLower));
 
       const matchesGender = genderFilter === 'all' || t.gender === genderFilter;
-      const matchesLevel = levelFilter === 'all' || t.levels.includes(levelFilter);
+      const matchesLevel = levelFilter === 'all' || levelsSafe.includes(levelFilter);
 
       return matchesSearch && matchesGender && matchesLevel;
     })
@@ -97,21 +106,27 @@ export const EncadreursTab: React.FC = () => {
       if (sortBy === 'students') {
         return (b.assignedStudentIds?.length || 0) - (a.assignedStudentIds?.length || 0);
       }
-      return a.fullName.localeCompare(b.fullName);
+      return (a.fullName || '').localeCompare(b.fullName || '');
     });
 
   // Filtrage des élèves pour le tableau de planification des séances
-  const filteredStudentsForPlanning = students.filter((s) => {
+  const filteredStudentsForPlanning = safeStudents.filter((s) => {
+    const searchLower = (search || '').toLowerCase();
+    const nameSafe = (s.fullName || '').toLowerCase();
+    const matriculeSafe = (s.matricule || '').toLowerCase();
+    const levelSafe = (s.level || '').toLowerCase();
+    const subjectsSafe = s.subjects || [];
+
     const matchesSearch =
-      s.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      s.matricule.toLowerCase().includes(search.toLowerCase()) ||
-      s.level.toLowerCase().includes(search.toLowerCase()) ||
-      s.subjects.some((sub) => sub.toLowerCase().includes(search.toLowerCase()));
+      nameSafe.includes(searchLower) ||
+      matriculeSafe.includes(searchLower) ||
+      levelSafe.includes(searchLower) ||
+      subjectsSafe.some((sub) => (sub || '').toLowerCase().includes(searchLower));
 
     const matchesLevel =
       levelFilter === 'all' ||
       s.stream === levelFilter ||
-      s.level.toLowerCase().includes(levelFilter.toLowerCase());
+      levelSafe.includes((levelFilter || '').toLowerCase());
 
     return matchesSearch && matchesLevel;
   });
@@ -331,7 +346,33 @@ export const EncadreursTab: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                {filteredTutors.length === 0 ? (
+                {safeTutors.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-16 text-center text-slate-400">
+                      <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                          <GraduationCap className="h-6 w-6" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Aucun encadreur dans la base de données</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            La base de données est actuellement vide. Cliquez sur le bouton ci-dessous pour ajouter votre premier enseignant.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditingTutor(null);
+                            setIsModalOpen(true);
+                          }}
+                          className="mt-2 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors cursor-pointer"
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span>Nouvel Encadreur</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredTutors.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-slate-400">
                       Aucun encadreur trouvé selon vos critères de recherche.

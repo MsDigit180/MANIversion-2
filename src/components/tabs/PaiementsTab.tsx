@@ -78,22 +78,28 @@ export const PaiementsTab: React.FC = () => {
   const [isBatchPrintModalOpen, setIsBatchPrintModalOpen] = useState<boolean>(false);
   const [copiedInvoiceId, setCopiedInvoiceId] = useState<string | null>(null);
 
+  const safePayments = payments || [];
+  const safeStudents = students || [];
+
   // Filtered Payments (Journal de Caisse)
   const filteredPayments = useMemo(() => {
-    return payments.filter((pay) => {
-      const matchesSearch =
-        pay.receiptNumber.toLowerCase().includes(search.toLowerCase()) ||
-        pay.studentName.toLowerCase().includes(search.toLowerCase());
+    return safePayments.filter((pay) => {
+      const searchLower = (search || '').toLowerCase();
+      const receiptSafe = (pay.receiptNumber || '').toLowerCase();
+      const studentSafe = (pay.studentName || '').toLowerCase();
+      const methodSafe = pay.paymentMethod || '';
+      const dateSafe = pay.paymentDate || '';
 
+      const matchesSearch = receiptSafe.includes(searchLower) || studentSafe.includes(searchLower);
       const matchesCategory = categoryFilter === 'all' || pay.category === categoryFilter;
-      const matchesMethod = methodFilter === 'all' || pay.paymentMethod.includes(methodFilter);
+      const matchesMethod = methodFilter === 'all' || methodSafe.includes(methodFilter);
       const matchesMonth =
         monthFilter === 'all' || (() => {
           const frenchMonth = formatYYYYMMToFrench(monthFilter);
           const [year, monthNum] = monthFilter.split('-');
           return (
-            pay.paymentDate.includes(monthFilter) ||
-            pay.paymentDate.includes(`${monthNum}/${year}`) ||
+            dateSafe.includes(monthFilter) ||
+            dateSafe.includes(`${monthNum}/${year}`) ||
             (pay.notes && (
               pay.notes.toLowerCase().includes(frenchMonth.toLowerCase()) ||
               pay.notes.toLowerCase().includes(monthFilter.toLowerCase()) ||
@@ -104,34 +110,35 @@ export const PaiementsTab: React.FC = () => {
 
       return matchesSearch && matchesCategory && matchesMethod && matchesMonth;
     });
-  }, [payments, search, categoryFilter, methodFilter, monthFilter]);
+  }, [safePayments, search, categoryFilter, methodFilter, monthFilter]);
 
-  const totalCollected = filteredPayments.reduce((acc, p) => acc + p.amount, 0);
+  const totalCollected = filteredPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
 
   // Method breakdown
   const cashTotal = filteredPayments
     .filter((p) => p.paymentMethod === 'Espèces')
-    .reduce((a, b) => a + b.amount, 0);
+    .reduce((a, b) => a + (b.amount || 0), 0);
   const mobileTotal = filteredPayments
     .filter(
       (p) =>
-        p.paymentMethod.includes('Airtel') ||
-        p.paymentMethod.includes('Flooz') ||
-        p.paymentMethod.includes('Amana') ||
-        p.paymentMethod.includes('Nita') ||
-        p.paymentMethod.includes('Al Izza') ||
-        p.paymentMethod.includes('Mobile') ||
-        p.paymentMethod.includes('Wave')
+        p.paymentMethod &&
+        (p.paymentMethod.includes('Airtel') ||
+          p.paymentMethod.includes('Flooz') ||
+          p.paymentMethod.includes('Amana') ||
+          p.paymentMethod.includes('Nita') ||
+          p.paymentMethod.includes('Al Izza') ||
+          p.paymentMethod.includes('Mobile') ||
+          p.paymentMethod.includes('Wave'))
     )
-    .reduce((a, b) => a + b.amount, 0);
+    .reduce((a, b) => a + (b.amount || 0), 0);
   const bankTotal = filteredPayments
     .filter((p) => p.paymentMethod === 'Virement Bancaire')
-    .reduce((a, b) => a + b.amount, 0);
+    .reduce((a, b) => a + (b.amount || 0), 0);
 
   // Generated Monthly Invoices
   const allMonthlyInvoices = useMemo(() => {
-    return generateMonthlyInvoices(students, invoiceMonth, { groupByFamily, dueDateDay: 10 });
-  }, [students, invoiceMonth, groupByFamily]);
+    return generateMonthlyInvoices(safeStudents, invoiceMonth, { groupByFamily, dueDateDay: 10 });
+  }, [safeStudents, invoiceMonth, groupByFamily]);
 
   const filteredInvoices = useMemo(() => {
     return allMonthlyInvoices.filter((inv) => {
@@ -401,7 +408,30 @@ export const PaiementsTab: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                  {filteredPayments.length === 0 ? (
+                  {safePayments.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-16 text-center text-slate-400">
+                        <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <CreditCard className="h-6 w-6" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Aucun encaissement dans la base de données</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              Le journal de caisse est actuellement vide. Cliquez sur le bouton ci-dessous pour émettre votre premier reçu.
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setIsNewPaymentModalOpen(true)}
+                            className="mt-2 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500 transition-colors cursor-pointer"
+                          >
+                            <Plus className="h-4 w-4" />
+                            <span>Nouveau Paiement / Reçu</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredPayments.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-12 text-center text-slate-400">
                         <CreditCard className="h-8 w-8 mx-auto mb-2 opacity-50" />

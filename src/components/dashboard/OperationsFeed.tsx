@@ -17,7 +17,10 @@ export const OperationsFeed: React.FC = () => {
   const { operations, payments, setSelectedReceipt, setCurrentTab } = useApp();
   const [filterType, setFilterType] = useState<string>('all');
 
-  const filteredOperations = operations.filter((op) => {
+  const safeOperations = operations || [];
+  const safePayments = payments || [];
+
+  const filteredOperations = safeOperations.filter((op) => {
     if (filterType === 'all') return true;
     return op.type === filterType;
   });
@@ -36,7 +39,7 @@ export const OperationsFeed: React.FC = () => {
   };
 
   const handlePrintReceipt = (referenceId: string) => {
-    const payment = payments.find((p) => p.receiptNumber === referenceId || p.id === referenceId);
+    const payment = safePayments.find((p) => p.receiptNumber === referenceId || p.id === referenceId);
     if (payment) {
       setSelectedReceipt(payment);
     }

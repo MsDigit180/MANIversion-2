@@ -47,16 +47,26 @@ export const ConcoursTab: React.FC = () => {
   // Selected candidate for Delete Confirmation
   const [examToDelete, setExamToDelete] = useState<ExamApplication | null>(null);
 
-  const filteredExams = exams.filter((ex) => {
-    const searchLower = search.toLowerCase();
+  const safeExams = exams || [];
+
+  const filteredExams = safeExams.filter((ex) => {
+    const searchLower = (search || '').toLowerCase();
+    const nameSafe = (ex.candidateName || '').toLowerCase();
+    const dossierSafe = (ex.dossierNumber || '').toLowerCase();
+    const batchSafe = (ex.examBatch || '').toLowerCase();
+    const eduSafe = (ex.educationLevel || '').toLowerCase();
+    const fieldSafe = (ex.fieldOfStudy || '').toLowerCase();
+    const citySafe = (ex.residenceCity || '').toLowerCase();
+    const phoneSafe = ex.contactPhone || '';
+
     const matchesSearch =
-      ex.candidateName.toLowerCase().includes(searchLower) ||
-      ex.dossierNumber.toLowerCase().includes(searchLower) ||
-      ex.examBatch.toLowerCase().includes(searchLower) ||
-      (ex.educationLevel && ex.educationLevel.toLowerCase().includes(searchLower)) ||
-      (ex.fieldOfStudy && ex.fieldOfStudy.toLowerCase().includes(searchLower)) ||
-      (ex.residenceCity && ex.residenceCity.toLowerCase().includes(searchLower)) ||
-      ex.contactPhone.includes(search);
+      nameSafe.includes(searchLower) ||
+      dossierSafe.includes(searchLower) ||
+      batchSafe.includes(searchLower) ||
+      eduSafe.includes(searchLower) ||
+      fieldSafe.includes(searchLower) ||
+      citySafe.includes(searchLower) ||
+      phoneSafe.includes(search);
 
     const matchesGender = genderFilter === 'all' || ex.gender === genderFilter;
     const matchesExamType = examTypeFilter === 'all' || ex.examType === examTypeFilter;
@@ -330,7 +340,30 @@ export const ConcoursTab: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredExams.length === 0 ? (
+              {safeExams.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                        <GraduationCap className="h-6 w-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Aucun dossier de concours dans la base de données</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          La base de données est actuellement vide. Cliquez sur le bouton ci-dessous pour inscrire votre premier candidat.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setIsNewExamModalOpen(true)}
+                        className="mt-2 inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-purple-500 transition-colors cursor-pointer"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Nouveau Dossier Concours</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredExams.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400">
                     <GraduationCap className="h-8 w-8 mx-auto mb-2 opacity-50" />
