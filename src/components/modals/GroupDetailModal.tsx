@@ -340,12 +340,12 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
                   <CreditCard className="h-4 w-4 text-amber-400" />
                 </div>
                 <div className="mt-2 font-mono text-lg font-bold text-white">
-                  {liveGroup.totalPaid.toLocaleString()} / {liveGroup.totalMonthlyFee.toLocaleString()} <span className="text-xs font-normal text-slate-400">FCFA</span>
+                  {(liveGroup?.totalPaid ?? 0).toLocaleString()} / {(liveGroup?.totalMonthlyFee ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-400">FCFA</span>
                 </div>
                 <div className="mt-2 flex items-center justify-between text-[11px]">
                   <span className="text-slate-400">Reste global :</span>
-                  <span className={`font-mono font-bold ${liveGroup.totalBalance > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                    {liveGroup.totalBalance > 0 ? `-${liveGroup.totalBalance.toLocaleString()} FCFA` : 'Soldé à 100%'}
+                  <span className={`font-mono font-bold ${(liveGroup?.totalBalance ?? 0) > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                    {(liveGroup?.totalBalance ?? 0) > 0 ? `-${(liveGroup?.totalBalance ?? 0).toLocaleString()} FCFA` : 'Soldé à 100%'}
                   </span>
                 </div>
               </div>
@@ -355,7 +355,7 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border border-slate-800 bg-slate-850">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-xs font-semibold text-slate-400 mr-2">Matières du groupe :</span>
-                {liveGroup.subjects.map((sub, idx) => (
+                {(liveGroup?.subjects || []).map((sub, idx) => (
                   <span
                     key={idx}
                     className="text-xs font-medium px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
@@ -515,7 +515,7 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
                             )}
                           </td>
                           <td className="py-3 px-3 text-right font-mono font-medium text-slate-200">
-                            {stu.monthlyFee.toLocaleString()} F
+                            {(stu?.monthlyFee ?? 0).toLocaleString()} F
                           </td>
                           <td className="py-3 px-3 text-center">
                             {balance === 0 ? (
@@ -526,7 +526,7 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
                             ) : (
                               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
                                 <Clock className="h-3 w-3" />
-                                <span>-{balance.toLocaleString()} F</span>
+                                <span>-{(balance ?? 0).toLocaleString()} F</span>
                               </span>
                             )}
                           </td>
@@ -589,11 +589,11 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
                       Total Groupe ({filteredStudents.length} élèves) :
                     </td>
                     <td className="py-3 px-3 text-right font-mono text-white text-xs">
-                      {filteredStudents.reduce((sum, s) => sum + s.paidAmount, 0).toLocaleString()} /{' '}
-                      {filteredStudents.reduce((sum, s) => sum + s.monthlyFee, 0).toLocaleString()} FCFA
+                      {filteredStudents.reduce((sum, s) => sum + (s?.paidAmount ?? 0), 0).toLocaleString()} /{' '}
+                      {filteredStudents.reduce((sum, s) => sum + (s?.monthlyFee ?? 0), 0).toLocaleString()} FCFA
                     </td>
                     <td colSpan={2} className="py-3 px-3 text-center text-xs font-mono text-rose-400">
-                      Reste : -{filteredStudents.reduce((sum, s) => sum + Math.max(0, s.monthlyFee - s.paidAmount), 0).toLocaleString()} FCFA
+                      Reste : -{filteredStudents.reduce((sum, s) => sum + Math.max(0, (s?.monthlyFee ?? 0) - (s?.paidAmount ?? 0)), 0).toLocaleString()} FCFA
                     </td>
                   </tr>
                 </tfoot>

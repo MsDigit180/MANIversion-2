@@ -169,9 +169,9 @@ export const OperationsFeed: React.FC = () => {
 
               {/* Right Zone: Amount, Sync State & Quick Actions */}
               <div className="flex items-center justify-between sm:justify-end gap-3 pl-12 sm:pl-0">
-                {op.amount !== undefined && (
+                {typeof op.amount === 'number' && !isNaN(op.amount) && (
                   <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100 tabular-nums">
-                    +{op.amount.toLocaleString()} FCFA
+                    +{(op.amount ?? 0).toLocaleString()} FCFA
                   </span>
                 )}
 

@@ -265,11 +265,11 @@ export const ReceiptModal: React.FC = () => {
             <span>
               Total Encaissé :{' '}
               <strong className="text-emerald-400 font-mono text-sm">
-                {selectedReceipt.amount.toLocaleString()} FCFA
+                {(selectedReceipt?.amount ?? 0).toLocaleString()} FCFA
               </strong>
             </span>
             <span className="text-[11px] text-slate-400 font-medium ml-2">
-              (Règlement {selectedReceipt.paymentMethod})
+              (Règlement {selectedReceipt?.paymentMethod || 'Espèces'})
             </span>
           </div>
 
@@ -303,7 +303,7 @@ export const ReceiptModal: React.FC = () => {
       <ConfirmDeleteModal
         isOpen={isConfirmDeleteOpen}
         title="Supprimer ce paiement ?"
-        message={`Êtes-vous certain de vouloir supprimer définitivement le paiement N° ${selectedReceipt.receiptNumber} (${selectedReceipt.amount.toLocaleString()} FCFA pour "${selectedReceipt.studentName}") ?\n\nCette action annulera l'enregistrement de caisse et réajustera automatiquement les soldes et statuts financiers de l'élève ou de la famille.`}
+        message={`Êtes-vous certain de vouloir supprimer définitivement le paiement N° ${selectedReceipt?.receiptNumber || 'N/A'} (${(selectedReceipt?.amount ?? 0).toLocaleString()} FCFA pour "${selectedReceipt?.studentName || 'Élève'}") ?\n\nCette action annulera l'enregistrement de caisse et réajustera automatiquement les soldes et statuts financiers de l'élève ou de la famille.`}
         isDeleting={isDeleting}
         onClose={() => setIsConfirmDeleteOpen(false)}
         onConfirm={async () => {

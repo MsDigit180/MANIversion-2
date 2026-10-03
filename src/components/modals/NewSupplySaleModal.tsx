@@ -5,9 +5,11 @@ import { useApp } from '../../context/AppContext';
 export const NewSupplySaleModal: React.FC = () => {
   const { isNewSupplySaleModalOpen, setIsNewSupplySaleModalOpen, inventory, recordSupplySale } = useApp();
 
+  const safeInventory = inventory || [];
+
   const [customerName, setCustomerName] = useState('Client Comptoir');
-  const [selectedItems, setSelectedItems] = useState<{ itemId: string; quantity: number }[]>([
-    { itemId: inventory[0]?.id || '', quantity: 1 },
+  const [selectedItems, setSelectedItems] = useState<{ itemId: string; quantity: number }[]>(() => [
+    { itemId: safeInventory[0]?.id || '', quantity: 1 },
   ]);
   const [paymentMethod, setPaymentMethod] = useState<'Espèces' | 'Wave / Mobile Money' | 'Orange Money'>('Espèces');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -15,7 +17,7 @@ export const NewSupplySaleModal: React.FC = () => {
   if (!isNewSupplySaleModalOpen) return null;
 
   const addItemRow = () => {
-    const nextAvailable = inventory.find((i) => !selectedItems.some((si) => si.itemId === i.id));
+    const nextAvailable = safeInventory.find((i) => !selectedItems.some((si) => si.itemId === i.id));
     if (nextAvailable) {
       setSelectedItems([...selectedItems, { itemId: nextAvailable.id, quantity: 1 }]);
     }
@@ -119,9 +121,9 @@ export const NewSupplySaleModal: React.FC = () => {
                       onChange={(e) => updateItem(idx, e.target.value)}
                       className="flex-1 rounded border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-200 focus:outline-none cursor-pointer truncate"
                     >
-                      {inventory.map((inv) => (
+                      {safeInventory.map((inv) => (
                         <option key={inv.id} value={inv.id}>
-                          {inv.name} ({inv.unitPrice.toLocaleString()} FCFA - Stock: {inv.stockQuantity})
+                          {inv.name || 'Article'} ({(inv?.unitPrice ?? 0).toLocaleString()} FCFA - Stock: {inv?.stockQuantity ?? 0})
                         </option>
                       ))}
                     </select>
@@ -129,14 +131,14 @@ export const NewSupplySaleModal: React.FC = () => {
                     <input
                       type="number"
                       min="1"
-                      max={currentItem ? currentItem.stockQuantity : 99}
+                      max={currentItem ? (currentItem?.stockQuantity ?? 99) : 99}
                       value={row.quantity}
                       onChange={(e) => updateQty(idx, Number(e.target.value))}
                       className="w-16 rounded border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs font-mono text-center text-slate-200"
                     />
 
                     <span className="font-mono text-xs font-semibold text-white w-20 text-right tabular-nums">
-                      {currentItem ? (currentItem.unitPrice * row.quantity).toLocaleString() : 0} F
+                      {currentItem ? ((currentItem?.unitPrice ?? 0) * (row.quantity ?? 1)).toLocaleString() : 0} F
                     </span>
 
                     {selectedItems.length > 1 && (
@@ -173,7 +175,7 @@ export const NewSupplySaleModal: React.FC = () => {
             <div className="rounded-xl border border-slate-800 bg-slate-800/80 p-3 flex flex-col justify-center items-end">
               <span className="text-[11px] text-slate-400">Total à percevoir :</span>
               <span className="font-mono text-xl font-bold text-amber-400 tabular-nums">
-                {cartTotal.toLocaleString()} FCFA
+                {(cartTotal ?? 0).toLocaleString()} FCFA
               </span>
             </div>
           </div>

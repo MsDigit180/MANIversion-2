@@ -202,12 +202,12 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 Paiement Mensuel
               </span>
               <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">
-                {student.paidAmount.toLocaleString()} / {student.monthlyFee.toLocaleString()} FCFA
+                {(student?.paidAmount ?? 0).toLocaleString()} / {(student?.monthlyFee ?? 0).toLocaleString()} FCFA
               </div>
               <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
                 {balanceDue > 0 ? (
                   <span className="text-rose-600 dark:text-rose-400 font-semibold">
-                    Reste dû : {balanceDue.toLocaleString()} FCFA
+                    Reste dû : {(balanceDue ?? 0).toLocaleString()} FCFA
                   </span>
                 ) : (
                   <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -554,7 +554,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       </span>
                     </div>
                     <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-[11px]">
-                      {sib.monthlyFee.toLocaleString()} FCFA
+                      {(sib?.monthlyFee ?? 0).toLocaleString()} FCFA
                     </span>
                   </div>
                 ))}
@@ -715,7 +715,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
                         <div className="flex items-center gap-3">
                           <span className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
-                            {p.amount.toLocaleString()} FCFA
+                            {(p?.amount ?? 0).toLocaleString()} FCFA
                           </span>
                           <div className="flex items-center gap-1.5">
                             <button
@@ -758,11 +758,11 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                             {sale.saleNumber} ({sale.saleDate})
                           </span>
                           <span className="font-mono font-bold text-xs text-amber-600 dark:text-amber-400">
-                            {sale.totalAmount.toLocaleString()} FCFA
+                            {(sale?.totalAmount ?? 0).toLocaleString()} FCFA
                           </span>
                         </div>
                         <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                          {sale.items.map((it) => `${it.itemName} (x${it.quantity})`).join(', ')}
+                          {(sale?.items || []).map((it) => `${it.itemName || 'Article'} (x${it.quantity || 1})`).join(', ')}
                         </div>
                         <div className="text-[10px] text-slate-400">
                           Vente validée par : {sale.agentName} ({sale.agentRole})
