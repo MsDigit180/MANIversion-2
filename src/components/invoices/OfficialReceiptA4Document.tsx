@@ -275,7 +275,7 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
                     )}
                   </td>
                   <td className="py-2 px-2.5 text-right align-middle font-mono tabular-nums font-bold text-slate-950 text-[11px]">
-                    {item.amount.toLocaleString()} FCFA
+                    {(item?.amount ?? 0).toLocaleString()} FCFA
                   </td>
                 </tr>
               ))}
@@ -286,7 +286,7 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
                   TOTAL GÉNÉRAL ENCAISSÉ :
                 </td>
                 <td className="py-2 px-2.5 text-right font-mono tabular-nums font-black text-[12.5px] text-emerald-950 bg-emerald-50/80">
-                  {receipt.amount.toLocaleString()} FCFA
+                  {(receipt?.amount ?? 0).toLocaleString()} FCFA
                 </td>
               </tr>
             </tfoot>
@@ -321,7 +321,7 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
                   </span>
                 </td>
                 <td className="py-2.5 px-3 text-right align-middle font-mono tabular-nums font-black text-slate-950 text-[12px]">
-                  {receipt.amount.toLocaleString()} FCFA
+                  {(receipt?.amount ?? 0).toLocaleString()} FCFA
                 </td>
               </tr>
             </tbody>
@@ -331,7 +331,7 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
                   TOTAL REÇU & ENCAISSÉ :
                 </td>
                 <td className="py-2 px-3 text-right font-mono tabular-nums font-black text-[12.5px] text-emerald-950 bg-emerald-50/80">
-                  {receipt.amount.toLocaleString()} FCFA
+                  {(receipt?.amount ?? 0).toLocaleString()} FCFA
                 </td>
               </tr>
             </tfoot>
@@ -354,7 +354,7 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
             </strong>.
           </div>
           <span className="font-mono font-black text-emerald-900 bg-emerald-100 px-2.5 py-0.5 rounded text-[11px] shrink-0 ml-2">
-            {receipt.amount.toLocaleString()} FCFA
+            {(receipt?.amount ?? 0).toLocaleString()} FCFA
           </span>
         </div>
 
@@ -487,7 +487,7 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
             <div>
               <span className="text-[7.5px] uppercase text-slate-500 block font-semibold">Montant Réglé :</span>
               <span className="font-mono font-black text-[11px] text-emerald-950 block">
-                {receipt.amount.toLocaleString()} FCFA
+                {(receipt?.amount ?? 0).toLocaleString()} FCFA
               </span>
               <span className="text-[7.5px] text-emerald-700 font-semibold block">
                 Règlement : {receipt.paymentMethod}

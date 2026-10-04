@@ -202,7 +202,7 @@ export const StopTutoringModal: React.FC = () => {
               <div className="flex justify-between items-center font-bold">
                 <span>Solde impayé à recouvrer :</span>
                 <span className="font-mono text-rose-600 dark:text-rose-400 text-sm">
-                  {remainingDebt > 0 ? `${remainingDebt.toLocaleString()} FCFA` : 'Échéance en cours'}
+                  {(remainingDebt ?? 0) > 0 ? `${(remainingDebt ?? 0).toLocaleString()} FCFA` : 'Échéance en cours'}
                 </span>
               </div>
               <p className="text-[11px] text-rose-900 dark:text-rose-200/80">

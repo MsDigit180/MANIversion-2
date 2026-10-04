@@ -175,7 +175,7 @@ export const GlobalSearchPalette: React.FC = () => {
                             {p.receiptNumber} — {p.studentName}
                           </div>
                           <div className="text-[11px] text-slate-400">
-                            {p.category} · {p.amount.toLocaleString()} FCFA ({p.paymentMethod})
+                            {p.category} · {(p?.amount ?? 0).toLocaleString()} FCFA ({p.paymentMethod})
                           </div>
                         </div>
                         <span className="text-[11px] text-indigo-400 font-medium">Voir le reçu</span>
@@ -237,7 +237,7 @@ export const GlobalSearchPalette: React.FC = () => {
                         <div>
                           <div className="text-xs font-semibold text-white">{i.name}</div>
                           <div className="text-[11px] text-slate-400">
-                            {i.sku} · {i.unitPrice.toLocaleString()} FCFA · Stock: {i.stockQuantity}
+                            {i.sku} · {(i?.unitPrice ?? 0).toLocaleString()} FCFA · Stock: {i?.stockQuantity ?? 0}
                           </div>
                         </div>
                         <ArrowRight className="h-3.5 w-3.5 text-slate-500" />

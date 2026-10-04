@@ -140,7 +140,7 @@ export const MonthlyInvoicesView: React.FC = () => {
             <FileText className="h-4 w-4 text-indigo-500" />
           </div>
           <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
-            {totalBilled.toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
+            {(totalBilled ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
           </div>
           <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
             {allInvoices.length} factures émises
@@ -154,7 +154,7 @@ export const MonthlyInvoicesView: React.FC = () => {
             <TrendingUp className="h-4 w-4 text-emerald-500" />
           </div>
           <div className="mt-2 font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-            {totalPaid.toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
+            {(totalPaid ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
           </div>
           <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
             Taux de recouvrement : {collectionRate}%
@@ -168,7 +168,7 @@ export const MonthlyInvoicesView: React.FC = () => {
             <AlertTriangle className="h-4 w-4 text-rose-500" />
           </div>
           <div className="mt-2 font-mono text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums">
-            {totalNetDue.toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
+            {(totalNetDue ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
           </div>
           <span className="text-[11px] text-rose-500 font-medium">
             {pendingCount} facture(s) en attente / solde
@@ -390,20 +390,20 @@ export const MonthlyInvoicesView: React.FC = () => {
 
                     {/* Total Facturé */}
                     <td className="py-3 px-4 text-right font-mono text-slate-700 dark:text-slate-300">
-                      {inv.totalMonthlyFee.toLocaleString()} F
+                      {(inv?.totalMonthlyFee ?? 0).toLocaleString()} F
                     </td>
 
                     {/* Déjà Versé */}
                     <td className="py-3 px-4 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                      {inv.totalPaid > 0 ? `${inv.totalPaid.toLocaleString()} F` : '-'}
+                      {(inv?.totalPaid ?? 0) > 0 ? `${(inv?.totalPaid ?? 0).toLocaleString()} F` : '-'}
                     </td>
 
                     {/* Net à Payer */}
                     <td className="py-3 px-4 text-right">
                       <div className="font-mono font-bold text-sm text-slate-900 dark:text-white">
-                        {inv.netDue.toLocaleString()} FCFA
+                        {(inv?.netDue ?? 0).toLocaleString()} FCFA
                       </div>
-                      {inv.netDue === 0 && (
+                      {(inv?.netDue ?? 0) === 0 && (
                         <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
                           Solde à zéro ✓
                         </span>
@@ -464,7 +464,7 @@ export const MonthlyInvoicesView: React.FC = () => {
                         </button>
 
                         {/* Quick Pay */}
-                        {inv.netDue > 0 && (
+                        {(inv?.netDue ?? 0) > 0 && (
                           <button
                             onClick={() => handleQuickPay(inv)}
                             className="flex h-7 items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-2 text-[11px] font-semibold transition-colors cursor-pointer shadow-sm"
@@ -487,13 +487,13 @@ export const MonthlyInvoicesView: React.FC = () => {
                     Totaux ({filteredInvoices.length} factures) :
                   </td>
                   <td className="py-3 px-4 text-right font-mono text-xs text-slate-700 dark:text-slate-300">
-                    {filteredInvoices.reduce((sum, inv) => sum + inv.totalMonthlyFee, 0).toLocaleString()} F
+                    {filteredInvoices.reduce((sum, inv) => sum + (inv?.totalMonthlyFee ?? 0), 0).toLocaleString()} F
                   </td>
                   <td className="py-3 px-4 text-right font-mono text-xs text-emerald-600 dark:text-emerald-400">
-                    {filteredInvoices.reduce((sum, inv) => sum + inv.totalPaid, 0).toLocaleString()} F
+                    {filteredInvoices.reduce((sum, inv) => sum + (inv?.totalPaid ?? 0), 0).toLocaleString()} F
                   </td>
                   <td className="py-3 px-4 text-right font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
-                    {filteredInvoices.reduce((sum, inv) => sum + inv.netDue, 0).toLocaleString()} FCFA
+                    {filteredInvoices.reduce((sum, inv) => sum + (inv?.netDue ?? 0), 0).toLocaleString()} FCFA
                   </td>
                   <td colSpan={2}></td>
                 </tr>

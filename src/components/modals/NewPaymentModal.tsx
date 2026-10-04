@@ -667,9 +667,9 @@ export const NewPaymentModal: React.FC = () => {
                               </div>
                             </td>
                             <td className="py-3 px-3 text-right font-mono">
-                              <div className="text-white text-xs">{item.monthlyFee.toLocaleString()} FCFA</div>
-                              <div className={`text-[10px] ${item.balanceRemaining > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                {item.balanceRemaining > 0 ? `Reste: -${item.balanceRemaining.toLocaleString()}` : 'Soldé'}
+                              <div className="text-white text-xs">{(item?.monthlyFee ?? 0).toLocaleString()} FCFA</div>
+                              <div className={`text-[10px] ${(item?.balanceRemaining ?? 0) > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                {(item?.balanceRemaining ?? 0) > 0 ? `Reste: -${(item?.balanceRemaining ?? 0).toLocaleString()}` : 'Soldé'}
                               </div>
                             </td>
                             <td className="py-3 px-3 text-right">
@@ -713,7 +713,7 @@ export const NewPaymentModal: React.FC = () => {
                             Total Général Encaissé pour la Famille :
                           </td>
                           <td className="py-3 px-3 text-right font-mono font-black text-sm text-emerald-400">
-                            {totalFamilyAmount.toLocaleString()} FCFA
+                            {(totalFamilyAmount ?? 0).toLocaleString()} FCFA
                           </td>
                           <td></td>
                         </tr>
@@ -723,12 +723,12 @@ export const NewPaymentModal: React.FC = () => {
                 )}
 
                 {/* Amount in French Words preview */}
-                {totalFamilyAmount > 0 && (
+                {(totalFamilyAmount ?? 0) > 0 && (
                   <div className="mt-2 p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-800/40 text-[11px] text-emerald-300 flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
                     <span>
                       Montant en toutes lettres :{' '}
-                      <strong>{numberToFrenchWords(totalFamilyAmount)} Francs CFA</strong>
+                      <strong>{numberToFrenchWords(totalFamilyAmount ?? 0)} Francs CFA</strong>
                     </span>
                   </div>
                 )}
@@ -823,11 +823,11 @@ export const NewPaymentModal: React.FC = () => {
             <span className="text-xs text-slate-400">
               {paymentMode === 'family' ? (
                 <>
-                  Total : <strong className="text-emerald-400 font-mono">{totalFamilyAmount.toLocaleString()} FCFA</strong> ({includedFamilyItems.length} élève{includedFamilyItems.length > 1 ? 's' : ''})
+                  Total : <strong className="text-emerald-400 font-mono">{(totalFamilyAmount ?? 0).toLocaleString()} FCFA</strong> ({includedFamilyItems.length} élève{includedFamilyItems.length > 1 ? 's' : ''})
                 </>
               ) : (
                 <>
-                  Total : <strong className="text-emerald-400 font-mono">{amount.toLocaleString()} FCFA</strong>
+                  Total : <strong className="text-emerald-400 font-mono">{(amount ?? 0).toLocaleString()} FCFA</strong>
                 </>
               )}
             </span>

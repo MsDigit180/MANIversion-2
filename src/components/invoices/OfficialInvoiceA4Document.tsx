@@ -372,11 +372,11 @@ export const OfficialInvoiceA4Document: React.FC<OfficialInvoiceA4DocumentProps>
                   </td>
 
                   <td className="py-2 px-2.5 text-right align-middle font-mono tabular-nums text-slate-800 text-[10.5px]">
-                    {item.monthlyFee.toLocaleString()} F
+                    {(item?.monthlyFee ?? 0).toLocaleString()} F
                   </td>
 
                   <td className="py-2 px-2.5 text-right align-middle font-mono tabular-nums font-black text-slate-950 text-[11.5px]">
-                    {item.balanceRemaining.toLocaleString()} FCFA
+                    {(item?.balanceRemaining ?? 0).toLocaleString()} FCFA
                   </td>
                 </tr>
               );
@@ -388,10 +388,10 @@ export const OfficialInvoiceA4Document: React.FC<OfficialInvoiceA4DocumentProps>
                 TOTAL GÉNÉRAL NET À RECOUVRER :
               </td>
               <td className="py-2 px-2.5 text-right font-mono tabular-nums text-[10px] text-slate-800">
-                {data.totalMonthlyFee.toLocaleString()} F
+                {(data?.totalMonthlyFee ?? 0).toLocaleString()} F
               </td>
               <td className="py-2 px-2.5 text-right font-mono tabular-nums font-black text-[12px] text-indigo-950 bg-indigo-50/80">
-                {data.netDue.toLocaleString()} FCFA
+                {(data?.netDue ?? 0).toLocaleString()} FCFA
               </td>
             </tr>
           </tfoot>
@@ -413,7 +413,7 @@ export const OfficialInvoiceA4Document: React.FC<OfficialInvoiceA4DocumentProps>
             </strong>.
           </div>
           <span className="font-mono font-black text-indigo-900 bg-indigo-100 px-2 py-0.5 rounded text-[11px] shrink-0 ml-2">
-            {data.netDue.toLocaleString()} FCFA
+            {(data?.netDue ?? 0).toLocaleString()} FCFA
           </span>
         </div>
 
@@ -581,7 +581,7 @@ export const OfficialInvoiceA4Document: React.FC<OfficialInvoiceA4DocumentProps>
             <div>
               <span className="text-[7.5px] uppercase text-slate-500 block font-semibold">Montant Réglé / Dû :</span>
               <span className="font-mono font-black text-[11px] text-indigo-950 block">
-                {data.netDue.toLocaleString()} FCFA
+                {(data?.netDue ?? 0).toLocaleString()} FCFA
               </span>
               <span className="text-[7.5px] text-rose-700 font-semibold block">
                 Échéance : {data.dueDate}

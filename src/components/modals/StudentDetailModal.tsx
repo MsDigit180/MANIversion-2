@@ -877,7 +877,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         title="Supprimer ce paiement ?"
         message={
           paymentToDelete
-            ? `Êtes-vous certain de vouloir supprimer le paiement N° ${paymentToDelete.receiptNumber} (${paymentToDelete.amount.toLocaleString()} FCFA) pour ${student.fullName} ? Cette action réajustera son solde restant et son statut de paiement.`
+            ? `Êtes-vous certain de vouloir supprimer le paiement N° ${paymentToDelete.receiptNumber || 'N/A'} (${(paymentToDelete?.amount ?? 0).toLocaleString()} FCFA) pour ${student?.fullName || 'l\'élève'} ? Cette action réajustera son solde restant et son statut de paiement.`
             : ''
         }
         isDeleting={isDeletingPayment}

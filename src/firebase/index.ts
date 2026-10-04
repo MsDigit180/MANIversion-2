@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
+  initializeFirestore,
   getFirestore,
   doc,
   getDocFromServer,
@@ -8,7 +9,8 @@ import {
   getDocs,
   onSnapshot,
   deleteDoc,
-  enableIndexedDbPersistence,
+  persistentLocalCache,
+  persistentMultipleTabManager,
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import firebaseAppletConfig from '../../firebase-applet-config.json';
@@ -30,26 +32,19 @@ export const firebaseConfig = {
 // Initialize Firebase App singleton
 export const firebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// Initialize Firestore
-export const db = getFirestore(
-  firebaseApp,
-  firebaseConfig.firestoreDatabaseId || '(default)'
-);
-
-// Enable offline cache persistence where supported
+// Initialize Firestore with modern persistent local cache (IndexedDB)
+let firestoreInstance;
 try {
-  if (typeof window !== 'undefined') {
-    enableIndexedDbPersistence(db).catch((err) => {
-      if (err.code === 'failed-precondition') {
-        console.warn('Firestore persistence: Multiple tabs open.');
-      } else if (err.code === 'unimplemented') {
-        console.warn('Firestore persistence: Browser does not support indexedDB.');
-      }
-    });
-  }
+  firestoreInstance = initializeFirestore(firebaseApp, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  }, firebaseConfig.firestoreDatabaseId || '(default)');
 } catch (e) {
-  // Ignore in SSR or unsupported environments
+  firestoreInstance = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId || '(default)');
 }
+
+export const db = firestoreInstance;
 
 export const auth = getAuth(firebaseApp);
 
