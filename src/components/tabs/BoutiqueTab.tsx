@@ -84,7 +84,7 @@ export const BoutiqueTab: React.FC = () => {
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 shadow-sm">
           <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Valeur Marchande du Stock</span>
           <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
-            {totalStockValue.toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
+            {(totalStockValue ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
           </div>
           <span className="text-[11px] text-slate-500 dark:text-slate-400">{totalUnits} articles disponibles en magasin</span>
         </div>
@@ -244,7 +244,7 @@ export const BoutiqueTab: React.FC = () => {
                       </td>
 
                       <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-white">
-                        {item.unitPrice.toLocaleString()} FCFA
+                        {(item?.unitPrice ?? 0).toLocaleString()} FCFA
                       </td>
 
                       <td className="py-3.5 px-4 text-center">

@@ -442,9 +442,9 @@ export const ConcoursTab: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <div className="space-y-1">
                           {getStatusBadge(ex.status)}
-                          {ex.prepFee ? (
+                          {ex.prepFee != null ? (
                             <div className="text-[11px] font-mono font-semibold text-slate-700 dark:text-slate-300">
-                              {ex.prepFee.toLocaleString('fr-FR')} FCFA
+                              {Number(ex.prepFee).toLocaleString('fr-FR')} FCFA
                             </div>
                           ) : null}
                         </div>
@@ -619,7 +619,7 @@ export const ConcoursTab: React.FC = () => {
                   <div>
                     <span className="text-slate-400 block text-[10px]">Frais de Préparation :</span>
                     <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                      {selectedCandidateForDetails.prepFee ? `${selectedCandidateForDetails.prepFee.toLocaleString('fr-FR')} FCFA` : 'Non renseigné'}
+                      {selectedCandidateForDetails.prepFee != null ? `${Number(selectedCandidateForDetails.prepFee).toLocaleString('fr-FR')} FCFA` : 'Non renseigné'}
                     </span>
                   </div>
                 </div>

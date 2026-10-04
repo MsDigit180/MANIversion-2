@@ -777,14 +777,14 @@ export const InscriptionsTab: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
                           <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
-                            {stu.paidAmount.toLocaleString()} / {stu.monthlyFee.toLocaleString()}
+                            {(stu?.paidAmount ?? 0).toLocaleString()} / {(stu?.monthlyFee ?? 0).toLocaleString()}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          {getStatusBadge(stu.paymentStatus)}
+                          {getStatusBadge(stu?.paymentStatus)}
                           {balanceDue > 0 && (
                             <span className="text-[10px] text-rose-600 dark:text-rose-400 font-mono font-semibold">
-                              -{balanceDue.toLocaleString()}
+                              -{(balanceDue ?? 0).toLocaleString()}
                             </span>
                           )}
                         </div>

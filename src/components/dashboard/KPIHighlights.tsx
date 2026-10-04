@@ -98,7 +98,7 @@ export const KPIHighlights: React.FC = () => {
 
         <div className="mt-3 flex items-baseline gap-2">
           <span className="font-mono text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">
-            {totalCollected.toLocaleString()}
+            {(totalCollected ?? 0).toLocaleString()}
           </span>
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">FCFA</span>
         </div>
@@ -106,7 +106,7 @@ export const KPIHighlights: React.FC = () => {
         <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
           <span className="font-semibold text-emerald-600 dark:text-emerald-400">{recoveryRate}% recouvré</span>
           <span aria-hidden="true">·</span>
-          <span>Reste: {totalUnpaid.toLocaleString()} FCFA</span>
+          <span>Reste: {(totalUnpaid ?? 0).toLocaleString()} FCFA</span>
         </div>
 
         <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-300">
@@ -162,7 +162,7 @@ export const KPIHighlights: React.FC = () => {
 
         <div className="mt-3 flex items-baseline gap-2">
           <span className="font-mono text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">
-            {supplySales.toLocaleString()}
+            {(supplySales ?? 0).toLocaleString()}
           </span>
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">FCFA</span>
         </div>

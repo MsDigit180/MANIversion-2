@@ -214,8 +214,8 @@ export function generateWhatsAppInvoiceMessage(invoice: MonthlyInvoice): string 
   const studentsList = invoice.studentItems
     .map(
       (st) =>
-        `• *${st.studentName}* (${st.level}) : Mensualité ${st.monthlyFee.toLocaleString()} FCFA${
-          st.paidAmount > 0 ? ` (Déjà réglé : ${st.paidAmount.toLocaleString()} FCFA)` : ''
+        `• *${st?.studentName || 'Élève'}* (${st?.level || 'Niveau'}) : Mensualité ${(st?.monthlyFee ?? 0).toLocaleString()} FCFA${
+          (st?.paidAmount ?? 0) > 0 ? ` (Déjà réglé : ${(st?.paidAmount ?? 0).toLocaleString()} FCFA)` : ''
         }`
     )
     .join('\n');
@@ -238,8 +238,8 @@ Veuillez trouver ci-dessous l'avis d'échéance / facture de scolarité pour le 
 👤 *Détail des enfants inscrits :*
 ${studentsList}
 
-💰 *Montant Total Facturé :* ${invoice.totalMonthlyFee.toLocaleString()} FCFA
-${invoice.totalPaid > 0 ? `💵 *Total Déjà Versé :* ${invoice.totalPaid.toLocaleString()} FCFA\n` : ''}👉 *NET À PAYER :* *${invoice.netDue.toLocaleString()} FCFA*
+💰 *Montant Total Facturé :* ${(invoice?.totalMonthlyFee ?? 0).toLocaleString()} FCFA
+${(invoice?.totalPaid ?? 0) > 0 ? `💵 *Total Déjà Versé :* ${(invoice?.totalPaid ?? 0).toLocaleString()} FCFA\n` : ''}👉 *NET À PAYER :* *${(invoice?.netDue ?? 0).toLocaleString()} FCFA*
 
 ${paymentChannels}
 
@@ -253,8 +253,8 @@ Cabinet MANI — L'excellence de l'encadrement à vos côtés.`;
  * Génère le texte SMS officiel court et percutant.
  */
 export function generateSMSInvoiceMessage(invoice: MonthlyInvoice): string {
-  const childrenNames = invoice.studentItems.map((s) => s.studentName.split(' ')[0]).join(' & ');
-  return `CAB-APPUIS: Facture ${invoice.monthLabel} (Réf ${invoice.invoiceNumber}) pour ${childrenNames}. Net a payer: ${invoice.netDue.toLocaleString()} FCFA avant le ${invoice.dueDate}. Depot Nita ou Amana au: +227 92285737. Merci.`;
+  const childrenNames = (invoice?.studentItems || []).map((s) => (s?.studentName || 'Élève').split(' ')[0]).join(' & ');
+  return `CAB-APPUIS: Facture ${invoice?.monthLabel || 'en cours'} (Réf ${invoice?.invoiceNumber || 'CAS'}) pour ${childrenNames}. Net a payer: ${(invoice?.netDue ?? 0).toLocaleString()} FCFA avant le ${invoice?.dueDate || 'échéance'}. Depot Nita ou Amana au: +227 92285737. Merci.`;
 }
 
 /**

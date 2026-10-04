@@ -1633,7 +1633,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     await safeFirestoreWrite(Promise.all(writes), 1200);
 
-    showToast(`Reçu ${receiptNumber} émis (${paymentData.amount.toLocaleString()} FCFA) par ${agentName}.`, 'success');
+    showToast(`Reçu ${receiptNumber} émis (${(paymentData?.amount ?? 0).toLocaleString()} FCFA) par ${agentName}.`, 'success');
     return newPayment;
   };
 
@@ -1755,7 +1755,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     await safeFirestoreWrite(Promise.all(writes), 1200);
 
-    showToast(`Reçu Groupé Famille ${receiptNumber} émis (${totalAmount.toLocaleString()} FCFA pour ${data.studentBreakdown.length} élèves).`, 'success');
+    showToast(`Reçu Groupé Famille ${receiptNumber} émis (${(totalAmount ?? 0).toLocaleString()} FCFA pour ${data.studentBreakdown.length} élèves).`, 'success');
     return newPayment;
   };
 
@@ -1868,7 +1868,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     showToast(
-      `Paiement N° ${paymentToDelete.receiptNumber} (${paymentToDelete.amount.toLocaleString()} FCFA) supprimé. Soldes réajustés.`,
+      `Paiement N° ${paymentToDelete.receiptNumber || 'N/A'} (${(paymentToDelete?.amount ?? 0).toLocaleString()} FCFA) supprimé. Soldes réajustés.`,
       'info'
     );
   };
@@ -2122,7 +2122,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `op-${Date.now()}`,
       type: 'vente',
       title: 'Vente Fournitures',
-      subtitle: `${customerName} · ${totalAmount.toLocaleString()} FCFA`,
+      subtitle: `${customerName} · ${(totalAmount ?? 0).toLocaleString()} FCFA`,
       referenceId: saleNumber,
       studentId,
       amount: totalAmount,
@@ -2169,7 +2169,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       1500
     );
 
-    showToast(`Vente #${saleNumber} enregistrée (${totalAmount.toLocaleString()} FCFA) par ${currentUser.fullName}.`, 'success');
+    showToast(`Vente #${saleNumber} enregistrée (${(totalAmount ?? 0).toLocaleString()} FCFA) par ${currentUser.fullName}.`, 'success');
   };
 
   const dismissAlert = async (id: string) => {

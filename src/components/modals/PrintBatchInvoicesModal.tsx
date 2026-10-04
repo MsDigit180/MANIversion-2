@@ -76,7 +76,7 @@ export const PrintBatchInvoicesModal: React.FC<PrintBatchInvoicesModalProps> = (
               </h2>
               <p className="text-xs text-slate-400">
                 {invoices.length} facture(s) prêtes à l'impression · Total à recouvrer :{' '}
-                <strong className="text-emerald-400 font-mono text-sm">{totalAmountToCollect.toLocaleString()} FCFA</strong>
+                <strong className="text-emerald-400 font-mono text-sm">{(totalAmountToCollect ?? 0).toLocaleString()} FCFA</strong>
               </p>
             </div>
           </div>

@@ -292,7 +292,7 @@ export const PaiementsTab: React.FC = () => {
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Encaissé (Période)</span>
               <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
-                {totalCollected.toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
+                {(totalCollected ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
               </div>
               <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">100% rapproché en caisse</span>
             </div>
@@ -300,7 +300,7 @@ export const PaiementsTab: React.FC = () => {
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Encaissements Espèces</span>
               <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">
-                {cashTotal.toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
+                {(cashTotal ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
               </div>
               <span className="text-[11px] text-slate-500 dark:text-slate-400">Guichet & Caisse physique</span>
             </div>
@@ -308,7 +308,7 @@ export const PaiementsTab: React.FC = () => {
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Airtel Money & Flooz</span>
               <div className="mt-2 font-mono text-2xl font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
-                {mobileTotal.toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
+                {(mobileTotal ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
               </div>
               <span className="text-[11px] text-indigo-600 dark:text-indigo-300">Paiements digitaux instantanés</span>
             </div>
@@ -316,7 +316,7 @@ export const PaiementsTab: React.FC = () => {
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Virements / Amana Transfert</span>
               <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-slate-200 tabular-nums">
-                {bankTotal.toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
+                {(bankTotal ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
               </div>
               <span className="text-[11px] text-slate-500 dark:text-slate-400">SONIBANK / BOA / AMANA</span>
             </div>
@@ -472,7 +472,7 @@ export const PaiementsTab: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-white">
-                          +{pay.amount.toLocaleString()}
+                          +{(pay?.amount ?? 0).toLocaleString()}
                         </td>
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-2">
@@ -548,11 +548,11 @@ export const PaiementsTab: React.FC = () => {
                 <FileText className="h-4 w-4 text-indigo-500" />
               </div>
               <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
-                {invoiceStats.totalBilled.toLocaleString()}{' '}
+                {(invoiceStats?.totalBilled ?? 0).toLocaleString()}{' '}
                 <span className="text-xs font-normal text-slate-500">FCFA</span>
               </div>
               <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                {invoiceStats.count} factures éditées ({students.length} élèves)
+                {invoiceStats?.count ?? 0} factures éditées ({students.length} élèves)
               </span>
             </div>
 
@@ -565,11 +565,11 @@ export const PaiementsTab: React.FC = () => {
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
               </div>
               <div className="mt-2 font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-                {invoiceStats.totalPaid.toLocaleString()}{' '}
+                {(invoiceStats?.totalPaid ?? 0).toLocaleString()}{' '}
                 <span className="text-xs font-normal text-slate-500">FCFA</span>
               </div>
               <div className="flex items-center gap-2 mt-0.5 text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">
-                <span>Taux de recouvrement : {invoiceStats.collectionRate}%</span>
+                <span>Taux de recouvrement : {invoiceStats?.collectionRate ?? 0}%</span>
               </div>
             </div>
 
@@ -582,11 +582,11 @@ export const PaiementsTab: React.FC = () => {
                 <AlertTriangle className="h-4 w-4 text-rose-500" />
               </div>
               <div className="mt-2 font-mono text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums">
-                {invoiceStats.totalDue.toLocaleString()}{' '}
+                {(invoiceStats?.totalDue ?? 0).toLocaleString()}{' '}
                 <span className="text-xs font-normal text-slate-500">FCFA</span>
               </div>
               <span className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">
-                {invoiceStats.pendingCount + invoiceStats.partialCount} factures en attente / partielles
+                {(invoiceStats?.pendingCount ?? 0) + (invoiceStats?.partialCount ?? 0)} factures en attente / partielles
               </span>
             </div>
 
@@ -739,7 +739,7 @@ export const PaiementsTab: React.FC = () => {
                                   {st.level}
                                 </span>
                                 <span className="text-[10px] text-slate-400 font-mono">
-                                  ({st.monthlyFee.toLocaleString()} F)
+                                  ({(st?.monthlyFee ?? 0).toLocaleString()} F)
                                 </span>
                               </div>
                             ))}
@@ -754,19 +754,19 @@ export const PaiementsTab: React.FC = () => {
 
                         {/* 4. Total Billed */}
                         <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-700 dark:text-slate-300">
-                          {inv.totalMonthlyFee.toLocaleString()} F
+                          {(inv?.totalMonthlyFee ?? 0).toLocaleString()} F
                         </td>
 
                         {/* 5. Paid Amount */}
                         <td className="py-3.5 px-4 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                          {inv.totalPaid > 0 ? `+${inv.totalPaid.toLocaleString()} F` : '0 F'}
+                          {(inv?.totalPaid ?? 0) > 0 ? `+${(inv?.totalPaid ?? 0).toLocaleString()} F` : '0 F'}
                         </td>
 
                         {/* 6. Net Due */}
                         <td className="py-3.5 px-4 text-right font-mono font-bold">
-                          {inv.netDue > 0 ? (
+                          {(inv?.netDue ?? 0) > 0 ? (
                             <span className="text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded border border-rose-200 dark:border-rose-900/50">
-                              {inv.netDue.toLocaleString()} FCFA
+                              {(inv?.netDue ?? 0).toLocaleString()} FCFA
                             </span>
                           ) : (
                             <span className="text-emerald-600 dark:text-emerald-400">0 FCFA</span>
@@ -864,7 +864,7 @@ export const PaiementsTab: React.FC = () => {
                 </span>
                 <span className="text-slate-300 dark:text-slate-600">·</span>
                 <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">
-                  Reste total à recouvrer : {invoiceStats.totalDue.toLocaleString()} FCFA
+                  Reste total à recouvrer : {(invoiceStats?.totalDue ?? 0).toLocaleString()} FCFA
                 </span>
               </div>
               <span>Cabinet Cab-Appuis · Niamey (Niger)</span>
@@ -895,7 +895,7 @@ export const PaiementsTab: React.FC = () => {
         title="Supprimer ce paiement ?"
         message={
           paymentToDelete
-            ? `Êtes-vous certain de vouloir supprimer définitivement le paiement N° ${paymentToDelete.receiptNumber} d'un montant de ${paymentToDelete.amount.toLocaleString()} FCFA pour "${paymentToDelete.studentName}" ?\n\nCette action annulera l'enregistrement de caisse et déduira automatiquement ce montant des paiements effectués par l'élève / la famille, réajustant en temps réel son solde restant et son statut financier.`
+            ? `Êtes-vous certain de vouloir supprimer définitivement le paiement N° ${paymentToDelete.receiptNumber || 'N/A'} d'un montant de ${(paymentToDelete?.amount ?? 0).toLocaleString()} FCFA pour "${paymentToDelete.studentName || 'Élève'}" ?\n\nCette action annulera l'enregistrement de caisse et déduira automatiquement ce montant des paiements effectués par l'élève / la famille, réajustant en temps réel son solde restant et son statut financier.`
             : ''
         }
         isDeleting={isDeletingPayment}

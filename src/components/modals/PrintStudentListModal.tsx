@@ -498,10 +498,10 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
                       {/* SCOLARITÉ / PAYÉ (12%) */}
                       <td className="py-1.5 px-2 text-right font-mono border-r border-slate-200">
                         <div className="font-medium text-slate-900">
-                          {stu.monthlyFee.toLocaleString('fr-FR')} F
+                          {(stu?.monthlyFee ?? 0).toLocaleString('fr-FR')} F
                         </div>
                         <div className="text-[8px] text-emerald-700 font-semibold">
-                          Payé: {stu.paidAmount.toLocaleString('fr-FR')} F
+                          Payé: {(stu?.paidAmount ?? 0).toLocaleString('fr-FR')} F
                         </div>
                       </td>
 
@@ -509,7 +509,7 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
                       <td className="py-1.5 px-2 text-right font-mono">
                         {remaining > 0 ? (
                           <span className="font-bold text-rose-700">
-                            {remaining.toLocaleString('fr-FR')} F
+                            {(remaining ?? 0).toLocaleString('fr-FR')} F
                           </span>
                         ) : (
                           <span className="font-semibold text-emerald-600">0 F (Soldé)</span>
@@ -548,14 +548,14 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
                 </td>
                 <td className="py-2.5 px-2 text-right font-mono border-r border-slate-300 leading-tight">
                   <div className="text-slate-950 font-bold">
-                    {totalMonthlyFees.toLocaleString('fr-FR')} FCFA
+                    {(totalMonthlyFees ?? 0).toLocaleString('fr-FR')} FCFA
                   </div>
                   <div className="text-[8.5px] text-emerald-700 font-semibold">
-                    Reçu: {totalPaid.toLocaleString('fr-FR')} F
+                    Reçu: {(totalPaid ?? 0).toLocaleString('fr-FR')} F
                   </div>
                 </td>
                 <td className="py-2.5 px-2 text-right font-mono font-extrabold text-rose-700">
-                  {totalRemaining.toLocaleString('fr-FR')} FCFA
+                  {(totalRemaining ?? 0).toLocaleString('fr-FR')} FCFA
                 </td>
               </tr>
             </tfoot>
