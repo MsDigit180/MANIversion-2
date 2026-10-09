@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="pwaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#312e81" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#pwaGrad)" />
+  <g transform="translate(64, 64) scale(0.75)">
+    <!-- Shield / Crest base -->
+    <path d="M256 32L80 96v144c0 132.8 75.2 247.2 176 272 100.8-24.8 176-139.2 176-272V96L256 32z" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-width="16" stroke-linejoin="round" />
+    <!-- Graduation Cap / Excellence Emblem -->
+    <path d="M256 128L112 192l144 64 144-64-144-64z" fill="url(#accentGrad)" stroke="#ffffff" stroke-width="12" stroke-linejoin="round" />
+    <path d="M160 215v60c0 40 43 75 96 75s96-35 96-75v-60" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" />
+    <path d="M376 215v90" stroke="url(#accentGrad)" stroke-width="14" stroke-linecap="round" />
+    <circle cx="376" cy="315" r="14" fill="#f59e0b" />
+    <!-- Open Book / Wisdom -->
+    <path d="M176 390c30-20 60-15 80 0 20-15 50-20 80 0v-40c-30-20-60-15-80 0-20-15-50-20-80 0v40z" fill="#ffffff" />
+    <line x1="256" y1="350" x2="256" y2="430" stroke="#f59e0b" stroke-width="12" stroke-linecap="round" />
+  </g>
+</svg>

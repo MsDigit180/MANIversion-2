@@ -20,6 +20,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { TabKey } from '../../types';
 import { CAB_APPUIS_LOGO } from '../../assets/logo';
+import { PWAInstallButton } from '../pwa/PWAInstallButton';
 
 export const Sidebar: React.FC = () => {
   const {
@@ -155,6 +156,13 @@ export const Sidebar: React.FC = () => {
           );
         })}
       </nav>
+
+      {/* PWA In-App Install Trigger in Sidebar */}
+      {!isSidebarCollapsed && (
+        <div className="px-3 pb-1">
+          <PWAInstallButton variant="sidebar" />
+        </div>
+      )}
 
       {/* Offline-First Persistence / Architecture Card */}
       {!isSidebarCollapsed ? (

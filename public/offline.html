@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mode Hors-Ligne · Cabinet MANI</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --subtext: #94a3b8;
+      --primary: #4f46e5;
+      --amber: #f59e0b;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 2.5rem 2rem;
+      max-width: 440px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+    }
+    .icon-badge {
+      width: 4rem;
+      height: 4rem;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+    .icon-badge svg {
+      width: 2rem;
+      height: 2rem;
+      stroke: var(--amber);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
+    }
+    p {
+      color: var(--subtext);
+      font-size: 0.875rem;
+      line-height: 1.5;
+      margin-bottom: 1.75rem;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.85rem;
+      border-radius: 2rem;
+      font-size: 0.75rem;
+      color: var(--subtext);
+      margin-bottom: 1.5rem;
+    }
+    .status-dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      background: var(--amber);
+      border-radius: 50%;
+    }
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 0.75rem;
+      padding: 0.85rem 1.5rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.15s ease;
+    }
+    button:hover {
+      background: #4338ca;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-badge">
+      <svg viewBox="0 0 24 24">
+        <line x1="1" y1="1" x2="23" y2="23"></line>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+        <line x1="12" y1="20" x2="12.01" y2="20"></line>
+      </svg>
+    </div>
+    <div class="status-pill">
+      <span class="status-dot"></span>
+      <span>Connexion réseau interrompue</span>
+    </div>
+    <h1>Vous êtes hors-ligne</h1>
+    <p>
+      L'accès au réseau internet est temporairement indisponible. Le back-office Cabinet MANI conserve vos données locales en mémoire sécurisée.
+    </p>
+    <button onclick="window.location.reload()">
+      Réessayer la connexion
+    </button>
+  </div>
+</body>
+</html>

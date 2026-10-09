@@ -24,6 +24,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { LiveClock } from '../common/LiveClock';
 import { CAB_APPUIS_LOGO } from '../../assets/logo';
+import { PWAInstallButton } from '../pwa/PWAInstallButton';
 
 export const TopBar: React.FC = () => {
   const {
@@ -217,6 +218,9 @@ export const TopBar: React.FC = () => {
 
       {/* Zone 3: Actions, Theme Switcher & User Profile */}
       <div className="flex items-center gap-2 sm:gap-2.5">
+        {/* PWA In-App Install Trigger */}
+        <PWAInstallButton />
+
         {/* DYNAMIC THEME TOGGLE BUTTON (MANDATORY FIX) */}
         <button
           type="button"

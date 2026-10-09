@@ -29,6 +29,7 @@ import { AssignTutorModal } from './components/modals/AssignTutorModal';
 import { SyncDrawerModal } from './components/modals/SyncDrawerModal';
 import { GlobalSearchPalette } from './components/modals/GlobalSearchPalette';
 import { Toast } from './components/common/Toast';
+import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import {
   Users,
   CreditCard,
@@ -119,6 +120,7 @@ const DashboardContent: React.FC = () => {
       <div className={theme === 'dark' ? 'dark' : ''}>
         <LoginView />
         <Toast />
+        <OfflineIndicator />
       </div>
     );
   }
@@ -340,6 +342,7 @@ const DashboardContent: React.FC = () => {
       <SyncDrawerModal />
       <GlobalSearchPalette />
       <Toast />
+      <OfflineIndicator />
     </div>
   );
 };

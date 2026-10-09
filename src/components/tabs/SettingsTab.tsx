@@ -31,12 +31,16 @@ import {
   Camera,
   Info,
   Power,
+  Smartphone,
+  Download,
+  Wifi,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AgentRole, Agent, OFFICIAL_ROLES, DEFAULT_USER_ROLE, isSuperAdminRole, getRoleConfig } from '../../types';
 import { compressImage, getSafeAvatarUrl } from '../../utils/imageOptimizer';
 import { testFirebaseConnection } from '../../firebase';
 import { CAB_APPUIS_LOGO, CAB_APPUIS_INFO } from '../../assets/logo';
+import { PWAInstallButton } from '../pwa/PWAInstallButton';
 
 const AVATAR_PRESETS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
@@ -1160,6 +1164,49 @@ export const SettingsTab: React.FC = () => {
                 {cloudPingResult}
               </p>
             )}
+          </div>
+
+          {/* Progressive Web App (PWA) & Offline Cache Card */}
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-5 w-5 text-indigo-500" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Application PWA & Hors-Ligne
+                </h3>
+              </div>
+              <span className="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-500/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                Installable
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+              Version installable hors du navigateur avec Service Worker Workbox et stratégie Network-First / Stale-While-Revalidate.
+            </p>
+
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-750 border border-slate-200 dark:border-slate-700 text-xs space-y-2 mb-4">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 dark:text-slate-400">Mode d'affichage :</span>
+                <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">Standalone (Fenêtre Dédiée)</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 dark:text-slate-400">Service Worker :</span>
+                <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">Actif (Auto-Update)</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 dark:text-slate-400">Icônes conformes :</span>
+                <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">192px · 512px · Maskable</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 dark:text-slate-400">Stratégie API :</span>
+                <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">Network First (5s timeout)</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <PWAInstallButton variant="sidebar" className="w-full justify-center py-2.5" />
+            </div>
           </div>
 
           {/* RBAC Roles Matrix / Guide Card */}
