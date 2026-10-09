@@ -32,7 +32,11 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Student } from '../../types';
-import { PrintStudentListModal, exportStudentsToCSV } from '../modals/PrintStudentListModal';
+import {
+  PrintStudentListModal,
+  exportStudentsToCSV,
+  getStudentListDocumentTitle,
+} from '../modals/PrintStudentListModal';
 import { StudentDetailModal } from '../modals/StudentDetailModal';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
 import { GroupDetailModal } from '../modals/GroupDetailModal';
@@ -198,7 +202,20 @@ export const InscriptionsTab: React.FC = () => {
   };
 
   const handleDirectExportCSV = () => {
-    exportStudentsToCSV(filteredStudents);
+    const titleInfo = getStudentListDocumentTitle({
+      cycleFilter,
+      genderFilter,
+      promotionFilter,
+      statusFilter,
+      tutoringFilter,
+      groupFilter,
+      groupName:
+        groupFilter !== 'all' && groupFilter !== 'groups_only' && groupFilter !== 'individual_only'
+          ? tutoringGroups.find((g) => g.id === groupFilter)?.name
+          : undefined,
+      searchQuery: search,
+    });
+    exportStudentsToCSV(filteredStudents, titleInfo.title);
     showToast(`Export CSV généré avec succès pour ${filteredStudents.length} élève(s).`, 'success');
   };
 
@@ -1022,6 +1039,12 @@ export const InscriptionsTab: React.FC = () => {
         promotionFilter={promotionFilter}
         statusFilter={statusFilter}
         tutoringFilter={tutoringFilter}
+        groupFilter={groupFilter}
+        groupName={
+          groupFilter !== 'all' && groupFilter !== 'groups_only' && groupFilter !== 'individual_only'
+            ? tutoringGroups.find((g) => g.id === groupFilter)?.name
+            : undefined
+        }
         searchQuery={search}
         campusName={campus}
       />
