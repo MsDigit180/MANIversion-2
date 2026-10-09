@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   GraduationCap,
   Plus,
@@ -24,6 +24,8 @@ import {
   Loader2,
   FileText,
   Sparkles,
+  Layers,
+  FileCheck,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ExamApplication } from '../../types';
@@ -163,79 +165,195 @@ export const ConcoursTab: React.FC = () => {
     }
   };
 
-  // Distinct exam types for filter
-  const distinctExamTypes = Array.from(new Set(exams.map((e) => e.examType))).filter(Boolean);
+  // Real KPIs strictly from the Firestore database
+  const totalExamsCount = safeExams.length;
+  const validatedExamsCount = safeExams.filter(
+    (e) => e?.status === 'Validé' || e?.status === 'Admis'
+  ).length;
+  const inProgressExamsCount = safeExams.filter(
+    (e) => e?.status === 'En instruction' || e?.status === 'Inscrit'
+  ).length;
+  const missingPiecesCount = safeExams.filter(
+    (e) => e?.status === 'Pièces manquantes'
+  ).length;
+
+  // Real concours breakdown strictly from the database records
+  const dynamicExamTypes = useMemo(() => {
+    const map = new Map<string, { count: number; centers: Set<string>; fields: Set<string> }>();
+    safeExams.forEach((ex) => {
+      if (!ex) return;
+      const type = (ex.examType ?? '').trim();
+      if (!type) return;
+      const cur = map.get(type) || {
+        count: 0,
+        centers: new Set<string>(),
+        fields: new Set<string>(),
+      };
+      cur.count += 1;
+      if (ex.examCenter?.trim()) cur.centers.add(ex.examCenter.trim());
+      if (ex.fieldOfStudy?.trim()) cur.fields.add(ex.fieldOfStudy.trim());
+      map.set(type, cur);
+    });
+
+    return Array.from(map.entries())
+      .map(([name, data]) => ({
+        name,
+        count: data.count,
+        center: data.centers.size > 0 ? Array.from(data.centers)[0] : 'Centre officiel',
+        field: data.fields.size > 0 ? Array.from(data.fields)[0] : 'Préparation concours',
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [safeExams]);
+
+  // Distinct exam types for filter dropdown (from actual DB records)
+  const distinctExamTypes = useMemo(() => {
+    return Array.from(
+      new Set(safeExams.map((e) => (e?.examType ?? '').trim()).filter(Boolean))
+    );
+  }, [safeExams]);
 
   return (
     <div className="space-y-6">
-      {/* Category Highlights - Niger Civil Service & Professional Exams */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-3 shadow-sm">
+      {/* 4 Interactive KPI Cards - Strictly Synced With Firestore Database */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Card 1: Total Candidatures */}
+        <div
+          onClick={() => setStatusFilter('all')}
+          className={`rounded-2xl border p-4 cursor-pointer transition-all ${
+            statusFilter === 'all'
+              ? 'border-purple-600 bg-purple-50/50 dark:bg-purple-950/30 ring-2 ring-purple-500/20 shadow-sm'
+              : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 hover:border-slate-300 dark:hover:border-slate-700'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-800 dark:text-slate-300">ENA / ENAM</span>
-            <span className="rounded bg-indigo-50 dark:bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-mono text-indigo-700 dark:text-indigo-300">Niamey</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Dossiers Concours</span>
+            <GraduationCap className="h-4 w-4 text-purple-500" />
           </div>
-          <div className="mt-2 font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
-            {exams.filter((e) => e.examType?.includes('ENA') || e.examType?.includes('ENAM')).length || 28} candidats
+          <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
+            {totalExamsCount}
           </div>
-          <div className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">Admin & Magistrature</div>
+          <div className="flex items-center justify-between mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+            <span>Base de données</span>
+            <span className="font-semibold text-purple-600 dark:text-purple-400">
+              {dynamicExamTypes.length} concours distinct{dynamicExamTypes.length > 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-3 shadow-sm">
+        {/* Card 2: Validés & Admis */}
+        <div
+          onClick={() => setStatusFilter(statusFilter === 'Validé' ? 'all' : 'Validé')}
+          className={`rounded-2xl border p-4 cursor-pointer transition-all ${
+            statusFilter === 'Validé'
+              ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20 shadow-sm'
+              : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 hover:border-slate-300 dark:hover:border-slate-700'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-800 dark:text-slate-300">Police Nationale</span>
-            <span className="rounded bg-blue-50 dark:bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-mono text-blue-700 dark:text-blue-300">ENP</span>
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Dossiers Validés / Admis</span>
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
           </div>
-          <div className="mt-2 font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
-            {exams.filter((e) => e.examType?.includes('Police')).length || 22} candidats
+          <div className="mt-2 font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+            {validatedExamsCount}
           </div>
-          <div className="text-[10px] text-blue-600 dark:text-blue-300 mt-1">Inspecteurs & Gardiens</div>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+            Dossiers prêts & conformes
+          </span>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-3 shadow-sm">
+        {/* Card 3: En cours d'instruction */}
+        <div
+          onClick={() => setStatusFilter(statusFilter === 'En instruction' ? 'all' : 'En instruction')}
+          className={`rounded-2xl border p-4 cursor-pointer transition-all ${
+            statusFilter === 'En instruction'
+              ? 'border-amber-600 bg-amber-50/50 dark:bg-amber-950/30 ring-2 ring-amber-500/20 shadow-sm'
+              : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 hover:border-slate-300 dark:hover:border-slate-700'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-800 dark:text-slate-300">Gendarmerie</span>
-            <span className="rounded bg-emerald-50 dark:bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-mono text-emerald-700 dark:text-emerald-300">Koira Tegui</span>
+            <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">En cours d'instruction</span>
+            <Clock className="h-4 w-4 text-amber-500" />
           </div>
-          <div className="mt-2 font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
-            {exams.filter((e) => e.examType?.includes('Gendarmerie')).length || 19} candidats
+          <div className="mt-2 font-mono text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+            {inProgressExamsCount}
           </div>
-          <div className="text-[10px] text-emerald-600 dark:text-emerald-300 mt-1">Sous-Officiers</div>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+            En vérification administrative
+          </span>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-3 shadow-sm">
+        {/* Card 4: Pièces Manquantes */}
+        <div
+          onClick={() => setStatusFilter(statusFilter === 'Pièces manquantes' ? 'all' : 'Pièces manquantes')}
+          className={`rounded-2xl border p-4 cursor-pointer transition-all ${
+            statusFilter === 'Pièces manquantes'
+              ? 'border-rose-600 bg-rose-50/50 dark:bg-rose-950/30 ring-2 ring-rose-500/20 shadow-sm'
+              : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 hover:border-slate-300 dark:hover:border-slate-700'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-800 dark:text-slate-300">Garde Nationale</span>
-            <span className="rounded bg-amber-50 dark:bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-mono text-amber-800 dark:text-amber-300">GNN</span>
+            <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">Pièces Manquantes</span>
+            <AlertCircle className="h-4 w-4 text-rose-500" />
           </div>
-          <div className="mt-2 font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
-            {exams.filter((e) => e.examType?.includes('Garde') || e.examType?.includes('GNN')).length || 15} candidats
+          <div className="mt-2 font-mono text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums">
+            {missingPiecesCount}
           </div>
-          <div className="text-[10px] text-amber-600 dark:text-amber-300 mt-1">Défense & Sécurité</div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-3 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-800 dark:text-slate-300">Santé (ENSP)</span>
-            <span className="rounded bg-rose-50 dark:bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-mono text-rose-700 dark:text-rose-300">ENSP</span>
-          </div>
-          <div className="mt-2 font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
-            {exams.filter((e) => e.examType?.includes('Santé') || e.examType?.includes('ENSP')).length || 17} candidats
-          </div>
-          <div className="text-[10px] text-rose-600 dark:text-rose-300 mt-1">Infirmiers & Sages-Femmes</div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-3 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-800 dark:text-slate-300">Douanes & Trésor</span>
-            <span className="rounded bg-purple-50 dark:bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-mono text-purple-700 dark:text-purple-300">Finances</span>
-          </div>
-          <div className="mt-2 font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
-            {exams.filter((e) => e.examType?.includes('Douanes') || e.examType?.includes('Trésor')).length || 14} candidats
-          </div>
-          <div className="text-[10px] text-purple-600 dark:text-purple-300 mt-1">Contrôleurs & Agents</div>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+            Compléments requis
+          </span>
         </div>
       </div>
+
+      {/* Dynamic Breakdown by Registered Exam Types - ONLY Displayed if records exist in DB */}
+      {dynamicExamTypes.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <span className="flex items-center gap-1.5">
+              <Layers className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+              Répartition par Concours ({dynamicExamTypes.length} filière{dynamicExamTypes.length > 1 ? 's' : ''} en base de données)
+            </span>
+            {examTypeFilter !== 'all' && (
+              <button
+                onClick={() => setExamTypeFilter('all')}
+                className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline cursor-pointer"
+              >
+                Afficher tous les concours
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {dynamicExamTypes.map((item) => {
+              const isSelected = examTypeFilter === item.name;
+              return (
+                <div
+                  key={item.name}
+                  onClick={() => setExamTypeFilter(isSelected ? 'all' : item.name)}
+                  className={`rounded-2xl border p-3 shadow-sm transition-all cursor-pointer ${
+                    isSelected
+                      ? 'border-purple-600 bg-purple-50/50 dark:bg-purple-950/30 ring-2 ring-purple-500/20'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 hover:border-purple-300 dark:hover:border-purple-800'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-300 truncate" title={item.name}>
+                      {item.name}
+                    </span>
+                    <span className="rounded bg-purple-50 dark:bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-mono text-purple-700 dark:text-purple-300 shrink-0 truncate max-w-[70px]">
+                      {item.center}
+                    </span>
+                  </div>
+                  <div className="mt-2 font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+                    {item.count} candidat{item.count > 1 ? 's' : ''}
+                  </div>
+                  <div className="text-[10px] text-purple-600 dark:text-purple-400 mt-1 truncate" title={item.field}>
+                    {item.field}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Action Header & Multi-Filter Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 shadow-sm">
@@ -262,7 +380,7 @@ export const ConcoursTab: React.FC = () => {
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              Tous ({exams.length})
+              Tous ({safeExams.length})
             </button>
             <button
               onClick={() => setGenderFilter('Masculin (M)')}
