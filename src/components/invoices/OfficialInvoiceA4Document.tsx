@@ -283,10 +283,10 @@ export const OfficialInvoiceA4Document: React.FC<OfficialInvoiceA4DocumentProps>
             {data.isFamilyInvoice && data.studentItems.length > 1 ? (
               <div>
                 <p className="text-[11px] font-black text-purple-950">
-                  Fratrie & Famille ({data.studentItems.length} Élèves Inscrits)
+                  Fratrie & Famille ({(data.studentItems || []).length} Élèves Inscrits)
                 </p>
                 <p className="text-[8.5px] text-slate-600 mt-0.2 line-clamp-2">
-                  {data.studentItems.map((s) => `${s.studentName} (${s.level})`).join(' · ')}
+                  {(data.studentItems || []).map((s) => `${s?.studentName || 'Élève'} (${s?.level || '-'})`).join(' · ')}
                 </p>
               </div>
             ) : (
@@ -335,7 +335,7 @@ export const OfficialInvoiceA4Document: React.FC<OfficialInvoiceA4DocumentProps>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 text-slate-900 bg-white">
-            {data.studentItems.map((item, idx) => {
+            {(data.studentItems || []).map((item, idx) => {
               const weeklyHours = calculateWeeklyHours(item.sessionsPerWeek || 3);
               return (
                 <tr

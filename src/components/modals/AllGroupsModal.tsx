@@ -204,14 +204,14 @@ export const AllGroupsModal: React.FC<AllGroupsModalProps> = ({
                         <div className="flex items-center gap-1.5 text-slate-300 truncate">
                           <GraduationCap className="h-3.5 w-3.5 text-purple-400 shrink-0" />
                           <span className="truncate font-medium">
-                            {g.tutors.length > 0 ? g.tutors.map((t) => t.name).join(', ') : 'Aucun encadreur'}
+                            {(g.tutors || []).length > 0 ? (g.tutors || []).map((t) => t?.name || 'Encadreur').join(', ') : 'Aucun encadreur'}
                           </span>
                         </div>
                       </div>
 
                       {/* Subjects Badges */}
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {g.subjects.slice(0, 3).map((sub, i) => (
+                        {(g.subjects || []).slice(0, 3).map((sub, i) => (
                           <span
                             key={i}
                             className="text-[10px] font-medium bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded"
@@ -219,8 +219,8 @@ export const AllGroupsModal: React.FC<AllGroupsModalProps> = ({
                             {sub}
                           </span>
                         ))}
-                        {g.subjects.length > 3 && (
-                          <span className="text-[10px] text-slate-500">+{g.subjects.length - 3}</span>
+                        {(g.subjects || []).length > 3 && (
+                          <span className="text-[10px] text-slate-500">+{(g.subjects || []).length - 3}</span>
                         )}
                       </div>
                     </div>

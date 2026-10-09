@@ -126,7 +126,7 @@ export const MonthlyInvoicesView: React.FC = () => {
       setFamilyPaymentTargetParent({
         guardianName: inv.guardianName,
         guardianPhone: inv.guardianPhone,
-        studentIds: inv.studentItems.map((s) => s.studentId),
+        studentIds: (inv.studentItems || []).map((s) => s.studentId),
       });
     }
     setIsNewPaymentModalOpen(true);
@@ -383,7 +383,7 @@ export const MonthlyInvoicesView: React.FC = () => {
                     {/* Élève(s) Couvert(s) */}
                     <td className="py-3 px-4">
                       <div className="space-y-0.5">
-                        {inv.studentItems.map((st) => (
+                        {(inv.studentItems || []).map((st) => (
                           <div key={st.studentId} className="flex items-center gap-1.5 text-xs">
                             <span className="font-semibold text-slate-800 dark:text-slate-200">
                               {st.studentName}

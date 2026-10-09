@@ -68,8 +68,8 @@ export const exportStudentsToCSV = (
 
   const rows = students.map((s) => {
     const tutorsList =
-      s.tutorAssignments && s.tutorAssignments.length > 0
-        ? s.tutorAssignments.map((a) => `${a.tutorName} (${a.subjects.join('/')})`).join(', ')
+      Array.isArray(s.tutorAssignments) && s.tutorAssignments.length > 0
+        ? s.tutorAssignments.map((a) => `${a.tutorName || 'Encadreur'} (${(a.subjects || []).join('/')})`).join(', ')
         : '-';
 
     return [
@@ -398,8 +398,8 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
                 students.map((stu, index) => {
                   const remaining = Math.max(0, stu.monthlyFee - stu.paidAmount);
                   const tutorNames =
-                    stu.tutorAssignments && stu.tutorAssignments.length > 0
-                      ? stu.tutorAssignments.map((t) => t.tutorName).join(', ')
+                    Array.isArray(stu.tutorAssignments) && stu.tutorAssignments.length > 0
+                      ? stu.tutorAssignments.map((t) => t?.tutorName || 'Encadreur').join(', ')
                       : null;
 
                   return (

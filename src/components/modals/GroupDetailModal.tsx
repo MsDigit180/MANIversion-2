@@ -312,18 +312,18 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
                       </button>
                     </div>
                   ) : (
-                    liveGroup.tutors.map((tut) => (
+                    (liveGroup.tutors || []).map((tut) => (
                       <div key={tut.id} className="flex items-center justify-between gap-2 p-1 rounded bg-slate-900/60">
                         <div className="flex items-center gap-2 truncate">
                           {tut.avatar ? (
-                            <img src={tut.avatar} alt={tut.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
+                            <img src={tut.avatar} alt={tut.name || 'Encadreur'} className="h-5 w-5 rounded-full object-cover shrink-0" />
                           ) : (
                             <div className="h-5 w-5 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center text-[10px] font-bold">
-                              {tut.name[0]}
+                              {(tut.name || '?')[0]}
                             </div>
                           )}
                           <div className="truncate">
-                            <div className="text-xs font-semibold text-white truncate">{tut.name}</div>
+                            <div className="text-xs font-semibold text-white truncate">{tut.name || 'Sans nom'}</div>
                             {tut.phone && <div className="text-[10px] text-slate-400 font-mono">{tut.phone}</div>}
                           </div>
                         </div>

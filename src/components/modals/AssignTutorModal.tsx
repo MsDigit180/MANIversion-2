@@ -425,7 +425,7 @@ export const AssignTutorModal: React.FC<AssignTutorModalProps> = ({
 
               {/* LISTE DYNAMIQUE DES MATIÈRES DE L'ÉLÈVE */}
               <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {selectedStudent.subjects.map((subject) => {
+                {(selectedStudent.subjects || []).map((subject) => {
                   const normalized = normalizeSubjectName(subject);
                   const isConflict = assignedSubjectsMap.has(normalized);
                   const conflictTutor = isConflict ? assignedSubjectsMap.get(normalized)?.tutor : null;
@@ -433,7 +433,7 @@ export const AssignTutorModal: React.FC<AssignTutorModalProps> = ({
                   const isCurrentlySelected = selectedSubjects.includes(subject);
 
                   // Matière enseignée par le tuteur choisi ?
-                  const isTaughtBySelectedTutor = selectedTutor.subjects.some(
+                  const isTaughtBySelectedTutor = (selectedTutor?.subjects || []).some(
                     (s) => normalizeSubjectName(s) === normalized
                   );
 

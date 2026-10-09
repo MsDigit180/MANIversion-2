@@ -761,7 +761,7 @@ export const NewEncadreurModal: React.FC<NewEncadreurModalProps> = ({
                           </div>
 
                           <div className="flex flex-wrap gap-1.5">
-                            {stu.subjects.map((subj) => {
+                            {(stu.subjects || []).map((subj) => {
                               const normalized = normalizeSubjectName(subj);
                               const conflictEntry = coveredMap.get(normalized);
                               const isAlreadyCoveredByOther = !!conflictEntry;

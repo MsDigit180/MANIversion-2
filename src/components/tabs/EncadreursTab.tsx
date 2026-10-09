@@ -466,7 +466,7 @@ export const EncadreursTab: React.FC = () => {
                               {assignedStudentsList.length === 0 ? (
                                 <span className="text-[10px] text-slate-400 italic">Aucun élève affecté</span>
                               ) : (
-                                assignedStudentsList.map((s) => (
+                                (assignedStudentsList || []).map((s) => (
                                   <span
                                     key={s.id}
                                     className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px]"
@@ -576,12 +576,12 @@ export const EncadreursTab: React.FC = () => {
                 ) : (
                   filteredStudentsForPlanning.map((student) => {
                     const isPrimary = isPrimaryStudent(student);
-                    const coverage = getStudentPedagogicalCoverage(student, tutors);
-                    const weeklySessions = student.sessionsPerWeek || 3;
+                    const coverage = getStudentPedagogicalCoverage(student, safeTutors) || [];
+                    const weeklySessions = student?.sessionsPerWeek || 3;
                     const studentWeeklyDuration = calculateWeeklyHours(weeklySessions);
-                    const assignedCount = coverage.filter((c) => c.isAssigned).length;
-                    const totalSubjects = student.subjects.length;
-                    const isFullyCovered = assignedCount === totalSubjects;
+                    const assignedCount = coverage.filter((c) => c?.isAssigned).length;
+                    const totalSubjects = (student?.subjects || []).length;
+                    const isFullyCovered = totalSubjects > 0 && assignedCount === totalSubjects;
 
                     return (
                       <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-750/50 transition-colors">
@@ -639,7 +639,7 @@ export const EncadreursTab: React.FC = () => {
                         {/* REQUIS : LISTE DES MATIÈRES AVEC NOM ET PHOTO DE L'ENCADREUR RESPONSABLE */}
                         <td className="py-3.5 px-4">
                           <div className="flex flex-col gap-2 max-w-md">
-                            {coverage.map((item) => (
+                            {(coverage || []).map((item) => (
                               <div
                                 key={item.subject}
                                 className={`flex items-center justify-between p-2 rounded-xl border text-xs gap-2 ${

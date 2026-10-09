@@ -209,7 +209,7 @@ export const PaiementsTab: React.FC = () => {
       setFamilyPaymentTargetParent({
         guardianName: inv.guardianName,
         guardianPhone: inv.guardianPhone,
-        studentIds: inv.studentItems.map((s) => s.studentId),
+        studentIds: (inv.studentItems || []).map((s) => s.studentId),
       });
     }
     setIsNewPaymentModalOpen(true);
@@ -738,7 +738,7 @@ export const PaiementsTab: React.FC = () => {
                         {/* 3. Children */}
                         <td className="py-3.5 px-4">
                           <div className="flex flex-col gap-1">
-                            {inv.studentItems.map((st) => (
+                            {(inv.studentItems || []).map((st) => (
                               <div key={st.studentId} className="flex items-center gap-1.5">
                                 <span className="font-medium text-slate-800 dark:text-slate-200">
                                   {st.studentName}

@@ -165,10 +165,10 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
             {isMulti && receipt.studentBreakdown && receipt.studentBreakdown.length > 0 ? (
               <div>
                 <p className="text-[11px] font-black text-purple-950">
-                  Règlement Groupé Famille ({receipt.studentBreakdown.length} Élèves Couverts)
+                  Règlement Groupé Famille ({(receipt.studentBreakdown || []).length} Élèves Couverts)
                 </p>
                 <p className="text-[8.5px] text-slate-600 mt-0.2 line-clamp-2">
-                  {receipt.studentBreakdown.map((s) => `${s.studentName} (${s.level})`).join(' · ')}
+                  {(receipt.studentBreakdown || []).map((s) => `${s?.studentName || 'Élève'} (${s?.level || '-'})`).join(' · ')}
                 </p>
               </div>
             ) : (
@@ -243,7 +243,7 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 text-slate-900 bg-white">
-              {receipt.studentBreakdown.map((item, idx) => (
+              {(receipt.studentBreakdown || []).map((item, idx) => (
                 <tr
                   key={item.studentId || idx}
                   className={idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}

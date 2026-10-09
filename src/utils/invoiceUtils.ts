@@ -295,14 +295,14 @@ export function exportInvoicesToCSV(invoices: MonthlyInvoice[], monthLabel: stri
   ];
 
   const rows = invoices.map((inv) => {
-    const childrenNames = inv.studentItems.map((s) => `${s.studentName} (${s.level})`).join(' ; ');
+    const childrenNames = (inv.studentItems || []).map((s) => `${s?.studentName || 'Élève'} (${s?.level || '-'})`).join(' ; ');
     return [
       `"${inv.invoiceNumber}"`,
       `"${inv.monthLabel}"`,
       `"${inv.guardianName.replace(/"/g, '""')}"`,
       `"${inv.guardianPhone}"`,
       `"${inv.isFamilyInvoice ? 'Facture Groupée Famille' : 'Facture Individuelle'}"`,
-      inv.studentItems.length,
+      (inv.studentItems || []).length,
       `"${childrenNames.replace(/"/g, '""')}"`,
       inv.totalMonthlyFee,
       inv.totalPaid,

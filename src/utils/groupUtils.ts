@@ -87,7 +87,7 @@ export function extractTutoringGroups(students: Student[], tutors: Tutor[]): Tut
           name: tutorEntity.fullName,
           phone: tutorEntity.phone,
           avatar: tutorEntity.avatar,
-          subjects: tutorEntity.subjects,
+          subjects: Array.isArray(tutorEntity.subjects) ? tutorEntity.subjects : [],
         };
       }
       return {

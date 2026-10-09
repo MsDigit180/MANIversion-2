@@ -376,7 +376,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
             <div>
               <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Toutes les Matières inscrites :</span>
               <div className="flex flex-wrap gap-1.5 mt-1">
-                {student.subjects.map((subj, idx) => (
+                {(student.subjects || []).map((subj, idx) => (
                   <span key={idx} className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded text-[11px]">
                     {subj}
                   </span>

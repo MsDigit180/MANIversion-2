@@ -326,16 +326,16 @@ export const AssignTutorToGroupModal: React.FC<AssignTutorToGroupModalProps> = (
                       >
                         <div className="flex items-center gap-2">
                           {tut.avatar ? (
-                            <img src={tut.avatar} alt={tut.fullName} className="h-7 w-7 rounded-lg object-cover" />
+                            <img src={tut.avatar} alt={tut.fullName || 'Encadreur'} className="h-7 w-7 rounded-lg object-cover" />
                           ) : (
                             <div className="h-7 w-7 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold text-xs">
-                              {tut.fullName[0]}
+                              {(tut.fullName || '?')[0]}
                             </div>
                           )}
                           <div>
-                            <div className="font-bold text-white text-xs">{tut.fullName}</div>
+                            <div className="font-bold text-white text-xs">{tut.fullName || 'Sans nom'}</div>
                             <div className="text-[10px] text-slate-400 truncate max-w-[260px]">
-                              {tut.subjects.join(', ')}
+                              {(tut.subjects || []).join(', ')}
                             </div>
                           </div>
                         </div>
