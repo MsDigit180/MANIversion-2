@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, UserCheck, Clock, Camera, Loader2, Calendar, Sparkles, Minus, Plus, Edit } from 'lucide-react';
+import { X, UserCheck, Clock, Camera, Loader2, Calendar, Sparkles, Minus, Plus, Edit, GraduationCap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { compressImage } from '../../utils/imageOptimizer';
 import {
@@ -8,6 +8,7 @@ import {
   calculateWeeklyHours,
   calculateMonthlyHours,
 } from '../../utils/dateUtils';
+import { DEFAULT_PROMOTION, PRESET_PROMOTIONS } from '../../utils/promotionUtils';
 
 export const NewEnrollmentModal: React.FC = () => {
   const {
@@ -23,6 +24,7 @@ export const NewEnrollmentModal: React.FC = () => {
 
   const [stream, setStream] = useState<'Primaire' | 'Collège' | 'Lycée' | 'Prépa Concours'>('Primaire');
   const [level, setLevel] = useState('CM2 (CFEPD & Entrée en 6ème)');
+  const [promotion, setPromotion] = useState<string>(DEFAULT_PROMOTION);
   const [fullName, setFullName] = useState('');
   const [gender, setGender] = useState<'Masculin (M)' | 'Féminin (F)'>('Masculin (M)');
   const [avatar, setAvatar] = useState<string>('');
@@ -42,6 +44,7 @@ export const NewEnrollmentModal: React.FC = () => {
     if (editingStudent) {
       setStream((editingStudent.stream as any) || 'Primaire');
       setLevel(editingStudent.level);
+      setPromotion(editingStudent.promotion || DEFAULT_PROMOTION);
       setFullName(editingStudent.fullName);
       setGender(editingStudent.gender || 'Masculin (M)');
       setAvatar(editingStudent.avatar || '');
@@ -58,6 +61,7 @@ export const NewEnrollmentModal: React.FC = () => {
     } else {
       setStream('Primaire');
       setLevel('CM2 (CFEPD & Entrée en 6ème)');
+      setPromotion(DEFAULT_PROMOTION);
       setFullName('');
       setGender('Masculin (M)');
       setAvatar('');
@@ -131,11 +135,13 @@ export const NewEnrollmentModal: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+      const cleanPromotion = promotion.trim() || DEFAULT_PROMOTION;
       if (editingStudent) {
         await updateStudent(editingStudent.id, {
           fullName: fullName.trim(),
           gender,
           avatar: avatar || undefined,
+          promotion: cleanPromotion,
           level,
           stream,
           subjects: subjects.split(',').map((s) => s.trim()).filter(Boolean),
@@ -148,12 +154,13 @@ export const NewEnrollmentModal: React.FC = () => {
           monthlyFee,
           notes,
         });
-        showToast(`Dossier de l'élève ${fullName.trim()} mis à jour avec succès.`, 'success');
+        showToast(`Dossier de l'élève ${fullName.trim()} mis à jour avec succès (${cleanPromotion}).`, 'success');
       } else {
         await addStudent({
           fullName: fullName.trim(),
           gender,
           avatar: avatar || undefined,
+          promotion: cleanPromotion,
           level,
           stream,
           subjects: subjects.split(',').map((s) => s.trim()).filter(Boolean),
@@ -170,7 +177,7 @@ export const NewEnrollmentModal: React.FC = () => {
           enrollmentDate: getCurrentFrenchDate(),
           notes,
         });
-        showToast(`Nouvelle inscription de ${fullName.trim()} enregistrée (${validatedSessions} séances/semaine).`, 'success');
+        showToast(`Nouvelle inscription de ${fullName.trim()} enregistrée (${cleanPromotion}, ${validatedSessions} séances/semaine).`, 'success');
       }
 
       handleClose();
@@ -383,6 +390,61 @@ export const NewEnrollmentModal: React.FC = () => {
                 </>
               )}
             </select>
+          </div>
+
+          {/* Promotion / Cohorte d'encadrement */}
+          <div className="rounded-xl border border-purple-500/40 bg-purple-950/25 p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-purple-600/30 p-1.5 text-purple-400">
+                  <GraduationCap className="h-4 w-4" />
+                </div>
+                <div>
+                  <label htmlFor="promotionInput" className="block text-xs font-bold text-white">
+                    Promotion des Élèves à Encadrer *
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    Cohorte académique pour le tri et le suivi (ex: Promotion 2026-2027)
+                  </span>
+                </div>
+              </div>
+
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono text-xs font-bold border border-purple-500/30">
+                {promotion || DEFAULT_PROMOTION}
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                id="promotionInput"
+                type="text"
+                required
+                value={promotion}
+                onChange={(e) => setPromotion(e.target.value)}
+                placeholder="Ex: Promotion 2026-2027"
+                className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-white focus:border-purple-500 focus:outline-none"
+              />
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] text-slate-400 mr-0.5">Raccourcis :</span>
+                {PRESET_PROMOTIONS.slice(0, 4).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPromotion(p)}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${
+                      promotion === p
+                        ? 'bg-purple-600 border-purple-500 text-white shadow-sm'
+                        : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white'
+                    }`}
+                  >
+                    {p.replace('Promotion ', '')}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="text-[10px] text-purple-300/80">
+              🎓 Cette promotion permet de classer et trier les élèves dans le registre officiel, les listes d'encadrement et les exports PDF.
+            </p>
           </div>
 
           {/* CRITICAL NEW FIELD: Nombre de séances par semaine */}

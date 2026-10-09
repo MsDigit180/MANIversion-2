@@ -26,6 +26,7 @@ interface PrintStudentListModalProps {
   students: Student[];
   cycleFilter: string;
   genderFilter?: string;
+  promotionFilter?: string;
   statusFilter: string;
   tutoringFilter?: string;
   searchQuery: string;
@@ -39,6 +40,7 @@ export const exportStudentsToCSV = (
   const headers = [
     'Matricule',
     'Nom Complet',
+    'Promotion',
     'Sexe',
     'Niveau',
     'Cycle',
@@ -75,6 +77,7 @@ export const exportStudentsToCSV = (
     return [
       escapeCsv(s.matricule),
       escapeCsv(s.fullName),
+      escapeCsv(s.promotion || 'Promotion 2026-2027'),
       escapeCsv(s.gender || 'Masculin (M)'),
       escapeCsv(s.level),
       escapeCsv(s.stream),
@@ -115,6 +118,7 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
   students,
   cycleFilter,
   genderFilter = 'all',
+  promotionFilter = 'all',
   statusFilter,
   tutoringFilter,
   searchQuery,
@@ -324,6 +328,8 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
               <div className="flex flex-wrap items-center gap-3">
                 <span>Cycle : <strong className="text-slate-900">{getCycleLabel()}</strong></span>
                 <span>·</span>
+                <span>Promotion : <strong className="text-purple-900">{promotionFilter && promotionFilter !== 'all' ? promotionFilter : 'Toutes Promotions'}</strong></span>
+                <span>·</span>
                 <span>Sexe : <strong className="text-indigo-900">{getGenderFilterLabel()}</strong></span>
                 <span>·</span>
                 <span>Encadrement : <strong className="text-slate-900">{getTutoringFilterLabel()}</strong></span>
@@ -447,7 +453,9 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
                         <div className="font-medium text-slate-900 truncate" title={stu.level}>
                           {stu.level}
                         </div>
-                        <div className="text-[8px] text-slate-500 truncate">{stu.stream}</div>
+                        <div className="text-[8px] text-purple-700 font-semibold truncate">
+                          🎓 {stu.promotion || 'Promotion 2026-2027'} · {stu.stream}
+                        </div>
                       </td>
 
                       {/* TUTEUR & TÉLÉPHONE (16%) */}

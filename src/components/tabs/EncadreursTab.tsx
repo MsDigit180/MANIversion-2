@@ -612,15 +612,20 @@ export const EncadreursTab: React.FC = () => {
                           <span className="font-semibold text-slate-800 dark:text-slate-200 block text-xs">
                             {student.level}
                           </span>
-                          <span
-                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold mt-0.5 ${
-                              isPrimary
-                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                                : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
-                            }`}
-                          >
-                            {student.stream}
-                          </span>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                isPrimary
+                                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                  : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
+                              }`}
+                            >
+                              {student.stream}
+                            </span>
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                              🎓 {student.promotion || 'Promotion 2026-2027'}
+                            </span>
+                          </div>
                         </td>
 
                         {/* Quota hebdomadaire (1 séance = 1h 30mn) */}

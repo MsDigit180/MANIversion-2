@@ -133,9 +133,15 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   {student.gender === 'Féminin (F)' ? 'F' : 'M'}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {student.level} · Cycle {student.stream}
-              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {student.level} · Cycle {student.stream}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-bold text-[11px] border border-purple-200 dark:border-purple-800">
+                  <GraduationCap className="h-3 w-3" />
+                  {student.promotion || 'Promotion 2026-2027'}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -150,7 +156,23 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {/* Status Highlights Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            {/* Promotion / Cohorte */}
+            <div className="rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/50 dark:bg-purple-950/20 p-3.5">
+              <span className="text-[11px] text-purple-600 dark:text-purple-400 uppercase tracking-wider font-semibold block mb-1">
+                Promotion / Cohorte
+              </span>
+              <div className="flex items-center gap-1.5">
+                <GraduationCap className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                <span className="text-xs font-bold text-purple-700 dark:text-purple-300 truncate">
+                  {student.promotion || 'Promotion 2026-2027'}
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono">
+                Cohorte d'encadrement
+              </div>
+            </div>
+
             {/* Tutoring Status */}
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3.5">
               <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold block mb-1">

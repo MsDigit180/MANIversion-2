@@ -491,17 +491,22 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
                           </td>
                           <td className="py-3 px-3">
                             <div className="font-medium text-slate-200">{stu.level}</div>
-                            {stu.gender && (
-                              <span
-                                className={`inline-block px-1 rounded text-[9.5px] font-bold mt-0.5 ${
-                                  stu.gender === 'Masculin (M)'
-                                    ? 'bg-blue-500/20 text-blue-300'
-                                    : 'bg-pink-500/20 text-pink-300'
-                                }`}
-                              >
-                                {stu.gender === 'Masculin (M)' ? 'Garçon' : 'Fille'}
+                            <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                              {stu.gender && (
+                                <span
+                                  className={`inline-block px-1 rounded text-[9.5px] font-bold ${
+                                    stu.gender === 'Masculin (M)'
+                                      ? 'bg-blue-500/20 text-blue-300'
+                                      : 'bg-pink-500/20 text-pink-300'
+                                  }`}
+                                >
+                                  {stu.gender === 'Masculin (M)' ? 'Garçon' : 'Fille'}
+                                </span>
+                              )}
+                              <span className="inline-block px-1 rounded text-[9.5px] font-semibold bg-purple-500/20 text-purple-300">
+                                🎓 {stu.promotion || 'Promotion 2026-2027'}
                               </span>
-                            )}
+                            </div>
                           </td>
                           <td className="py-3 px-3">
                             <div className="font-medium text-slate-200">{stu.guardianName}</div>

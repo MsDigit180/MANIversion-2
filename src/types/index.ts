@@ -205,6 +205,7 @@ export interface Student {
   fullName: string;
   gender?: 'Masculin (M)' | 'Féminin (F)';
   avatar?: string;
+  promotion?: string; // e.g. "Promotion 2026-2027", "Promotion 2025-2026"
   level: string; // e.g. "CM2 (CFEPD)", "CE2", "3ème (BEPC)", "Terminale D"
   stream: 'Primaire' | 'Collège' | 'Lycée' | 'Prépa Concours' | string;
   subjects: string[];

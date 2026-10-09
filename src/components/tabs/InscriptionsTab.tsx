@@ -41,6 +41,7 @@ import { SelectGroupForStudentModal } from '../modals/SelectGroupForStudentModal
 import { formatSessionHours, calculateWeeklyHours, calculateTotalVolume } from '../../utils/dateUtils';
 import { extractTutoringGroups } from '../../utils/groupUtils';
 import { getStudentSiblings } from '../../utils/familyUtils';
+import { DEFAULT_PROMOTION, comparePromotions, getAllAvailablePromotions } from '../../utils/promotionUtils';
 
 export const InscriptionsTab: React.FC = () => {
   const {
@@ -65,10 +66,11 @@ export const InscriptionsTab: React.FC = () => {
 
   const [cycleFilter, setCycleFilter] = useState<string>('all');
   const [genderFilter, setGenderFilter] = useState<string>('all');
+  const [promotionFilter, setPromotionFilter] = useState<string>('all');
   const [tutoringFilter, setTutoringFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [groupFilter, setGroupFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name' | 'sessions-desc' | 'sessions-asc'>('recent');
+  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name' | 'sessions-desc' | 'sessions-asc' | 'promotion-desc' | 'promotion-asc'>('recent');
   const [search, setSearch] = useState<string>('');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isAllGroupsModalOpen, setIsAllGroupsModalOpen] = useState(false);
@@ -78,6 +80,7 @@ export const InscriptionsTab: React.FC = () => {
   const safeStudents = students || [];
   const safeTutors = tutors || [];
   const tutoringGroups = extractTutoringGroups(safeStudents, safeTutors);
+  const availablePromotions = getAllAvailablePromotions(safeStudents);
 
   // Delete state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -105,12 +108,14 @@ export const InscriptionsTab: React.FC = () => {
     const guardianSafe = (stu.guardianName || '').toLowerCase();
     const phoneSafe = stu.guardianPhone || '';
     const levelSafe = stu.level || '';
+    const studentPromo = stu.promotion || DEFAULT_PROMOTION;
 
     const matchesSearch =
       fullNameSafe.includes(searchLower) ||
       matriculeSafe.includes(searchLower) ||
       guardianSafe.includes(searchLower) ||
-      phoneSafe.includes(searchLower);
+      phoneSafe.includes(searchLower) ||
+      studentPromo.toLowerCase().includes(searchLower);
 
     const matchesCycle =
       cycleFilter === 'all' ||
@@ -123,6 +128,10 @@ export const InscriptionsTab: React.FC = () => {
       genderFilter === 'all' ||
       (genderFilter === 'Masculin (M)' && (stu.gender === 'Masculin (M)' || !stu.gender)) ||
       (genderFilter === 'Féminin (F)' && stu.gender === 'Féminin (F)');
+
+    const matchesPromotion =
+      promotionFilter === 'all' ||
+      studentPromo === promotionFilter;
 
     const matchesPaymentStatus = statusFilter === 'all' || stu.paymentStatus === statusFilter;
 
@@ -143,10 +152,16 @@ export const InscriptionsTab: React.FC = () => {
       (groupFilter === 'individual_only' && !stu.groupId) ||
       (!!stu.groupId && (stu.groupId ?? '').toLowerCase() === (groupFilter ?? '').toLowerCase());
 
-    return matchesSearch && matchesCycle && matchesGender && matchesPaymentStatus && matchesTutoring && matchesGroup;
+    return matchesSearch && matchesCycle && matchesGender && matchesPromotion && matchesPaymentStatus && matchesTutoring && matchesGroup;
   });
 
   const sortedStudents = [...filteredStudents].sort((a, b) => {
+    if (sortBy === 'promotion-desc') {
+      return comparePromotions(b.promotion || DEFAULT_PROMOTION, a.promotion || DEFAULT_PROMOTION);
+    }
+    if (sortBy === 'promotion-asc') {
+      return comparePromotions(a.promotion || DEFAULT_PROMOTION, b.promotion || DEFAULT_PROMOTION);
+    }
     if (sortBy === 'sessions-desc') {
       return (b.sessionsPerWeek || 0) - (a.sessionsPerWeek || 0);
     }
@@ -176,6 +191,10 @@ export const InscriptionsTab: React.FC = () => {
 
   const toggleSessionsSort = () => {
     setSortBy((prev) => (prev === 'sessions-desc' ? 'sessions-asc' : 'sessions-desc'));
+  };
+
+  const togglePromotionSort = () => {
+    setSortBy((prev) => (prev === 'promotion-desc' ? 'promotion-asc' : 'promotion-desc'));
   };
 
   const handleDirectExportCSV = () => {
@@ -494,6 +513,30 @@ export const InscriptionsTab: React.FC = () => {
             </select>
           </div>
 
+          {/* Promotion Filter selector (USER REQUIREMENT) */}
+          <div className="flex items-center gap-1 text-xs">
+            <select
+              value={promotionFilter}
+              onChange={(e) => setPromotionFilter(e.target.value)}
+              className={`rounded-xl border px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer transition-colors ${
+                promotionFilter !== 'all'
+                  ? 'border-purple-400 bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-bold'
+                  : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 text-slate-800 dark:text-slate-200'
+              }`}
+              title="Filtrer les élèves par promotion / cohorte"
+            >
+              <option value="all">Toutes promotions ({availablePromotions.length})</option>
+              {availablePromotions.map((p) => {
+                const countInPromo = safeStudents.filter((s) => (s.promotion || DEFAULT_PROMOTION) === p).length;
+                return (
+                  <option key={p} value={p}>
+                    🎓 {p} ({countInPromo} él.)
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
           {/* Group Filter selector */}
           <div className="flex items-center gap-1 text-xs">
             <select
@@ -517,7 +560,7 @@ export const InscriptionsTab: React.FC = () => {
             </select>
           </div>
 
-          {/* Sorting selector with sessions/week sorting requirement */}
+          {/* Sorting selector with sessions/week and promotion sorting requirements */}
           <div className="flex items-center gap-1 text-xs">
             <select
               value={sortBy}
@@ -527,6 +570,8 @@ export const InscriptionsTab: React.FC = () => {
             >
               <option value="recent">Tri : Plus récents d'abord</option>
               <option value="oldest">Tri : Plus anciens d'abord</option>
+              <option value="promotion-desc">Tri : Promotion (Récentes: 2026-2027...)</option>
+              <option value="promotion-asc">Tri : Promotion (Anciennes: 2024-2025...)</option>
               <option value="sessions-desc">Tri : Séances/semaine (Décroissant: + au -)</option>
               <option value="sessions-asc">Tri : Séances/semaine (Croissant: - au +)</option>
               <option value="name">Tri : Par Nom (Alphabétique)</option>
@@ -550,6 +595,26 @@ export const InscriptionsTab: React.FC = () => {
             <thead className="bg-slate-100 dark:bg-slate-750 text-slate-700 dark:text-slate-200 uppercase tracking-wider text-[10px] font-semibold border-b border-slate-200 dark:border-slate-700">
               <tr>
                 <th className="py-3 px-4">Élève & Matricule</th>
+
+                {/* USER REQUIREMENT: Colonne "Promotion" avec tri */}
+                <th
+                  onClick={togglePromotionSort}
+                  className="py-3 px-4 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors select-none group"
+                  title="Cliquer pour trier par Promotion (décroissant/croissant)"
+                >
+                  <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-300 font-bold">
+                    <GraduationCap className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                    <span>Promotion</span>
+                    {sortBy === 'promotion-desc' ? (
+                      <ArrowDown className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                    ) : sortBy === 'promotion-asc' ? (
+                      <ArrowUp className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                    ) : (
+                      <ArrowUpDown className="h-3 w-3 text-slate-400 opacity-60 group-hover:opacity-100 transition-opacity" />
+                    )}
+                  </div>
+                </th>
+
                 <th className="py-3 px-4">Niveau & Matières</th>
 
                 {/* USER REQUIREMENT: Colonne "Séances/semaine" avec tri */}
@@ -583,7 +648,7 @@ export const InscriptionsTab: React.FC = () => {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
               {safeStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center text-slate-400">
+                  <td colSpan={10} className="py-16 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
                       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                         <Users className="h-6 w-6" />
@@ -606,7 +671,7 @@ export const InscriptionsTab: React.FC = () => {
                 </tr>
               ) : sortedStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
+                  <td colSpan={10} className="py-12 text-center text-slate-400">
                     <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p className="font-medium text-slate-700 dark:text-slate-300">Aucun élève ne correspond aux critères.</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">Modifiez vos filtres ou effectuez une recherche.</p>
@@ -665,6 +730,19 @@ export const InscriptionsTab: React.FC = () => {
                             </div>
                           </div>
                         </div>
+                      </td>
+
+                      {/* USER REQUIREMENT: Promotion */}
+                      <td className="py-3.5 px-4">
+                        <button
+                          type="button"
+                          onClick={() => setPromotionFilter(stu.promotion || DEFAULT_PROMOTION)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/80 shadow-2xs hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors cursor-pointer text-left"
+                          title="Cliquer pour filtrer uniquement cette promotion"
+                        >
+                          <GraduationCap className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                          <span className="font-bold text-xs">{stu.promotion || DEFAULT_PROMOTION}</span>
+                        </button>
                       </td>
 
                       {/* Niveau & Matières */}
@@ -941,6 +1019,7 @@ export const InscriptionsTab: React.FC = () => {
         students={filteredStudents}
         cycleFilter={cycleFilter}
         genderFilter={genderFilter}
+        promotionFilter={promotionFilter}
         statusFilter={statusFilter}
         tutoringFilter={tutoringFilter}
         searchQuery={search}
