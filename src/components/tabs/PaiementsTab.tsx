@@ -38,6 +38,11 @@ import {
 import { InvoiceModal } from '../modals/InvoiceModal';
 import { PrintBatchInvoicesModal } from '../modals/PrintBatchInvoicesModal';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
+import {
+  PrintPaymentListModal,
+  exportPaymentsToCSV,
+  getPaymentListDocumentTitle,
+} from '../modals/PrintPaymentListModal';
 
 export const PaiementsTab: React.FC = () => {
   const {
@@ -61,6 +66,7 @@ export const PaiementsTab: React.FC = () => {
   const [methodFilter, setMethodFilter] = useState<string>('all');
   const [monthFilter, setMonthFilter] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
 
   // Invoices view state
   const [invoiceMonth, setInvoiceMonth] = useState<string>(() => {
@@ -221,6 +227,17 @@ export const PaiementsTab: React.FC = () => {
     showToast(`Export CSV des factures de ${label} téléchargé avec succès.`, 'success');
   };
 
+  const handleDirectExportPaymentsCSV = () => {
+    const titleInfo = getPaymentListDocumentTitle({
+      categoryFilter,
+      methodFilter,
+      monthFilter,
+      searchQuery: search,
+    });
+    exportPaymentsToCSV(filteredPayments, titleInfo.title);
+    showToast(`Export CSV généré avec succès pour ${filteredPayments.length} paiement(s).`, 'success');
+  };
+
   return (
     <div className="space-y-6">
       {/* Primary Sub-Tab Switcher: Receipts vs Monthly Invoices */}
@@ -257,7 +274,7 @@ export const PaiementsTab: React.FC = () => {
         </div>
 
         {/* Global Action Button */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {activeSubTab === 'invoices' ? (
             <>
               <button
@@ -279,13 +296,33 @@ export const PaiementsTab: React.FC = () => {
               </button>
             </>
           ) : (
-            <button
-              onClick={() => setIsNewPaymentModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Encaisser un Règlement</span>
-            </button>
+            <>
+              <button
+                onClick={handleDirectExportPaymentsCSV}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-colors cursor-pointer"
+                title="Télécharger la liste des paiements au format CSV"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span className="hidden sm:inline">Export CSV</span>
+              </button>
+
+              <button
+                onClick={() => setIsPrintModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-colors cursor-pointer"
+                title="Imprimer ou télécharger la liste des paiements en PDF"
+              >
+                <Printer className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>Imprimer / PDF ({filteredPayments.length})</span>
+              </button>
+
+              <button
+                onClick={() => setIsNewPaymentModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Encaisser un Règlement</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -390,13 +427,33 @@ export const PaiementsTab: React.FC = () => {
               </div>
             </div>
 
-            <button
-              onClick={() => setIsNewPaymentModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Encaisser un Règlement</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleDirectExportPaymentsCSV}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-750 hover:bg-slate-50 dark:hover:bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-colors cursor-pointer"
+                title="Exporter les paiements filtrés en CSV"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span className="hidden sm:inline">Export CSV</span>
+              </button>
+
+              <button
+                onClick={() => setIsPrintModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-750 hover:bg-slate-50 dark:hover:bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-colors cursor-pointer"
+                title="Imprimer ou enregistrer la liste des paiements en PDF"
+              >
+                <Printer className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>Imprimer / PDF</span>
+              </button>
+
+              <button
+                onClick={() => setIsNewPaymentModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Encaisser un Règlement</span>
+              </button>
+            </div>
           </div>
 
           {/* Receipts Table */}
@@ -895,6 +952,17 @@ export const PaiementsTab: React.FC = () => {
         monthLabel={formatYYYYMMToFrench(invoiceMonth)}
         isOpen={isBatchPrintModalOpen}
         onClose={() => setIsBatchPrintModalOpen(false)}
+      />
+
+      {/* Print & PDF Payments List Modal */}
+      <PrintPaymentListModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        payments={filteredPayments}
+        categoryFilter={categoryFilter}
+        methodFilter={methodFilter}
+        monthFilter={monthFilter}
+        searchQuery={search}
       />
 
       {/* Confirmation de suppression du paiement */}
