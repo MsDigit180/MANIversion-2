@@ -142,11 +142,19 @@ export const PaiementsTab: React.FC = () => {
 
   const filteredInvoices = useMemo(() => {
     return allMonthlyInvoices.filter((inv) => {
+      if (!inv) return false;
+      const searchLower = (invoiceSearch ?? '').trim().toLowerCase();
+      const invNumSafe = (inv.invoiceNumber ?? '').toLowerCase();
+      const guardianSafe = (inv.guardianName ?? '').toLowerCase();
+      const phoneSafe = inv.guardianPhone ?? '';
+      const studentItemsSafe = Array.isArray(inv.studentItems) ? inv.studentItems : [];
+
       const matchesSearch =
-        inv.invoiceNumber.toLowerCase().includes(invoiceSearch.toLowerCase()) ||
-        inv.guardianName.toLowerCase().includes(invoiceSearch.toLowerCase()) ||
-        inv.guardianPhone.includes(invoiceSearch) ||
-        inv.studentItems.some((s) => s.studentName.toLowerCase().includes(invoiceSearch.toLowerCase()));
+        !searchLower ||
+        invNumSafe.includes(searchLower) ||
+        guardianSafe.includes(searchLower) ||
+        phoneSafe.includes(invoiceSearch) ||
+        studentItemsSafe.some((s) => (s?.studentName ?? '').toLowerCase().includes(searchLower));
 
       const matchesStatus =
         invoiceStatusFilter === 'all' ||

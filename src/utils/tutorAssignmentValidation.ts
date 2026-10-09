@@ -3,17 +3,17 @@ import { Student, Tutor, StudentTutorAssignment } from '../types';
 /**
  * Normalise le nom d'une matière pour les comparaisons insensibles à la casse et aux espaces
  */
-export function normalizeSubjectName(subj: string): string {
-  return (subj || '').trim().toLowerCase();
+export function normalizeSubjectName(subj?: string): string {
+  return (subj ?? '').trim().toLowerCase();
 }
 
 /**
  * Détecte si un élève relève du cycle Primaire
  */
-export function isPrimaryStudent(student: Student): boolean {
+export function isPrimaryStudent(student?: Student | null): boolean {
   if (!student) return false;
-  const streamLower = (student.stream || '').toLowerCase();
-  const levelLower = (student.level || '').toLowerCase();
+  const streamLower = (student.stream ?? '').toLowerCase();
+  const levelLower = (student.level ?? '').toLowerCase();
   return (
     streamLower === 'primaire' ||
     levelLower.includes('primaire') ||
@@ -29,30 +29,31 @@ export function isPrimaryStudent(student: Student): boolean {
  * Récupère l'encadreur référent d'un élève du primaire
  */
 export function getPrimaryTutorForStudent(
-  student: Student,
-  tutors: Tutor[],
+  student?: Student | null,
+  tutors?: Tutor[],
   excludeTutorId?: string
 ): Tutor | null {
-  if (!isPrimaryStudent(student)) return null;
+  if (!student || !isPrimaryStudent(student)) return null;
+  const safeTutors = Array.isArray(tutors) ? tutors : [];
 
   // 1. Recherche par tutorId dans l'élève
   if (student.tutorId && student.tutorId !== excludeTutorId) {
-    const found = tutors.find((t) => t.id === student.tutorId);
+    const found = safeTutors.find((t) => t.id === student.tutorId);
     if (found) return found;
   }
 
   // 2. Recherche par tutorAssignments
-  if (student.tutorAssignments && student.tutorAssignments.length > 0) {
+  if (Array.isArray(student.tutorAssignments) && student.tutorAssignments.length > 0) {
     const assign = student.tutorAssignments.find((a) => a.tutorId !== excludeTutorId);
     if (assign) {
-      const found = tutors.find((t) => t.id === assign.tutorId);
+      const found = safeTutors.find((t) => t.id === assign.tutorId);
       if (found) return found;
     }
   }
 
   // 3. Recherche dans la liste des encadreurs dont l'élève fait partie des assignedStudentIds
-  const found = tutors.find(
-    (t) => t.id !== excludeTutorId && t.assignedStudentIds?.includes(student.id)
+  const found = safeTutors.find(
+    (t) => t.id !== excludeTutorId && Array.isArray(t.assignedStudentIds) && t.assignedStudentIds.includes(student.id)
   );
   return found || null;
 }
@@ -61,18 +62,20 @@ export function getPrimaryTutorForStudent(
  * Mappe toutes les matières déjà couvertes pour un élève avec l'encadreur responsable
  */
 export function getAssignedSubjectsMapForStudent(
-  student: Student,
-  tutors: Tutor[],
+  student?: Student | null,
+  tutors?: Tutor[],
   excludeTutorId?: string
 ): Map<string, { tutor: Tutor; subjectName: string }> {
   const map = new Map<string, { tutor: Tutor; subjectName: string }>();
   if (!student) return map;
+  const safeTutors = Array.isArray(tutors) ? tutors : [];
+  const studentSubjects = Array.isArray(student.subjects) ? student.subjects : [];
 
   // Cas 1 : Élève du primaire -> tout le socle est couvert par l'encadreur unique
   if (isPrimaryStudent(student)) {
-    const primaryTutor = getPrimaryTutorForStudent(student, tutors, excludeTutorId);
+    const primaryTutor = getPrimaryTutorForStudent(student, safeTutors, excludeTutorId);
     if (primaryTutor) {
-      student.subjects.forEach((subj) => {
+      studentSubjects.forEach((subj) => {
         map.set(normalizeSubjectName(subj), {
           tutor: primaryTutor,
           subjectName: subj,
@@ -83,8 +86,8 @@ export function getAssignedSubjectsMapForStudent(
   }
 
   // Cas 2 : Collège et Lycée -> affectation par matière
-  tutors
-    .filter((t) => t.id !== excludeTutorId)
+  safeTutors
+    .filter((t) => t && t.id !== excludeTutorId)
     .forEach((tutor) => {
       // 1. Vérification dans assignedStudentSubjects
       const subjectsTaughtToStudent = tutor.assignedStudentSubjects?.[student.id];
@@ -95,11 +98,12 @@ export function getAssignedSubjectsMapForStudent(
             subjectName: subj,
           });
         });
-      } else if (tutor.assignedStudentIds?.includes(student.id)) {
+      } else if (Array.isArray(tutor.assignedStudentIds) && tutor.assignedStudentIds.includes(student.id)) {
         // Fallback si l'élève est assigné sans mapping détaillé : intersection des matières
-        tutor.subjects.forEach((subj) => {
+        const tutorSubjects = Array.isArray(tutor.subjects) ? tutor.subjects : [];
+        tutorSubjects.forEach((subj) => {
           if (
-            student.subjects.some(
+            studentSubjects.some(
               (stuSubj) => normalizeSubjectName(stuSubj) === normalizeSubjectName(subj)
             )
           ) {
@@ -115,9 +119,9 @@ export function getAssignedSubjectsMapForStudent(
   // 2. Vérification croisée dans student.tutorAssignments
   if (Array.isArray(student.tutorAssignments)) {
     student.tutorAssignments
-      .filter((a) => a.tutorId !== excludeTutorId)
+      .filter((a) => a && a.tutorId !== excludeTutorId)
       .forEach((assignment) => {
-        const tutor = tutors.find((t) => t.id === assignment.tutorId);
+        const tutor = safeTutors.find((t) => t.id === assignment.tutorId);
         if (tutor && Array.isArray(assignment.subjects)) {
           assignment.subjects.forEach((subj) => {
             map.set(normalizeSubjectName(subj), {
@@ -208,15 +212,17 @@ export interface SubjectPedagogicalCoverage {
  * Calcule pour un élève l'état complet de couverture matière par matière
  */
 export function getStudentPedagogicalCoverage(
-  student: Student,
-  tutors: Tutor[]
+  student?: Student | null,
+  tutors?: Tutor[]
 ): SubjectPedagogicalCoverage[] {
   if (!student) return [];
+  const safeTutors = Array.isArray(tutors) ? tutors : [];
+  const studentSubjects = Array.isArray(student.subjects) ? student.subjects : [];
 
   const isPrimary = isPrimaryStudent(student);
   if (isPrimary) {
-    const primaryTutor = getPrimaryTutorForStudent(student, tutors);
-    return student.subjects.map((subj) => ({
+    const primaryTutor = getPrimaryTutorForStudent(student, safeTutors);
+    return studentSubjects.map((subj) => ({
       subject: subj,
       isAssigned: !!primaryTutor,
       tutor: primaryTutor,
@@ -227,18 +233,18 @@ export function getStudentPedagogicalCoverage(
     }));
   }
 
-  const coveredMap = getAssignedSubjectsMapForStudent(student, tutors);
+  const coveredMap = getAssignedSubjectsMapForStudent(student, safeTutors);
 
-  return student.subjects.map((subj) => {
+  return studentSubjects.map((subj) => {
     const entry = coveredMap.get(normalizeSubjectName(subj));
     return {
       subject: subj,
       isAssigned: !!entry,
       tutor: entry?.tutor || null,
-      tutorName: entry?.tutor.fullName,
-      tutorAvatar: entry?.tutor.avatar,
-      tutorPhone: entry?.tutor.phone,
-      tutorMatricule: entry?.tutor.matricule,
+      tutorName: entry?.tutor?.fullName,
+      tutorAvatar: entry?.tutor?.avatar,
+      tutorPhone: entry?.tutor?.phone,
+      tutorMatricule: entry?.tutor?.matricule,
     };
   });
 }

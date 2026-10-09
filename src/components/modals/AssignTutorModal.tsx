@@ -227,12 +227,17 @@ export const AssignTutorModal: React.FC<AssignTutorModalProps> = ({
     }
   };
 
-  const filteredStudents = safeStudents.filter(
-    (s) =>
-      (s.fullName || '').toLowerCase().includes(studentSearch.toLowerCase()) ||
-      (s.matricule || '').toLowerCase().includes(studentSearch.toLowerCase()) ||
-      (s.level || '').toLowerCase().includes(studentSearch.toLowerCase())
-  );
+  const filteredStudents = safeStudents.filter((s) => {
+    if (!s) return false;
+    const searchLower = (studentSearch ?? '').trim().toLowerCase();
+    if (!searchLower) return true;
+    return (
+      (s.fullName ?? '').toLowerCase().includes(searchLower) ||
+      (s.matricule ?? '').toLowerCase().includes(searchLower) ||
+      (s.level ?? '').toLowerCase().includes(searchLower) ||
+      (s.guardianName ?? '').toLowerCase().includes(searchLower)
+    );
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">

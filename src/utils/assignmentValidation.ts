@@ -61,45 +61,48 @@ export function validateSubjectAssignment(
   candidateTutorId: string,
   tutors: Tutor[]
 ): AssignmentValidationResult {
+  if (!student) return { isValid: true };
+  const safeTutors = Array.isArray(tutors) ? tutors : [];
+
   // If primary school, enforce primary single-tutor rule
   if (student.stream === 'Primaire') {
-    return validatePrimaryAssignment(student, candidateTutorId, tutors);
+    return validatePrimaryAssignment(student, candidateTutorId, safeTutors);
   }
 
   // Normalize subject comparison
-  const normalizedTarget = subject.trim().toLowerCase();
+  const normalizedTarget = (subject ?? '').trim().toLowerCase();
 
   // Find if another tutor covers this subject for this student
-  for (const t of tutors) {
-    if (t.id === candidateTutorId) continue;
+  for (const t of safeTutors) {
+    if (!t || t.id === candidateTutorId) continue;
     if (!t.assignedStudentIds?.includes(student.id)) continue;
 
     // Check tutor's assignedStudentSubjects map first
     const specificSubjects = t.assignedStudentSubjects?.[student.id];
     if (specificSubjects && specificSubjects.length > 0) {
-      const match = specificSubjects.find((s) => s.trim().toLowerCase() === normalizedTarget);
+      const match = specificSubjects.find((s) => (s ?? '').trim().toLowerCase() === normalizedTarget);
       if (match) {
         return {
           isValid: false,
-          errorMessage: `Erreur : Cet élève a déjà un encadreur attribué pour la matière ${subject} (${t.fullName}).`,
+          errorMessage: `Erreur : Cet élève a déjà un encadreur attribué pour la matière ${subject} (${t.fullName || 'Encadreur'}).`,
           conflictingTutor: t,
           conflictingSubject: subject,
         };
       }
     } else {
       // Fallback: Check if student has tutorAssignments or if tutor's global subjects overlap
-      const assignmentRecord = student.tutorAssignments?.find((a) => a.tutorId === t.id);
-      if (assignmentRecord?.subjects?.some((s) => s.trim().toLowerCase() === normalizedTarget)) {
+      const assignmentRecord = student.tutorAssignments?.find((a) => a?.tutorId === t.id);
+      if (assignmentRecord?.subjects?.some((s) => (s ?? '').trim().toLowerCase() === normalizedTarget)) {
         return {
           isValid: false,
-          errorMessage: `Erreur : Cet élève a déjà un encadreur attribué pour la matière ${subject} (${t.fullName}).`,
+          errorMessage: `Erreur : Cet élève a déjà un encadreur attribué pour la matière ${subject} (${t.fullName || 'Encadreur'}).`,
           conflictingTutor: t,
           conflictingSubject: subject,
         };
-      } else if (!assignmentRecord && t.subjects?.some((s) => s.trim().toLowerCase() === normalizedTarget)) {
+      } else if (!assignmentRecord && t.subjects?.some((s) => (s ?? '').trim().toLowerCase() === normalizedTarget)) {
         return {
           isValid: false,
-          errorMessage: `Erreur : Cet élève a déjà un encadreur attribué pour la matière ${subject} (${t.fullName}).`,
+          errorMessage: `Erreur : Cet élève a déjà un encadreur attribué pour la matière ${subject} (${t.fullName || 'Encadreur'}).`,
           conflictingTutor: t,
           conflictingSubject: subject,
         };
@@ -118,14 +121,16 @@ export function getStudentSubjectsCoverage(
   student: Student,
   tutors: Tutor[]
 ): StudentSubjectCoverage[] {
-  const subjects = student.subjects || [];
+  if (!student) return [];
+  const safeTutors = Array.isArray(tutors) ? tutors : [];
+  const subjects = Array.isArray(student.subjects) ? student.subjects : [];
 
   return subjects.map((subject) => {
-    const normalized = subject.trim().toLowerCase();
+    const normalized = (subject ?? '').trim().toLowerCase();
 
     // Check primary school direct tutor
     if (student.stream === 'Primaire') {
-      const tutor = tutors.find((t) => t.assignedStudentIds?.includes(student.id));
+      const tutor = safeTutors.find((t) => t && t.assignedStudentIds?.includes(student.id));
       if (tutor) {
         return {
           subject,
@@ -139,12 +144,12 @@ export function getStudentSubjectsCoverage(
     }
 
     // Check college / lycée tutors
-    for (const t of tutors) {
-      if (!t.assignedStudentIds?.includes(student.id)) continue;
+    for (const t of safeTutors) {
+      if (!t || !t.assignedStudentIds?.includes(student.id)) continue;
 
       const specificSubjects = t.assignedStudentSubjects?.[student.id];
       if (specificSubjects && specificSubjects.length > 0) {
-        if (specificSubjects.some((s) => s.trim().toLowerCase() === normalized)) {
+        if (specificSubjects.some((s) => (s ?? '').trim().toLowerCase() === normalized)) {
           return {
             subject,
             isAssigned: true,
@@ -155,8 +160,8 @@ export function getStudentSubjectsCoverage(
           };
         }
       } else {
-        const assignmentRecord = student.tutorAssignments?.find((a) => a.tutorId === t.id);
-        if (assignmentRecord?.subjects?.some((s) => s.trim().toLowerCase() === normalized)) {
+        const assignmentRecord = student.tutorAssignments?.find((a) => a?.tutorId === t.id);
+        if (assignmentRecord?.subjects?.some((s) => (s ?? '').trim().toLowerCase() === normalized)) {
           return {
             subject,
             isAssigned: true,
@@ -165,7 +170,7 @@ export function getStudentSubjectsCoverage(
             tutorAvatar: t.avatar,
             tutorPhone: t.phone,
           };
-        } else if (t.subjects?.some((s) => s.trim().toLowerCase() === normalized)) {
+        } else if (t.subjects?.some((s) => (s ?? '').trim().toLowerCase() === normalized)) {
           return {
             subject,
             isAssigned: true,

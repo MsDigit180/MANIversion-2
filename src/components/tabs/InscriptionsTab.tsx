@@ -141,7 +141,7 @@ export const InscriptionsTab: React.FC = () => {
       groupFilter === 'all' ||
       (groupFilter === 'groups_only' && !!stu.groupId) ||
       (groupFilter === 'individual_only' && !stu.groupId) ||
-      (stu.groupId && stu.groupId.toLowerCase() === groupFilter.toLowerCase());
+      (!!stu.groupId && (stu.groupId ?? '').toLowerCase() === (groupFilter ?? '').toLowerCase());
 
     return matchesSearch && matchesCycle && matchesGender && matchesPaymentStatus && matchesTutoring && matchesGroup;
   });
@@ -690,7 +690,7 @@ export const InscriptionsTab: React.FC = () => {
                             type="button"
                             onClick={() => {
                               const g = tutoringGroups.find(
-                                (grp) => grp.id.toLowerCase() === stu.groupId?.toLowerCase()
+                                (grp) => (grp?.id ?? '').toLowerCase() === (stu.groupId ?? '').toLowerCase()
                               );
                               if (g) {
                                 setSelectedGroupForDetail(g);

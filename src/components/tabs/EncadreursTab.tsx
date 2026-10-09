@@ -68,8 +68,10 @@ export const EncadreursTab: React.FC = () => {
 
   // Helper pour calculer les heures déduites d'un encadreur (1 séance = 1.5h = 1h 30mn)
   const getTutorHours = (t: Tutor) => {
-    const tStudents = safeStudents.filter((s) => t.assignedStudentIds?.includes(s.id));
-    const tSessions = tStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
+    if (!t) return { sessionsCount: 0, weeklyHours: 0, monthlyHours: 0, studentsCount: 0 };
+    const assignedIds = Array.isArray(t.assignedStudentIds) ? t.assignedStudentIds : [];
+    const tStudents = safeStudents.filter((s) => s && assignedIds.includes(s.id));
+    const tSessions = tStudents.reduce((acc, s) => acc + (s?.sessionsPerWeek || 3), 0);
     const weekly = calculateWeeklyHours(tSessions);
     const monthly = calculateMonthlyHours(tSessions);
     return {
@@ -83,19 +85,27 @@ export const EncadreursTab: React.FC = () => {
   // Filtrage et tri des encadreurs
   const filteredTutors = safeTutors
     .filter((t) => {
-      const searchLower = (search || '').toLowerCase();
-      const nameSafe = (t.fullName || '').toLowerCase();
-      const matriculeSafe = (t.matricule || '').toLowerCase();
-      const subjectsSafe = t.subjects || [];
-      const levelsSafe = t.levels || [];
+      if (!t) return false;
+      const searchLower = (search ?? '').trim().toLowerCase();
+      const nameSafe = (t.fullName ?? '').toLowerCase();
+      const matriculeSafe = (t.matricule ?? '').toLowerCase();
+      const emailSafe = (t.email ?? '').toLowerCase();
+      const phoneSafe = (t.phone ?? '').toLowerCase();
+      const subjectsSafe = Array.isArray(t.subjects) ? t.subjects : [];
+      const levelsSafe = Array.isArray(t.levels) ? t.levels : [];
 
       const matchesSearch =
+        !searchLower ||
         nameSafe.includes(searchLower) ||
         matriculeSafe.includes(searchLower) ||
-        subjectsSafe.some((s) => (s || '').toLowerCase().includes(searchLower));
+        emailSafe.includes(searchLower) ||
+        phoneSafe.includes(searchLower) ||
+        subjectsSafe.some((s) => (s ?? '').toLowerCase().includes(searchLower));
 
-      const matchesGender = genderFilter === 'all' || t.gender === genderFilter;
-      const matchesLevel = levelFilter === 'all' || levelsSafe.includes(levelFilter);
+      const matchesGender = genderFilter === 'all' || (t.gender ?? '') === genderFilter;
+      const matchesLevel =
+        levelFilter === 'all' ||
+        levelsSafe.some((lvl) => (lvl ?? '').toLowerCase() === (levelFilter ?? '').toLowerCase());
 
       return matchesSearch && matchesGender && matchesLevel;
     })
@@ -104,37 +114,40 @@ export const EncadreursTab: React.FC = () => {
         return getTutorHours(b).weeklyHours - getTutorHours(a).weeklyHours;
       }
       if (sortBy === 'students') {
-        return (b.assignedStudentIds?.length || 0) - (a.assignedStudentIds?.length || 0);
+        return (b?.assignedStudentIds?.length || 0) - (a?.assignedStudentIds?.length || 0);
       }
-      return (a.fullName || '').localeCompare(b.fullName || '');
+      return (a?.fullName ?? '').localeCompare(b?.fullName ?? '');
     });
 
   // Filtrage des élèves pour le tableau de planification des séances
   const filteredStudentsForPlanning = safeStudents.filter((s) => {
-    const searchLower = (search || '').toLowerCase();
-    const nameSafe = (s.fullName || '').toLowerCase();
-    const matriculeSafe = (s.matricule || '').toLowerCase();
-    const levelSafe = (s.level || '').toLowerCase();
-    const subjectsSafe = s.subjects || [];
+    if (!s) return false;
+    const searchLower = (search ?? '').trim().toLowerCase();
+    const nameSafe = (s.fullName ?? '').toLowerCase();
+    const matriculeSafe = (s.matricule ?? '').toLowerCase();
+    const levelSafe = (s.level ?? '').toLowerCase();
+    const streamSafe = (s.stream ?? '').toLowerCase();
+    const subjectsSafe = Array.isArray(s.subjects) ? s.subjects : [];
 
     const matchesSearch =
+      !searchLower ||
       nameSafe.includes(searchLower) ||
       matriculeSafe.includes(searchLower) ||
       levelSafe.includes(searchLower) ||
-      subjectsSafe.some((sub) => (sub || '').toLowerCase().includes(searchLower));
+      subjectsSafe.some((sub) => (sub ?? '').toLowerCase().includes(searchLower));
 
     const matchesLevel =
       levelFilter === 'all' ||
-      s.stream === levelFilter ||
-      levelSafe.includes((levelFilter || '').toLowerCase());
+      streamSafe === (levelFilter ?? '').toLowerCase() ||
+      levelSafe.includes((levelFilter ?? '').toLowerCase());
 
     return matchesSearch && matchesLevel;
   });
 
-  const totalTutors = tutors.length;
-  const totalWeeklyHoursAll = tutors.reduce((acc, t) => acc + getTutorHours(t).weeklyHours, 0);
+  const totalTutors = safeTutors.length;
+  const totalWeeklyHoursAll = safeTutors.reduce((acc, t) => acc + getTutorHours(t).weeklyHours, 0);
   const totalMonthlyHoursAll = totalWeeklyHoursAll * 4;
-  const totalStudentsAssigned = tutors.reduce((acc, t) => acc + (t.assignedStudentIds?.length || 0), 0);
+  const totalStudentsAssigned = safeTutors.reduce((acc, t) => acc + (t?.assignedStudentIds?.length || 0), 0);
 
   const handleDeleteConfirm = async () => {
     if (!tutorToDelete) return;
@@ -380,21 +393,24 @@ export const EncadreursTab: React.FC = () => {
                   </tr>
                 ) : (
                   filteredTutors.map((tutor) => {
-                    const assignedStudentsList = students.filter((s) => tutor.assignedStudentIds?.includes(s.id));
+                    const assignedIds = Array.isArray(tutor?.assignedStudentIds) ? tutor.assignedStudentIds : [];
+                    const assignedStudentsList = safeStudents.filter((s) => s && assignedIds.includes(s.id));
                     const tutorHours = getTutorHours(tutor);
+                    const subjectsList = Array.isArray(tutor?.subjects) ? tutor.subjects : [];
+                    const levelsList = Array.isArray(tutor?.levels) ? tutor.levels : [];
 
                     return (
                       <tr key={tutor.id} className="hover:bg-slate-50 dark:hover:bg-slate-750/50 transition-colors">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
                             <img
-                              src={tutor.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'}
-                              alt={tutor.fullName}
+                              src={tutor?.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'}
+                              alt={tutor?.fullName || 'Encadreur'}
                               className="h-9 w-9 rounded-full object-cover ring-2 ring-indigo-500/20"
                             />
                             <div>
-                              <span className="font-bold text-slate-900 dark:text-white block">{tutor.fullName}</span>
-                              <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400">{tutor.matricule}</span>
+                              <span className="font-bold text-slate-900 dark:text-white block">{tutor?.fullName || 'Sans nom'}</span>
+                              <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400">{tutor?.matricule || 'N/A'}</span>
                             </div>
                           </div>
                         </td>
@@ -402,20 +418,20 @@ export const EncadreursTab: React.FC = () => {
                         <td className="py-3 px-4">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              tutor.gender === 'Masculin (M)'
+                              tutor?.gender === 'Masculin (M)'
                                 ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
                                 : 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20'
                             }`}
                           >
-                            {tutor.gender === 'Masculin (M)' ? 'M' : 'F'}
+                            {tutor?.gender === 'Masculin (M)' ? 'M' : tutor?.gender === 'Féminin (F)' ? 'F' : '—'}
                           </span>
                         </td>
 
                         <td className="py-3 px-4">
                           <div className="flex flex-wrap gap-1 max-w-xs">
-                            {tutor.subjects.map((subj, idx) => (
+                            {subjectsList.map((subj, idx) => (
                               <span key={idx} className="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-1.5 py-0.5 rounded text-[10px] font-medium">
-                                {subj}
+                                {subj ?? ''}
                               </span>
                             ))}
                           </div>
@@ -423,9 +439,9 @@ export const EncadreursTab: React.FC = () => {
 
                         <td className="py-3 px-4">
                           <div className="flex flex-wrap gap-1">
-                            {tutor.levels.map((lvl, idx) => (
+                            {levelsList.map((lvl, idx) => (
                               <span key={idx} className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded text-[10px] font-semibold">
-                                {lvl}
+                                {lvl ?? ''}
                               </span>
                             ))}
                           </div>

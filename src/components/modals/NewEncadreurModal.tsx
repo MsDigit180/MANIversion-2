@@ -174,14 +174,14 @@ export const NewEncadreurModal: React.FC<NewEncadreurModalProps> = ({
       const availableSubjects = tutorTaughtSubjects.filter((subj) => {
         const normalized = normalizeSubjectName(subj);
         return (
-          stu.subjects.some((s) => normalizeSubjectName(s) === normalized) &&
+          (stu.subjects || []).some((s) => normalizeSubjectName(s) === normalized) &&
           !assignedMap.has(normalized)
         );
       });
 
       // Si toutes les matières que cet encadreur enseigne sont déjà couvertes par un autre pour cet élève
       const hasAnyCompatible = tutorTaughtSubjects.some((subj) =>
-        stu.subjects.some((s) => normalizeSubjectName(s) === normalizeSubjectName(subj))
+        (stu.subjects || []).some((s) => normalizeSubjectName(s) === normalizeSubjectName(subj))
       );
 
       if (hasAnyCompatible && availableSubjects.length === 0) {
@@ -205,7 +205,7 @@ export const NewEncadreurModal: React.FC<NewEncadreurModalProps> = ({
       // Pour le primaire, toutes les matières de l'élève sont prises en charge
       const nextMap = {
         ...studentSubjectsMap,
-        [stu.id]: stu.subjects,
+        [stu.id]: stu.subjects || [],
       };
       setStudentSubjectsMap(nextMap);
     }
@@ -251,12 +251,22 @@ export const NewEncadreurModal: React.FC<NewEncadreurModalProps> = ({
     });
   };
 
-  const filteredStudents = students.filter(
-    (stu) =>
-      stu.fullName.toLowerCase().includes(studentSearch.toLowerCase()) ||
-      stu.matricule.toLowerCase().includes(studentSearch.toLowerCase()) ||
-      stu.level.toLowerCase().includes(studentSearch.toLowerCase())
-  );
+  const filteredStudents = safeStudents.filter((stu) => {
+    if (!stu) return false;
+    const searchLower = (studentSearch ?? '').trim().toLowerCase();
+    if (!searchLower) return true;
+    const nameSafe = (stu.fullName ?? '').toLowerCase();
+    const matriculeSafe = (stu.matricule ?? '').toLowerCase();
+    const levelSafe = (stu.level ?? '').toLowerCase();
+    const guardianSafe = (stu.guardianName ?? '').toLowerCase();
+
+    return (
+      nameSafe.includes(searchLower) ||
+      matriculeSafe.includes(searchLower) ||
+      levelSafe.includes(searchLower) ||
+      guardianSafe.includes(searchLower)
+    );
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

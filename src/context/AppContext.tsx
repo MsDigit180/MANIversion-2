@@ -721,6 +721,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const matricule = `ENC-2026-${String(Math.floor(Math.random() * 900) + 100)}`;
     const newTutor: Tutor = {
       ...tutorData,
+      fullName: tutorData.fullName?.trim() || '',
+      gender: tutorData.gender || 'Masculin (M)',
+      phone: tutorData.phone?.trim() || '',
+      email: tutorData.email?.trim() || '',
+      avatar: tutorData.avatar || '',
+      subjects: Array.isArray(tutorData.subjects) ? tutorData.subjects : [],
+      levels: Array.isArray(tutorData.levels) ? tutorData.levels : [],
+      assignedStudentIds: Array.isArray(tutorData.assignedStudentIds) ? tutorData.assignedStudentIds : [],
+      assignedStudentSubjects: tutorData.assignedStudentSubjects || {},
+      sessions: Array.isArray(tutorData.sessions) ? tutorData.sessions : [],
+      totalHours: tutorData.totalHours || 0,
       id,
       matricule,
       syncStatus: 'synced',

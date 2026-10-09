@@ -41,19 +41,29 @@ export const AllGroupsModal: React.FC<AllGroupsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const filteredGroups = groups.filter((g) => {
-    const matchesSearch =
-      g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      g.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      g.subjects.some((s) => s.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      g.tutors.some((t) => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredGroups = (groups || []).filter((g) => {
+    if (!g) return false;
+    const searchLower = (searchTerm ?? '').trim().toLowerCase();
+    const nameSafe = (g.name ?? '').toLowerCase();
+    const idSafe = (g.id ?? '').toLowerCase();
+    const subjectsSafe = Array.isArray(g.subjects) ? g.subjects : [];
+    const tutorsSafe = Array.isArray(g.tutors) ? g.tutors : [];
 
-    const matchesStream = streamFilter === 'all' || g.stream.toLowerCase().includes(streamFilter.toLowerCase());
+    const matchesSearch =
+      !searchLower ||
+      nameSafe.includes(searchLower) ||
+      idSafe.includes(searchLower) ||
+      subjectsSafe.some((s) => (s ?? '').toLowerCase().includes(searchLower)) ||
+      tutorsSafe.some((t) => (t?.name ?? '').toLowerCase().includes(searchLower));
+
+    const matchesStream =
+      streamFilter === 'all' ||
+      (g.stream ?? '').toLowerCase().includes((streamFilter ?? '').toLowerCase());
 
     return matchesSearch && matchesStream;
   });
 
-  const totalGroupStudents = groups.reduce((sum, g) => sum + g.students.length, 0);
+  const totalGroupStudents = (groups || []).reduce((sum, g) => sum + (g?.students?.length || 0), 0);
 
   return (
     <>

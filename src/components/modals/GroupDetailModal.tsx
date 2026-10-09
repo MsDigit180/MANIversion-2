@@ -67,18 +67,26 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
   const liveGroup = useMemo(() => {
     if (!group) return null;
     const allGroups = extractTutoringGroups(students, tutors);
-    return allGroups.find((g) => g.id.toLowerCase() === group.id.toLowerCase()) || group;
+    return allGroups.find((g) => (g?.id ?? '').toLowerCase() === (group.id ?? '').toLowerCase()) || group;
   }, [group, students, tutors]);
 
   if (!isOpen || !liveGroup) return null;
 
   // Filter students within the group
-  const filteredStudents = liveGroup.students.filter((stu) => {
+  const filteredStudents = (liveGroup.students || []).filter((stu) => {
+    if (!stu) return false;
+    const searchLower = (searchTerm ?? '').trim().toLowerCase();
+    const nameSafe = (stu.fullName ?? '').toLowerCase();
+    const matriculeSafe = (stu.matricule ?? '').toLowerCase();
+    const guardianSafe = (stu.guardianName ?? '').toLowerCase();
+    const phoneSafe = stu.guardianPhone ?? '';
+
     const matchesSearch =
-      stu.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      stu.matricule.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      stu.guardianName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      stu.guardianPhone.includes(searchTerm);
+      !searchLower ||
+      nameSafe.includes(searchLower) ||
+      matriculeSafe.includes(searchLower) ||
+      guardianSafe.includes(searchLower) ||
+      phoneSafe.includes(searchTerm);
 
     const matchesStatus =
       statusFilter === 'all' ||

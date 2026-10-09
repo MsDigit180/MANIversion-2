@@ -67,17 +67,25 @@ export const MonthlyInvoicesView: React.FC = () => {
   });
 
   // Filter invoices
-  const filteredInvoices = allInvoices.filter((inv) => {
+  const filteredInvoices = (allInvoices || []).filter((inv) => {
+    if (!inv) return false;
+    const searchLower = (search ?? '').trim().toLowerCase();
+    const invNumSafe = (inv.invoiceNumber ?? '').toLowerCase();
+    const guardianSafe = (inv.guardianName ?? '').toLowerCase();
+    const phoneSafe = inv.guardianPhone ?? '';
+    const studentItemsSafe = Array.isArray(inv.studentItems) ? inv.studentItems : [];
+
     const matchesSearch =
-      inv.invoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
-      inv.guardianName.toLowerCase().includes(search.toLowerCase()) ||
-      inv.guardianPhone.includes(search) ||
-      inv.studentItems.some((s) => s.studentName.toLowerCase().includes(search.toLowerCase()));
+      !searchLower ||
+      invNumSafe.includes(searchLower) ||
+      guardianSafe.includes(searchLower) ||
+      phoneSafe.includes(search) ||
+      studentItemsSafe.some((s) => (s?.studentName ?? '').toLowerCase().includes(searchLower));
 
     const matchesStatus =
       statusFilter === 'all' ||
       inv.status === statusFilter ||
-      (statusFilter === 'due_only' && inv.netDue > 0) ||
+      (statusFilter === 'due_only' && (inv.netDue || 0) > 0) ||
       (statusFilter === 'families_only' && inv.isFamilyInvoice);
 
     return matchesSearch && matchesStatus;

@@ -93,21 +93,33 @@ export const AssignTutorToGroupModal: React.FC<AssignTutorToGroupModalProps> = (
   };
 
   const filteredTutors = useMemo(() => {
-    return tutors.filter((t) => {
+    return (tutors || []).filter((t) => {
+      if (!t) return false;
+      const searchLower = (tutorSearchTerm ?? '').trim().toLowerCase();
+      if (!searchLower) return true;
+      const nameSafe = (t.fullName ?? '').toLowerCase();
+      const matriculeSafe = (t.matricule ?? '').toLowerCase();
+      const subjectsSafe = Array.isArray(t.subjects) ? t.subjects : [];
       const match =
-        t.fullName.toLowerCase().includes(tutorSearchTerm.toLowerCase()) ||
-        t.matricule.toLowerCase().includes(tutorSearchTerm.toLowerCase()) ||
-        t.subjects.some((s) => s.toLowerCase().includes(tutorSearchTerm.toLowerCase()));
+        nameSafe.includes(searchLower) ||
+        matriculeSafe.includes(searchLower) ||
+        subjectsSafe.some((s) => (s ?? '').toLowerCase().includes(searchLower));
       return match;
     });
   }, [tutors, tutorSearchTerm]);
 
   const filteredGroups = useMemo(() => {
-    return allGroups.filter((g) => {
+    return (allGroups || []).filter((g) => {
+      if (!g) return false;
+      const searchLower = (groupSearchTerm ?? '').trim().toLowerCase();
+      if (!searchLower) return true;
+      const nameSafe = (g.name ?? '').toLowerCase();
+      const idSafe = (g.id ?? '').toLowerCase();
+      const levelSafe = (g.level ?? '').toLowerCase();
       const match =
-        g.name.toLowerCase().includes(groupSearchTerm.toLowerCase()) ||
-        g.id.toLowerCase().includes(groupSearchTerm.toLowerCase()) ||
-        g.level.toLowerCase().includes(groupSearchTerm.toLowerCase());
+        nameSafe.includes(searchLower) ||
+        idSafe.includes(searchLower) ||
+        levelSafe.includes(searchLower);
       return match;
     });
   }, [allGroups, groupSearchTerm]);
@@ -116,10 +128,14 @@ export const AssignTutorToGroupModal: React.FC<AssignTutorToGroupModalProps> = (
   const availableSubjects = useMemo(() => {
     const set = new Set<string>();
     if (activeGroup) {
-      activeGroup.subjects.forEach((s) => set.add(s));
+      (activeGroup.subjects || []).forEach((s) => {
+        if (s) set.add(s);
+      });
     }
     if (activeTutor) {
-      activeTutor.subjects.forEach((s) => set.add(s));
+      (activeTutor.subjects || []).forEach((s) => {
+        if (s) set.add(s);
+      });
     }
     return Array.from(set);
   }, [activeGroup, activeTutor]);

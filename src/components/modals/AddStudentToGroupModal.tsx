@@ -46,13 +46,22 @@ export const AddStudentToGroupModal: React.FC<AddStudentToGroupModalProps> = ({
   const filteredCandidates = useMemo(() => {
     if (!targetGroup) return [];
 
-    return students.filter((stu) => {
+    return (students || []).filter((stu) => {
+      if (!stu) return false;
+      const searchLower = (searchTerm ?? '').trim().toLowerCase();
+      const nameSafe = (stu.fullName ?? '').toLowerCase();
+      const matriculeSafe = (stu.matricule ?? '').toLowerCase();
+      const guardianSafe = (stu.guardianName ?? '').toLowerCase();
+      const levelSafe = (stu.level ?? '').toLowerCase();
+      const streamSafe = (stu.stream ?? '').toLowerCase();
+
       // Don't show students already in this group in the selectable list, or flag them
       const matchesSearch =
-        stu.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        stu.matricule.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        stu.guardianName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        stu.level.toLowerCase().includes(searchTerm.toLowerCase());
+        !searchLower ||
+        nameSafe.includes(searchLower) ||
+        matriculeSafe.includes(searchLower) ||
+        guardianSafe.includes(searchLower) ||
+        levelSafe.includes(searchLower);
 
       if (!matchesSearch) return false;
 
@@ -61,8 +70,10 @@ export const AddStudentToGroupModal: React.FC<AddStudentToGroupModalProps> = ({
       }
 
       if (filterMode === 'same_level') {
-        const sameLevel = stu.level.toLowerCase() === targetGroup.level.toLowerCase();
-        const sameStream = stu.stream.toLowerCase() === targetGroup.stream.toLowerCase();
+        const targetLevel = (targetGroup.level ?? '').toLowerCase();
+        const targetStream = (targetGroup.stream ?? '').toLowerCase();
+        const sameLevel = levelSafe === targetLevel;
+        const sameStream = streamSafe === targetStream;
         return sameLevel || sameStream;
       }
 

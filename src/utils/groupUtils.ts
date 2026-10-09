@@ -136,7 +136,7 @@ export function getStudentGroup(
 ): TutoringGroup | null {
   if (!student.groupId) return null;
   const groups = extractTutoringGroups(allStudents, tutors);
-  return groups.find((g) => g.id.toLowerCase() === student.groupId?.toLowerCase()) || null;
+  return groups.find((g) => (g?.id ?? '').toLowerCase() === (student.groupId ?? '').toLowerCase()) || null;
 }
 
 /**
