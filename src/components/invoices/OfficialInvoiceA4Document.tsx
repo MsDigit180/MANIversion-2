@@ -140,9 +140,6 @@ export const OfficialInvoiceA4Document: React.FC<OfficialInvoiceA4DocumentProps>
               <span className="bg-indigo-950 text-white font-black text-[10px] px-1.5 py-0.2 rounded tracking-wider">
                 {CAB_APPUIS_INFO.acronym}
               </span>
-              <span className="text-[8px] font-bold text-emerald-800 uppercase tracking-wide bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                Agrément Pédagogique & Enregistrement Officiel
-              </span>
             </div>
 
             <h1 className="text-[13.5px] font-black tracking-tight uppercase text-slate-950 mt-0.5 leading-tight">

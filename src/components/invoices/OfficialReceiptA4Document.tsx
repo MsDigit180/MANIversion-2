@@ -71,18 +71,12 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
               alt="Logo CAS-MANI"
               className="w-13 h-13 rounded-lg object-contain border border-slate-200 p-0.5 bg-white shadow-2xs"
             />
-            <span className="absolute -bottom-1 -right-1 bg-emerald-900 text-white font-mono text-[7px] font-black px-1 rounded shadow-2xs">
-              ACQUIT
-            </span>
           </div>
 
           <div>
             <div className="flex items-center gap-1.5">
               <span className="bg-indigo-950 text-white font-black text-[10px] px-1.5 py-0.2 rounded tracking-wider">
                 {CAB_APPUIS_INFO.acronym}
-              </span>
-              <span className="text-[8px] font-bold text-emerald-800 uppercase tracking-wide bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                Agrément Pédagogique & Enregistrement Officiel
               </span>
             </div>
 
@@ -124,7 +118,7 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
           </div>
 
           <div className="mt-1 text-[10px] font-black text-emerald-950 uppercase tracking-wide">
-            QUITTANCE DE PAIEMENT ACQUITTÉE
+            QUITTANCE DE PAIEMENT
           </div>
 
           <p className="text-[9px] text-slate-600 flex items-center justify-end gap-1 mt-0.5">
@@ -385,7 +379,6 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
           <div className="border border-slate-300 rounded-lg p-2 bg-slate-50/50 flex flex-col justify-between h-20">
             <div className="flex justify-between items-center text-slate-700 font-bold border-b border-slate-200 pb-0.5">
               <span>Le Tuteur / Client Déposant</span>
-              <span className="text-[8px] font-normal italic text-slate-500">"Pour acquit"</span>
             </div>
             <div className="text-[8px] text-slate-400 italic text-center pb-0.5">
               Émargement & Signature du Client
