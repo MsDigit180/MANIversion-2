@@ -1602,16 +1602,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPayments((prev) => [newPayment, ...prev]);
     setOperations((prev) => [newOp, ...prev]);
 
+    const isTuitionCategory = !paymentData.category || paymentData.category === 'Scolarité Mensuelle';
+
     if (paymentData.studentId) {
       setStudents((prev) =>
         prev.map((s) => {
           if (s.id === paymentData.studentId) {
-            const updatedPaid = (s.paidAmount || 0) + paymentData.amount;
+            const addedAmount = isTuitionCategory ? paymentData.amount : 0;
+            const updatedPaid = (s.paidAmount || 0) + addedAmount;
             const updatedStatus = updatedPaid >= s.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
             return {
               ...s,
               paidAmount: updatedPaid,
-              paymentStatus: updatedStatus,
+              paymentStatus: isTuitionCategory ? updatedStatus : s.paymentStatus,
             };
           }
           return s;
@@ -1627,14 +1630,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (paymentData.studentId) {
       const student = students.find((s) => s.id === paymentData.studentId);
       if (student) {
-        const updatedPaid = (student.paidAmount || 0) + paymentData.amount;
+        const addedAmount = isTuitionCategory ? paymentData.amount : 0;
+        const updatedPaid = (student.paidAmount || 0) + addedAmount;
         const updatedStatus = updatedPaid >= student.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
         writes.push(
           setDoc(
             doc(db, COLLECTIONS.STUDENTS, student.id),
             sanitizeForFirestore({
               paidAmount: updatedPaid,
-              paymentStatus: updatedStatus,
+              paymentStatus: isTuitionCategory ? updatedStatus : student.paymentStatus,
             }),
             { merge: true }
           )
@@ -1717,19 +1721,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPayments((prev) => [newPayment, ...prev]);
     setOperations((prev) => [newOp, ...prev]);
 
-    const breakdownMap = new Map(data.studentBreakdown.map((item) => [item.studentId, item.amount]));
+    const breakdownMap = new Map(data.studentBreakdown.map((item) => [item.studentId, item]));
 
     setStudents((prev) =>
       prev.map((s) => {
         if (breakdownMap.has(s.id)) {
-          const addedAmount = breakdownMap.get(s.id)!;
+          const breakdownItem = breakdownMap.get(s.id)!;
+          const isTuition = !breakdownItem.category || breakdownItem.category === 'Scolarité Mensuelle';
+          const addedAmount = isTuition ? breakdownItem.amount : 0;
           const updatedPaid = (s.paidAmount || 0) + addedAmount;
           const updatedStatus = updatedPaid >= s.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
           const shouldReactivate = data.autoReactivate && s.tutoringStatus !== 'Actif';
           return {
             ...s,
             paidAmount: updatedPaid,
-            paymentStatus: updatedStatus,
+            paymentStatus: isTuition ? updatedStatus : s.paymentStatus,
             tutoringStatus: shouldReactivate ? 'Actif' : s.tutoringStatus,
             stopDate: shouldReactivate ? undefined : s.stopDate,
             stopReason: shouldReactivate ? undefined : s.stopReason,
@@ -1747,7 +1753,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     for (const item of data.studentBreakdown) {
       const student = students.find((s) => s.id === item.studentId);
       if (student) {
-        const updatedPaid = (student.paidAmount || 0) + item.amount;
+        const isTuition = !item.category || item.category === 'Scolarité Mensuelle';
+        const addedAmount = isTuition ? item.amount : 0;
+        const updatedPaid = (student.paidAmount || 0) + addedAmount;
         const updatedStatus = updatedPaid >= student.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
         const shouldReactivate = data.autoReactivate && student.tutoringStatus !== 'Actif';
         writes.push(
@@ -1755,7 +1763,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             doc(db, COLLECTIONS.STUDENTS, student.id),
             sanitizeForFirestore({
               paidAmount: updatedPaid,
-              paymentStatus: updatedStatus,
+              paymentStatus: isTuition ? updatedStatus : student.paymentStatus,
               ...(shouldReactivate ? { tutoringStatus: 'Actif', stopDate: null, stopReason: null } : {}),
             }),
             { merge: true }
