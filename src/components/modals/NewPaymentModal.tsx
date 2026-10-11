@@ -80,6 +80,24 @@ export const NewPaymentModal: React.FC = () => {
   const safeStudents = students || [];
   const families = getAllFamilies(safeStudents);
 
+  const resetForm = () => {
+    setSelectedStudentId('');
+    setCustomName('');
+    setCategory('Scolarité Mensuelle');
+    setTargetMonth('2026-09');
+    setAmount(35000);
+    setPaymentMethod('Airtel Money');
+    setCashierName('');
+    setPaymentDateInput(new Date().toISOString().slice(0, 10));
+    setNotes('Règlement scolarité du mois');
+    setAutoReactivate(true);
+    setSelectedFamilyKey('');
+    setFamilyGuardianName('');
+    setFamilyGuardianPhone('');
+    setFamilyItems([]);
+    setPaymentMode('single');
+  };
+
   // If opened via family quick action from another view
   useEffect(() => {
     if (familyPaymentTargetParent && isNewPaymentModalOpen) {
@@ -115,6 +133,28 @@ export const NewPaymentModal: React.FC = () => {
       setAmount(remaining > 0 ? remaining : stu.monthlyFee);
       setNotes(`Règlement scolarité pour ${stu.fullName} (${stu.level})`);
       setAutoReactivate(true);
+    }
+  };
+
+  const handleCategoryChange = (newCat: PaymentReceipt['category']) => {
+    setCategory(newCat);
+    if (newCat === 'Inscription') {
+      setNotes('Règlement des frais d\'inscription');
+      setAmount(10000); // Standard inscription fee default
+    } else if (newCat === 'Frais Concours') {
+      setNotes('Frais de préparation concours');
+      setAmount(25000);
+    } else if (newCat === 'Fournitures') {
+      setNotes('Achat fournitures scolaires');
+      setAmount(15000);
+    } else {
+      setNotes('Règlement scolarité du mois');
+      if (selectedStudent) {
+        const remaining = Math.max(0, selectedStudent.monthlyFee - selectedStudent.paidAmount);
+        setAmount(remaining > 0 ? remaining : selectedStudent.monthlyFee);
+      } else {
+        setAmount(35000);
+      }
     }
   };
 
@@ -192,6 +232,22 @@ export const NewPaymentModal: React.FC = () => {
     );
   };
 
+  const handleUpdateFamilyItemCategory = (studentId: string, itemCategory: string) => {
+    setFamilyItems((prev) =>
+      prev.map((item) => {
+        if (item.studentId === studentId) {
+          let itemNotes = item.itemNotes;
+          if (itemCategory === 'Inscription') itemNotes = `Frais d'inscription ${item.studentName}`;
+          else if (itemCategory === 'Frais Concours') itemNotes = `Frais concours ${item.studentName}`;
+          else if (itemCategory === 'Fournitures') itemNotes = `Fournitures ${item.studentName}`;
+          else itemNotes = `Scolarité ${item.studentName} (${item.level})`;
+          return { ...item, itemCategory, itemNotes };
+        }
+        return item;
+      })
+    );
+  };
+
   const handleToggleFamilyItem = (studentId: string) => {
     setFamilyItems((prev) =>
       prev.map((item) => (item.studentId === studentId ? { ...item, included: !item.included } : item))
@@ -256,6 +312,7 @@ export const NewPaymentModal: React.FC = () => {
           autoReactivate,
         });
 
+        resetForm();
         setIsNewPaymentModalOpen(false);
         if (createdPayment) {
           setSelectedReceipt(createdPayment);
@@ -283,6 +340,7 @@ export const NewPaymentModal: React.FC = () => {
           await resumeStudentTutoring(selectedStudentId);
         }
 
+        resetForm();
         setIsNewPaymentModalOpen(false);
         if (createdPayment) {
           setSelectedReceipt(createdPayment);
@@ -297,7 +355,7 @@ export const NewPaymentModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl overflow-y-auto max-h-[92vh]">
+      <div className="w-full max-w-3xl rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl overflow-y-auto max-h-[92vh]">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -316,7 +374,10 @@ export const NewPaymentModal: React.FC = () => {
             </div>
           </div>
           <button
-            onClick={() => setIsNewPaymentModalOpen(false)}
+            onClick={() => {
+              resetForm();
+              setIsNewPaymentModalOpen(false);
+            }}
             className="text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
@@ -335,7 +396,7 @@ export const NewPaymentModal: React.FC = () => {
             }`}
           >
             <User className="h-4 w-4" />
-            <span>Règlement Individuel (1 Élève)</span>
+            <span>Règlement Individuel (1 Élève / Inscription)</span>
           </button>
           <button
             type="button"
@@ -474,7 +535,7 @@ export const NewPaymentModal: React.FC = () => {
                   </label>
                   <select
                     value={category}
-                    onChange={(e) => setCategory(e.target.value as any)}
+                    onChange={(e) => handleCategoryChange(e.target.value as any)}
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none cursor-pointer"
                   >
                     <option value="Scolarité Mensuelle">Scolarité Mensuelle</option>
@@ -509,7 +570,7 @@ export const NewPaymentModal: React.FC = () => {
                       required
                       value={amount}
                       onChange={(e) => setAmount(Number(e.target.value))}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-mono font-bold text-white focus:border-emerald-500 focus:outline-none"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-mono font-bold text-white focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
                 )}
@@ -615,7 +676,7 @@ export const NewPaymentModal: React.FC = () => {
                     <span>Détail des Enfants Inclus sur le Reçu ({includedFamilyItems.length}/{familyItems.length})</span>
                   </label>
                   <span className="text-[11px] text-slate-400">
-                    Ajustez les montants à régler pour chaque enfant
+                    Ajustez les catégories et montants réglés
                   </span>
                 </div>
 
@@ -634,8 +695,9 @@ export const NewPaymentModal: React.FC = () => {
                         <tr>
                           <th className="py-2.5 px-3 w-8 text-center">Inclure</th>
                           <th className="py-2.5 px-3">Élève & Classe</th>
+                          <th className="py-2.5 px-3">Type de Frais</th>
                           <th className="py-2.5 px-3 text-right">Mensualité / Reste</th>
-                          <th className="py-2.5 px-3 text-right w-44">Montant Réglé (FCFA) *</th>
+                          <th className="py-2.5 px-3 text-right w-36">Montant (FCFA) *</th>
                           <th className="py-2.5 px-2 w-8 text-center"></th>
                         </tr>
                       </thead>
@@ -666,6 +728,19 @@ export const NewPaymentModal: React.FC = () => {
                                 )}
                               </div>
                             </td>
+                            <td className="py-3 px-3">
+                              <select
+                                disabled={!item.included}
+                                value={item.itemCategory}
+                                onChange={(e) => handleUpdateFamilyItemCategory(item.studentId, e.target.value)}
+                                className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white focus:border-purple-500 focus:outline-none cursor-pointer"
+                              >
+                                <option value="Scolarité Mensuelle">Scolarité Mensuelle</option>
+                                <option value="Inscription">Frais d'Inscription</option>
+                                <option value="Frais Concours">Frais Concours</option>
+                                <option value="Fournitures">Fournitures</option>
+                              </select>
+                            </td>
                             <td className="py-3 px-3 text-right font-mono">
                               <div className="text-white text-xs">{(item?.monthlyFee ?? 0).toLocaleString()} FCFA</div>
                               <div className={`text-[10px] ${(item?.balanceRemaining ?? 0) > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -681,14 +756,14 @@ export const NewPaymentModal: React.FC = () => {
                                   disabled={!item.included}
                                   value={item.amountToPay}
                                   onChange={(e) => handleUpdateFamilyItemAmount(item.studentId, Number(e.target.value))}
-                                  className="w-28 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-right font-mono font-bold text-emerald-400 focus:border-purple-500 focus:outline-none"
+                                  className="w-24 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-right font-mono font-bold text-emerald-400 focus:border-purple-500 focus:outline-none"
                                 />
                                 <button
                                   type="button"
                                   disabled={!item.included}
                                   onClick={() => handleUpdateFamilyItemAmount(item.studentId, item.balanceRemaining > 0 ? item.balanceRemaining : item.monthlyFee)}
-                                  className="text-[9.5px] px-1.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-purple-300 font-semibold cursor-pointer border border-slate-700"
-                                  title="Appliquer le reste à payer"
+                                  className="text-[9.5px] px-1 py-1 rounded bg-slate-800 hover:bg-slate-700 text-purple-300 font-semibold cursor-pointer border border-slate-700"
+                                  title="Solder"
                                 >
                                   Solder
                                 </button>
@@ -709,7 +784,7 @@ export const NewPaymentModal: React.FC = () => {
                       </tbody>
                       <tfoot className="bg-slate-900 border-t-2 border-slate-700">
                         <tr>
-                          <td colSpan={3} className="py-3 px-4 text-right uppercase text-xs font-bold text-white">
+                          <td colSpan={4} className="py-3 px-4 text-right uppercase text-xs font-bold text-white">
                             Total Général Encaissé pour la Famille :
                           </td>
                           <td className="py-3 px-3 text-right font-mono font-black text-sm text-emerald-400">
@@ -812,7 +887,7 @@ export const NewPaymentModal: React.FC = () => {
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ex: Scolarité Septembre 2026..."
+                placeholder="Ex: Frais d'inscription ou scolarité..."
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none"
               />
             </div>
@@ -836,7 +911,10 @@ export const NewPaymentModal: React.FC = () => {
               <button
                 type="button"
                 disabled={isSubmitting}
-                onClick={() => setIsNewPaymentModalOpen(false)}
+                onClick={() => {
+                  resetForm();
+                  setIsNewPaymentModalOpen(false);
+                }}
                 className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 Annuler
