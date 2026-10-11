@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, UserCheck, Clock, Camera, Loader2, Calendar, Sparkles, Minus, Plus, Edit, GraduationCap } from 'lucide-react';
+import { X, UserCheck, Clock, Camera, Loader2, Calendar, Sparkles, Minus, Plus, Edit, GraduationCap, CreditCard } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { compressImage } from '../../utils/imageOptimizer';
 import {
@@ -18,6 +18,7 @@ export const NewEnrollmentModal: React.FC = () => {
     setEditingStudent,
     addStudent,
     updateStudent,
+    addPayment,
     networkStatus,
     showToast,
   } = useApp();
@@ -36,7 +37,9 @@ export const NewEnrollmentModal: React.FC = () => {
   const [groupName, setGroupName] = useState('');
   const [timeSlot, setTimeSlot] = useState('');
   const [monthlyFee, setMonthlyFee] = useState<number>(20000);
-  const [initialPayment, setInitialPayment] = useState<number>(20000);
+  const [initialTuition, setInitialTuition] = useState<number>(20000);
+  const [includeRegistration, setIncludeRegistration] = useState<boolean>(true);
+  const [registrationFee, setRegistrationFee] = useState<number>(10000);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -56,7 +59,8 @@ export const NewEnrollmentModal: React.FC = () => {
       setGroupName(editingStudent.groupName || '');
       setTimeSlot(editingStudent.timeSlot || '');
       setMonthlyFee(editingStudent.monthlyFee);
-      setInitialPayment(editingStudent.paidAmount);
+      setInitialTuition(editingStudent.paidAmount);
+      setIncludeRegistration(false);
       setNotes(editingStudent.notes || '');
     } else {
       setStream('Primaire');
@@ -73,7 +77,9 @@ export const NewEnrollmentModal: React.FC = () => {
       setGroupName('');
       setTimeSlot('');
       setMonthlyFee(20000);
-      setInitialPayment(20000);
+      setInitialTuition(20000);
+      setIncludeRegistration(true);
+      setRegistrationFee(10000);
       setNotes('');
     }
   }, [editingStudent, isNewStudentModalOpen]);
@@ -92,25 +98,25 @@ export const NewEnrollmentModal: React.FC = () => {
         setLevel('CM2 (CFEPD & Entrée en 6ème)');
         setSubjects('Calcul & Problèmes, Français, Dictée, Éveil');
         setMonthlyFee(20000);
-        setInitialPayment(20000);
+        setInitialTuition(20000);
         setSessionsPerWeek(3);
       } else if (newStream === 'Collège') {
         setLevel('Troisième 3ème (Prépa BEPC)');
         setSubjects('Mathématiques, Physique-Chimie, Français, Anglais');
         setMonthlyFee(25000);
-        setInitialPayment(25000);
+        setInitialTuition(25000);
         setSessionsPerWeek(3);
       } else if (newStream === 'Lycée') {
         setLevel('Terminale D (Bac Scientifique)');
         setSubjects('Mathématiques, Sciences Physiques, SVT');
         setMonthlyFee(35000);
-        setInitialPayment(35000);
+        setInitialTuition(35000);
         setSessionsPerWeek(4);
       } else {
         setLevel('Prépa Concours Direct');
         setSubjects('Culture Générale, Épreuves Spécifiques, Entretien');
         setMonthlyFee(50000);
-        setInitialPayment(50000);
+        setInitialTuition(50000);
         setSessionsPerWeek(3);
       }
     }
@@ -156,7 +162,7 @@ export const NewEnrollmentModal: React.FC = () => {
         });
         showToast(`Dossier de l'élève ${fullName.trim()} mis à jour avec succès (${cleanPromotion}).`, 'success');
       } else {
-        await addStudent({
+        const newStu = await addStudent({
           fullName: fullName.trim(),
           gender,
           avatar: avatar || undefined,
@@ -171,13 +177,29 @@ export const NewEnrollmentModal: React.FC = () => {
           groupName: groupName.trim() || undefined,
           timeSlot: timeSlot.trim() || undefined,
           monthlyFee,
-          paidAmount: initialPayment,
-          paymentStatus: initialPayment >= monthlyFee ? 'A jour' : initialPayment > 0 ? 'Partiel' : 'En retard',
+          paidAmount: initialTuition,
+          paymentStatus: initialTuition >= monthlyFee ? 'A jour' : initialTuition > 0 ? 'Partiel' : 'En retard',
           tutoringStatus: 'Actif',
           enrollmentDate: getCurrentFrenchDate(),
           notes,
         });
-        showToast(`Nouvelle inscription de ${fullName.trim()} enregistrée (${cleanPromotion}, ${validatedSessions} séances/semaine).`, 'success');
+
+        // If registration fee is included, record it as a separate receipt of category 'Inscription'
+        if (includeRegistration && registrationFee > 0 && newStu) {
+          await addPayment({
+            studentId: newStu.id,
+            studentName: fullName.trim(),
+            category: 'Inscription',
+            amount: registrationFee,
+            paymentMethod: 'Espèces',
+            paymentDate: `${getCurrentFrenchDate()} à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
+            cashierName: 'Guichet Inscription CAS MANI',
+            status: 'Validé',
+            notes: `Frais d'inscription initiaux pour ${fullName.trim()}`,
+          });
+        }
+
+        showToast(`Nouvelle inscription de ${fullName.trim()} enregistrée (${cleanPromotion}).`, 'success');
       }
 
       handleClose();
@@ -206,8 +228,8 @@ export const NewEnrollmentModal: React.FC = () => {
               </h3>
               <p className="text-xs text-slate-400">
                 {editingStudent
-                  ? `Matricule : ${editingStudent.matricule} · Mise à jour du dossier et quota séances`
-                  : 'Enregistrement direct dans Google Firebase Cloud Firestore'}
+                  ? `Matricule : ${editingStudent.matricule} · Mise à jour du dossier`
+                  : 'Frais d\'inscription et d\'encadrement distincts · Google Firebase'}
               </p>
             </div>
           </div>
@@ -219,17 +241,15 @@ export const NewEnrollmentModal: React.FC = () => {
           </button>
         </div>
 
-        {/* Offline indicator banner inside modal */}
         {networkStatus === 'offline' && (
           <div className="mt-4 rounded-xl bg-amber-500/15 border border-amber-500/30 p-2.5 text-xs text-amber-300 flex items-center gap-2">
             <Clock className="h-4 w-4 shrink-0 text-amber-400" />
             <span>
-              <strong>Mode Hors-ligne :</strong> L'élève sera mis en file d'attente locale et répliqué vers Firestore dès le rétablissement réseau.
+              <strong>Mode Hors-ligne :</strong> L'élève et ses reçus seront mis en cache local et répliqués vers Firestore.
             </span>
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           {/* Avatar Upload */}
           <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
@@ -348,261 +368,49 @@ export const NewEnrollmentModal: React.FC = () => {
             >
               {stream === 'Primaire' && (
                 <>
-                  <option value="CM2 (CFEPD & Entrée en 6ème)">CM2 (Prépa Examen CFEPD & Entrée en 6ème)</option>
-                  <option value="CM1">CM1 (Cours Moyen 1ère Année)</option>
-                  <option value="CE2">CE2 (Cours Élémentaire 2)</option>
-                  <option value="CE1">CE1 (Cours Élémentaire 1)</option>
-                  <option value="CP">CP (Cours Préparatoire)</option>
-                  <option value="CI">CI (Cours d'Initiation)</option>
+                  <option value="CI (Cours d'Initiation)">CI (Cours d'Initiation)</option>
+                  <option value="CP (Cours Préparatoire)">CP (Cours Préparatoire)</option>
+                  <option value="CE1">CE1</option>
+                  <option value="CE2">CE2</option>
+                  <option value="CM1">CM1</option>
+                  <option value="CM2 (CFEPD & Entrée en 6ème)">CM2 (CFEPD & Entrée en 6ème)</option>
                 </>
               )}
-
               {stream === 'Collège' && (
                 <>
-                  <option value="Troisième 3ème (BEPC)">Troisième 3ème (Préparation BEPC Niger)</option>
-                  <option value="Quatrième 4ème">Quatrième 4ème</option>
+                  <option value="Sixième 6ème">Sixième 6ème</option>
                   <option value="Cinquième 5ème">Cinquième 5ème</option>
-                  <option value="Sixième 6ème">Sixième 6ème (Entrée en Collège)</option>
+                  <option value="Quatrième 4ème">Quatrième 4ème</option>
+                  <option value="Troisième 3ème (Prépa BEPC)">Troisième 3ème (Prépa BEPC)</option>
                 </>
               )}
-
               {stream === 'Lycée' && (
                 <>
-                  <option value="Terminale D (Bac Scientifique)">Terminale D (Baccalauréat Scientifique SVT/Maths)</option>
-                  <option value="Terminale C (Bac Maths Expertes)">Terminale C (Baccalauréat Mathématiques & Phys)</option>
-                  <option value="Terminale A4 (Bac Littéraire)">Terminale A4 (Baccalauréat Lettres & Philo)</option>
-                  <option value="Première D (Sciences Naturelles)">Première D (Sciences Naturelles)</option>
-                  <option value="Première C (Sciences Exactes)">Première C (Sciences Exactes)</option>
-                  <option value="Première A (Lettres)">Première A (Lettres)</option>
-                  <option value="Seconde C (Scientifique)">Seconde C (Scientifique)</option>
-                  <option value="Seconde A (Littéraire)">Seconde A (Littéraire)</option>
+                  <option value="Seconde 2nde (A / C / D)">Seconde 2nde (A / C / D)</option>
+                  <option value="Première 1ère (A / C / D / D+)">Première 1ère (A / C / D / D+)</option>
+                  <option value="Terminale D (Bac Scientifique)">Terminale D (Bac Scientifique)</option>
+                  <option value="Terminale C (Maths & Physiques)">Terminale C (Maths & Physiques)</option>
+                  <option value="Terminale A4 (Lettres & philo)">Terminale A4 (Lettres & philo)</option>
                 </>
               )}
-
               {stream === 'Prépa Concours' && (
                 <>
-                  <option value="Prépa ENAM Niamey">Préparation ENAM Niamey</option>
-                  <option value="Prépa Police Nationale">Préparation Police Nationale du Niger</option>
-                  <option value="Prépa Gendarmerie Nationale">Préparation Gendarmerie Nationale</option>
-                  <option value="Prépa Garde Nationale (GNN)">Préparation Garde Nationale du Niger (GNN)</option>
-                  <option value="Prépa Douanes & Trésor">Préparation Douanes & Trésor Niger</option>
-                  <option value="Prépa Santé Publique (ENSP)">Préparation ENSP Niamey</option>
+                  <option value="Prépa Concours Direct">Prépa Concours Direct</option>
+                  <option value="Prépa Concours Professionnel">Prépa Concours Professionnel</option>
                 </>
               )}
             </select>
           </div>
 
-          {/* Promotion / Cohorte d'encadrement */}
-          <div className="rounded-xl border border-purple-500/40 bg-purple-950/25 p-3.5 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-purple-600/30 p-1.5 text-purple-400">
-                  <GraduationCap className="h-4 w-4" />
-                </div>
-                <div>
-                  <label htmlFor="promotionInput" className="block text-xs font-bold text-white">
-                    Promotion des Élèves à Encadrer *
-                  </label>
-                  <span className="text-[11px] text-slate-400">
-                    Cohorte académique pour le tri et le suivi (ex: Promotion 2026-2027)
-                  </span>
-                </div>
-              </div>
-
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono text-xs font-bold border border-purple-500/30">
-                {promotion || DEFAULT_PROMOTION}
-              </span>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                id="promotionInput"
-                type="text"
-                required
-                value={promotion}
-                onChange={(e) => setPromotion(e.target.value)}
-                placeholder="Ex: Promotion 2026-2027"
-                className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-white focus:border-purple-500 focus:outline-none"
-              />
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] text-slate-400 mr-0.5">Raccourcis :</span>
-                {PRESET_PROMOTIONS.slice(0, 4).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPromotion(p)}
-                    className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${
-                      promotion === p
-                        ? 'bg-purple-600 border-purple-500 text-white shadow-sm'
-                        : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white'
-                    }`}
-                  >
-                    {p.replace('Promotion ', '')}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <p className="text-[10px] text-purple-300/80">
-              🎓 Cette promotion permet de classer et trier les élèves dans le registre officiel, les listes d'encadrement et les exports PDF.
-            </p>
-          </div>
-
-          {/* CRITICAL NEW FIELD: Nombre de séances par semaine */}
-          <div className="rounded-xl border border-indigo-500/40 bg-indigo-950/30 p-3.5 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-indigo-600/30 p-1.5 text-indigo-400">
-                  <Calendar className="h-4 w-4" />
-                </div>
-                <div>
-                  <label htmlFor="sessionsPerWeekInput" className="block text-xs font-bold text-white">
-                    Nombre de séances par semaine *
-                  </label>
-                  <span className="text-[11px] text-slate-400">
-                    Quota hebdomadaire d'encadrement pédagogique saisi manuellement
-                  </span>
-                </div>
-              </div>
-
-              {/* Dynamic weekly hours estimate (1 session = 1h 30mn) */}
-              <div className="text-right">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 font-mono text-xs font-bold border border-indigo-500/30">
-                  {sessionsPerWeek} séance{sessionsPerWeek > 1 ? 's' : ''}/sem.
-                </span>
-                <span className="block text-[10px] text-emerald-400 mt-0.5 font-mono font-semibold">
-                  = {formatSessionHours(calculateWeeklyHours(sessionsPerWeek))} / semaine
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 pt-1">
-              {/* Stepper Controls */}
-              <div className="flex items-center rounded-lg border border-slate-700 bg-slate-800 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setSessionsPerWeek((prev) => Math.max(1, prev - 1))}
-                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
-                  title="Diminuer d'une séance"
-                >
-                  <Minus className="h-3.5 w-3.5" />
-                </button>
-                <input
-                  id="sessionsPerWeekInput"
-                  type="number"
-                  required
-                  min={1}
-                  max={14}
-                  value={sessionsPerWeek}
-                  onChange={(e) => setSessionsPerWeek(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  className="w-14 bg-transparent text-center font-mono text-sm font-bold text-white focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setSessionsPerWeek((prev) => Math.min(14, prev + 1))}
-                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
-                  title="Augmenter d'une séance"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-              </div>
-
-              {/* Quick Preset Buttons */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] text-slate-400 mr-1">Raccourcis :</span>
-                {[
-                  { count: 2, label: '2 séances (3h00)' },
-                  { count: 3, label: '3 séances (4h30)' },
-                  { count: 4, label: '4 séances (6h00)' },
-                  { count: 5, label: '5 séances (7h30)' },
-                ].map(({ count, label }) => (
-                  <button
-                    key={count}
-                    type="button"
-                    onClick={() => setSessionsPerWeek(count)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                      sessionsPerWeek === count
-                        ? 'bg-indigo-600 border-indigo-500 text-white shadow-sm'
-                        : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750 hover:text-white'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <p className="text-[10px] text-indigo-300/80">
-              💡 Règle de calcul : 1 séance d'encadrement = <strong>1h 30mn</strong>. Ce quota servira à déduire automatiquement le volume horaire du planning de l'encadreur.
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Matières de renforcement (séparées par virgules)
-            </label>
-            <input
-              type="text"
-              value={subjects}
-              onChange={(e) => setSubjects(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
-            />
-          </div>
-
-          {/* Groupement / Mutualisation de créneau (Règle métier) */}
-          <div className="p-3 rounded-xl border border-slate-700/80 bg-slate-800/40 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold text-indigo-300">
-                Groupe d'encadrement collectif & Créneau mutualisé (Optionnel)
-              </label>
-              <span className="text-[10px] text-slate-400">
-                Clé de mutualisation pour dédoublonner le planning
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Code / ID Groupe</label>
-                <input
-                  type="text"
-                  placeholder="Ex: GRP-BAC-D-SCI"
-                  value={groupId}
-                  onChange={(e) => setGroupId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 font-mono focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Libellé du Groupe</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Groupe Terminale D Sciences"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Créneau & Jours</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Samedi-Dimanche 09h-11h"
-                  value={timeSlot}
-                  onChange={(e) => setTimeSlot(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-            </div>
-            <p className="text-[10px] text-slate-400 leading-tight">
-              Si plusieurs élèves partagent le même groupe ou créneau horaire avec le même encadreur, les séances ne sont comptées <strong>qu'une seule fois</strong> dans le total général.
-            </p>
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Parent ou Tuteur Légal *
+                Nom du Tuteur / Parent (Niamey) *
               </label>
               <input
                 type="text"
                 required
-                placeholder="Ex: Elhadj Moussa Oumarou (Père)"
+                placeholder="Ex: M. Oumarou Garba"
                 value={guardianName}
                 onChange={(e) => setGuardianName(e.target.value)}
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
@@ -611,12 +419,12 @@ export const NewEnrollmentModal: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Téléphone au Niger (+227) *
+                Téléphone du Tuteur *
               </label>
               <input
-                type="tel"
+                type="text"
                 required
-                placeholder="+227 96 00 00 00"
+                placeholder="+227 90 ..."
                 value={guardianPhone}
                 onChange={(e) => setGuardianPhone(e.target.value)}
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-mono text-slate-200 focus:border-indigo-500 focus:outline-none"
@@ -627,35 +435,101 @@ export const NewEnrollmentModal: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Tarif Mensuel Scolarité (FCFA)
+                Séances d'Encadrement par Semaine *
               </label>
               <input
                 type="number"
-                step="1000"
-                value={monthlyFee}
-                onChange={(e) => setMonthlyFee(Number(e.target.value))}
+                min="1"
+                max="7"
+                required
+                value={sessionsPerWeek}
+                onChange={(e) => setSessionsPerWeek(Number(e.target.value))}
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-mono text-slate-200 focus:border-indigo-500 focus:outline-none"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                {editingStudent ? 'Montant déjà réglé (FCFA)' : "Acompte versé à l'inscription (FCFA)"}
+                Promotion Académique *
               </label>
-              <input
-                type="number"
-                step="1000"
-                value={initialPayment}
-                onChange={(e) => setInitialPayment(Number(e.target.value))}
-                disabled={!!editingStudent}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-mono text-slate-200 focus:border-indigo-500 focus:outline-none disabled:opacity-60"
-              />
-              {editingStudent && (
-                <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  Utilisez le module Caisse & Reçus pour encaisser un versement supplémentaire.
-                </span>
-              )}
+              <select
+                value={promotion}
+                onChange={(e) => setPromotion(e.target.value)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none cursor-pointer font-semibold"
+              >
+                {PRESET_PROMOTIONS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
             </div>
+          </div>
+
+          {/* FEES SECTION (SEPARATING REGISTRATION & TUITION) */}
+          <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Tarif Mensuel d'Encadrement (FCFA) *
+                </label>
+                <input
+                  type="number"
+                  step="1000"
+                  value={monthlyFee}
+                  onChange={(e) => setMonthlyFee(Number(e.target.value))}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-mono text-slate-200 focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  {editingStudent ? 'Montant de scolarité réglé (FCFA)' : "Acompte scolarité versé (FCFA)"}
+                </label>
+                <input
+                  type="number"
+                  step="1000"
+                  value={initialTuition}
+                  onChange={(e) => setInitialTuition(Number(e.target.value))}
+                  disabled={!!editingStudent}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-mono text-slate-200 focus:border-indigo-500 focus:outline-none disabled:opacity-60"
+                />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  Uniquement pour les frais d'encadrement mensuels.
+                </span>
+              </div>
+            </div>
+
+            {!editingStudent && (
+              <div className="pt-3 border-t border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <label className="flex items-center gap-2 cursor-pointer font-semibold text-white text-xs">
+                  <input
+                    type="checkbox"
+                    checked={includeRegistration}
+                    onChange={(e) => setIncludeRegistration(e.target.checked)}
+                    className="rounded border-slate-600 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                  />
+                  <span className="flex items-center gap-1.5 text-indigo-300">
+                    <CreditCard className="h-3.5 w-3.5" />
+                    <span>Encaisser les Frais d'Inscription (Frais de dossier distincts)</span>
+                  </span>
+                </label>
+
+                {includeRegistration && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400">Montant :</span>
+                    <input
+                      type="number"
+                      step="500"
+                      value={registrationFee}
+                      onChange={(e) => setRegistrationFee(Number(e.target.value))}
+                      className="w-28 rounded-lg border border-indigo-500/50 bg-slate-900 px-2.5 py-1 text-xs text-right font-mono font-bold text-indigo-300 focus:outline-none"
+                    />
+                    <span className="text-xs text-slate-400">FCFA</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -664,14 +538,15 @@ export const NewEnrollmentModal: React.FC = () => {
             </label>
             <textarea
               rows={2}
-              placeholder="Ex: Quartier Yantala / Plateau, renforcement en calcul pour le CFEPD..."
+              placeholder="Ex: Quartier Yantala / Plateau..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
             />
           </div>
 
-          <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
+          {/* Modal Actions */}
+          <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
             <button
               type="button"
               disabled={isSubmitting}
@@ -683,16 +558,10 @@ export const NewEnrollmentModal: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow disabled:opacity-50 cursor-pointer"
             >
-              {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              <span>
-                {isSubmitting
-                  ? 'Enregistrement Cloud...'
-                  : editingStudent
-                  ? 'Enregistrer les modifications'
-                  : "Enregistrer l'inscription"}
-              </span>
+              {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5" />}
+              <span>{editingStudent ? 'Mettre à jour le dossier' : "Valider l'Inscription"}</span>
             </button>
           </div>
         </form>
