@@ -141,3 +141,17 @@ export function getSafeAvatarUrl(
   const cleanName = encodeURIComponent(nameFallback || 'Cab Appuis');
   return `https://ui-avatars.com/api/?name=${cleanName}&background=059669&color=fff&bold=true`;
 }
+
+/**
+ * Fallback event handler when an image fails to load (prevents 404 console spam)
+ */
+export function handleImageError(
+  e: React.SyntheticEvent<HTMLImageElement, Event>,
+  nameFallback = 'Utilisateur'
+) {
+  const target = e.currentTarget;
+  if (!target.src.includes('ui-avatars.com')) {
+    target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(nameFallback)}&background=059669&color=fff&bold=true`;
+  }
+}
+
