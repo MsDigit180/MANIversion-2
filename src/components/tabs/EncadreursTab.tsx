@@ -18,12 +18,14 @@ import {
   AlertCircle,
   Eye,
   Layers,
+  Download,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Tutor, Student } from '../../types';
 import { NewEncadreurModal } from '../modals/NewEncadreurModal';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
 import { AssignTutorToGroupModal } from '../modals/AssignTutorToGroupModal';
+import { OfficialAssignmentTableA4Document } from '../encadreurs/OfficialAssignmentTableA4Document';
 import {
   formatSessionHours,
   calculateWeeklyHours,
@@ -62,6 +64,7 @@ export const EncadreursTab: React.FC = () => {
   const [tutorToDelete, setTutorToDelete] = useState<Tutor | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [tutorForGroupAssignment, setTutorForGroupAssignment] = useState<Tutor | null>(null);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
 
   const safeTutors = tutors || [];
   const safeStudents = students || [];
@@ -176,6 +179,42 @@ export const EncadreursTab: React.FC = () => {
     setIsAssignModalOpen(true);
   };
 
+  const handleDownloadAssignmentTable = () => {
+    try {
+      const headers = ['Nom Complet Encadreur', 'Matricule', 'Matières Enseignées', 'Élèves Encadrés', 'Nombre de Séances (Semaine)', 'Nombre d\'Élèves'];
+      const rows = safeTutors.map((t) => {
+        const stats = getTutorHours(t);
+        const assignedIds = Array.isArray(t.assignedStudentIds) ? t.assignedStudentIds : [];
+        const assignedStudents = safeStudents.filter((s) => s && assignedIds.includes(s.id));
+        const studentsListStr = assignedStudents.map((s) => `${s.fullName} (${s.level})`).join('; ');
+        const subjectsStr = Array.isArray(t.subjects) ? t.subjects.join(', ') : '';
+
+        return [
+          `"${t.fullName || ''}"`,
+          `"${t.matricule || ''}"`,
+          `"${subjectsStr}"`,
+          `"${studentsListStr}"`,
+          stats.sessionsCount,
+          stats.studentsCount,
+        ];
+      });
+
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `tableau_affectation_encadreurs_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Tableau d\'affectation téléchargé avec succès.', 'success');
+    } catch (err) {
+      console.error('Error downloading assignment table:', err);
+      showToast('Erreur lors du téléchargement du tableau d\'affectation.', 'warning');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top KPI Cards with Deduced Volume Horaire (1 séance = 1h 30mn) */}
@@ -252,6 +291,15 @@ export const EncadreursTab: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowPdfPreview(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 px-3.5 py-2 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            title="Télécharger le tableau d'affectation en PDF"
+          >
+            <Download className="h-4 w-4" />
+            <span>Télécharger en PDF</span>
+          </button>
+
           <button
             onClick={() => {
               setSelectedStudentForAssignment(null);
@@ -774,6 +822,15 @@ export const EncadreursTab: React.FC = () => {
         onClose={() => setTutorForGroupAssignment(null)}
         initialTutor={tutorForGroupAssignment}
       />
+
+      {/* Official PDF Preview / Print Modal */}
+      {showPdfPreview && (
+        <OfficialAssignmentTableA4Document
+          tutors={safeTutors}
+          students={safeStudents}
+          onClose={() => setShowPdfPreview(false)}
+        />
+      )}
     </div>
   );
 };

@@ -199,6 +199,12 @@ export interface StudentTutorAssignment {
   assignedAt?: string;
 }
 
+export interface FinancialAccount {
+  due: number;
+  paid: number;
+  status: 'PAID' | 'PENDING' | 'UNPAID' | 'A jour' | 'Partiel' | 'En retard' | string;
+}
+
 export interface Student {
   id: string;
   matricule: string;
@@ -212,9 +218,12 @@ export interface Student {
   guardianName: string;
   guardianPhone: string;
   sessionsPerWeek: number; // Nombre de séances d'encadrement par semaine (ex: 2, 3, 5 séances/semaine)
-  monthlyFee: number; // in FCFA
-  paidAmount: number;
+  monthlyFee: number; // in FCFA (Frais d'encadrement)
+  paidAmount: number; // Frais d'encadrement payés (compatibilité ascendante)
   paymentStatus: 'A jour' | 'En retard' | 'Partiel';
+  // Règle Métier : Séparation stricte des flux financiers
+  inscription?: FinancialAccount;
+  encadrement?: FinancialAccount;
   tutoringStatus: TutoringStatus;
   stopDate?: string;
   stopReason?: string;
