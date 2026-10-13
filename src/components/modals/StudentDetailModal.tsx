@@ -38,6 +38,15 @@ import {
 } from '../../utils/tutorAssignmentValidation';
 import { SelectGroupForStudentModal } from './SelectGroupForStudentModal';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import {
+  getInscriptionAccount,
+  getEncadrementAccount,
+  getInscriptionBalance,
+  getEncadrementBalance,
+  isInscriptionCategory,
+  isEncadrementCategory,
+  getFinancialStatusBadge,
+} from '../../utils/financialUtils';
 
 interface StudentDetailModalProps {
   isOpen: boolean;
@@ -85,7 +94,19 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   const studentExams = getStudentExams(student.id);
   const studentSupplies = getStudentSupplies(student.id);
 
-  const balanceDue = Math.max(0, student.monthlyFee - student.paidAmount);
+  const inscriptionAccount = getInscriptionAccount(student);
+  const encadrementAccount = getEncadrementAccount(student);
+  const inscriptionRemaining = getInscriptionBalance(student);
+  const encadrementRemaining = getEncadrementBalance(student);
+  const inscriptionBadge = getFinancialStatusBadge(inscriptionAccount?.status);
+  const encadrementBadge = getFinancialStatusBadge(encadrementAccount?.status);
+
+  // Séparation stricte des paiements par compte
+  const inscriptionPayments = studentPayments.filter((p) => isInscriptionCategory(p.category));
+  const encadrementPayments = studentPayments.filter((p) => isEncadrementCategory(p.category));
+  const totalInscriptionPaid = inscriptionPayments.reduce((s, p) => s + (p.amount || 0), 0);
+  const totalEncadrementPaid = encadrementPayments.reduce((s, p) => s + (p.amount || 0), 0);
+
   const isStopped = student.tutoringStatus !== 'Actif';
   const isPrimary = isPrimaryStudent(student);
 
@@ -155,8 +176,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Status Highlights Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+          {/* Status Highlights Grid - 6 cartes incluant les 2 comptes isolés */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {/* Promotion / Cohorte */}
             <div className="rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/50 dark:bg-purple-950/20 p-3.5">
               <span className="text-[11px] text-purple-600 dark:text-purple-400 uppercase tracking-wider font-semibold block mb-1">
@@ -218,24 +239,61 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Financial Status */}
-            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3.5">
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold block mb-1">
-                Paiement Mensuel
-              </span>
-              <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">
-                {(student?.paidAmount ?? 0).toLocaleString()} / {(student?.monthlyFee ?? 0).toLocaleString()} FCFA
+            {/* COMPTE ISOLÉ 1 : FRAIS D'INSCRIPTION */}
+            <div className="rounded-xl border border-amber-300 dark:border-amber-800/60 bg-amber-50/60 dark:bg-amber-950/20 p-3.5 relative overflow-hidden">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] text-amber-800 dark:text-amber-300 uppercase tracking-wider font-bold">
+                  Compte Inscription
+                </span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${inscriptionBadge.badgeClass}`}>
+                  {inscriptionBadge.label}
+                </span>
               </div>
-              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                {balanceDue > 0 ? (
-                  <span className="text-rose-600 dark:text-rose-400 font-semibold">
-                    Reste dû : {(balanceDue ?? 0).toLocaleString()} FCFA
+              <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">
+                {(inscriptionAccount?.paid ?? 0).toLocaleString()} / {(inscriptionAccount?.due ?? 10000).toLocaleString()} FCFA
+              </div>
+              <div className="text-[10px] mt-1">
+                {inscriptionRemaining > 0 ? (
+                  <span className="text-rose-600 dark:text-rose-400 font-semibold font-mono">
+                    Reste dû : {inscriptionRemaining.toLocaleString()} FCFA
                   </span>
                 ) : (
                   <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                    Totalement à jour
+                    ✓ Totalement réglé
                   </span>
                 )}
+              </div>
+              <div className="text-[9px] text-amber-600/80 dark:text-amber-400/70 mt-0.5 italic">
+                Frais d'admission uniques
+              </div>
+            </div>
+
+            {/* COMPTE ISOLÉ 2 : FRAIS D'ENCADREMENT */}
+            <div className="rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50/60 dark:bg-emerald-950/20 p-3.5 relative overflow-hidden">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] text-emerald-800 dark:text-emerald-300 uppercase tracking-wider font-bold">
+                  Compte Encadrement
+                </span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${encadrementBadge.badgeClass}`}>
+                  {encadrementBadge.label}
+                </span>
+              </div>
+              <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">
+                {(encadrementAccount?.paid ?? 0).toLocaleString()} / {(encadrementAccount?.due ?? student.monthlyFee).toLocaleString()} FCFA
+              </div>
+              <div className="text-[10px] mt-1">
+                {encadrementRemaining > 0 ? (
+                  <span className="text-rose-600 dark:text-rose-400 font-semibold font-mono">
+                    Reste dû : {encadrementRemaining.toLocaleString()} FCFA
+                  </span>
+                ) : (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                    ✓ Totalement à jour
+                  </span>
+                )}
+              </div>
+              <div className="text-[9px] text-emerald-600/80 dark:text-emerald-400/70 mt-0.5 italic">
+                Frais de scolarité périodiques
               </div>
             </div>
 
@@ -710,54 +768,111 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
               {/* Payments SubTab */}
               {activeSubTab === 'payments' && (
-                <div className="space-y-2">
+                <div className="space-y-3">
+                  {/* BANDEAU COMPTABILITÉ DÉCOUPLÉE */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                    <div className="p-2 rounded-lg bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase">
+                          Compte Frais d'Inscription
+                        </span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${inscriptionBadge.badgeClass}`}>
+                          {inscriptionBadge.label}
+                        </span>
+                      </div>
+                      <div className="font-mono font-bold text-xs text-slate-900 dark:text-white mt-1">
+                        {totalInscriptionPaid.toLocaleString()} / {(inscriptionAccount?.due ?? 10000).toLocaleString()} FCFA
+                      </div>
+                      <div className="text-[9.5px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Reste dû : {inscriptionRemaining.toLocaleString()} FCFA · <span className="italic">Admission</span>
+                      </div>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase">
+                          Compte Frais d'Encadrement
+                        </span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${encadrementBadge.badgeClass}`}>
+                          {encadrementBadge.label}
+                        </span>
+                      </div>
+                      <div className="font-mono font-bold text-xs text-slate-900 dark:text-white mt-1">
+                        {totalEncadrementPaid.toLocaleString()} / {(encadrementAccount?.due ?? student.monthlyFee).toLocaleString()} FCFA
+                      </div>
+                      <div className="text-[9.5px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Reste dû : {encadrementRemaining.toLocaleString()} FCFA · <span className="italic">Scolarité</span>
+                      </div>
+                    </div>
+                  </div>
+
                   {studentPayments.length === 0 ? (
                     <div className="text-center py-6 text-xs text-slate-400">
                       Aucun reçu de paiement enregistré directement pour cet élève.
                     </div>
                   ) : (
-                    studentPayments.map((p) => (
-                      <div
-                        key={p.id}
-                        className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 hover:border-emerald-500/30 transition-colors"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs text-slate-900 dark:text-white">
-                              {p.receiptNumber}
-                            </span>
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono">
-                              {p.paymentMethod}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">
-                            {p.paymentDate} · Caissier : {p.cashierName}
-                          </div>
-                        </div>
+                    studentPayments.map((p) => {
+                      const isInsc = isInscriptionCategory(p.category);
+                      const isEncad = isEncadrementCategory(p.category);
 
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
-                            {(p?.amount ?? 0).toLocaleString()} FCFA
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => setSelectedReceipt(p)}
-                              className="p-1 rounded text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
-                              title="Aperçu / Imprimer le reçu"
-                            >
-                              <FileText className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => setPaymentToDelete(p)}
-                              className="p-1 rounded text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
-                              title="Supprimer ce paiement"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                      return (
+                        <div
+                          key={p.id}
+                          className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 hover:border-emerald-500/30 transition-colors"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-xs text-slate-900 dark:text-white">
+                                {p.receiptNumber}
+                              </span>
+                              <span
+                                className={`text-[9px] px-2 py-0.5 rounded-full font-bold border ${
+                                  isInsc
+                                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700/60'
+                                    : isEncad
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/60'
+                                    : 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-300 dark:border-purple-700/60'
+                                }`}
+                              >
+                                {isInsc
+                                  ? 'Frais d\'Inscription'
+                                  : isEncad
+                                  ? 'Frais d\'Encadrement'
+                                  : p.category}
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono">
+                                {p.paymentMethod}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              {p.paymentDate} · Caissier : {p.cashierName}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
+                              {(p?.amount ?? 0).toLocaleString()} FCFA
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => setSelectedReceipt(p)}
+                                className="p-1 rounded text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                                title="Aperçu / Imprimer le reçu"
+                              >
+                                <FileText className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => setPaymentToDelete(p)}
+                                className="p-1 rounded text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                                title="Supprimer ce paiement"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}

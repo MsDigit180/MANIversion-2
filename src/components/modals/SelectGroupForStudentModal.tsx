@@ -28,9 +28,17 @@ export const SelectGroupForStudentModal: React.FC<SelectGroupForStudentModalProp
   isOpen,
   onClose,
 }) => {
-  const { students, tutors, assignStudentToGroup, removeStudentFromGroup, showToast } = useApp();
+  const {
+    students,
+    tutors,
+    tutoringGroups,
+    assignStudentToGroup,
+    removeStudentFromGroup,
+    createTutoringGroup,
+    showToast,
+  } = useApp();
 
-  const allGroups = useMemo(() => extractTutoringGroups(students, tutors), [students, tutors]);
+  const allGroups = tutoringGroups;
 
   const [mode, setMode] = useState<'existing' | 'new'>('existing');
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
@@ -91,12 +99,16 @@ export const SelectGroupForStudentModal: React.FC<SelectGroupForStudentModalProp
 
     setIsSubmitting(true);
     try {
-      const res = await assignStudentToGroup(
-        student.id,
-        newGroupId.trim(),
-        newGroupName.trim() || undefined,
-        newTimeSlot.trim() || undefined
-      );
+      const res = await createTutoringGroup({
+        id: newGroupId.trim().toUpperCase(),
+        name: newGroupName.trim() || `Groupe ${newGroupId.trim().toUpperCase()}`,
+        level: student.level,
+        stream: student.stream,
+        subjects: student.subjects || ['Général'],
+        timeSlot: newTimeSlot.trim() || student.timeSlot || 'Créneau mutualisé',
+        sessionsPerWeek: student.sessionsPerWeek || 3,
+        initialStudentIds: [student.id],
+      });
       if (res.success) {
         onClose();
       }

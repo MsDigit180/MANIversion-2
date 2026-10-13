@@ -35,7 +35,9 @@ export function generateMonthlyInvoices(
     for (const fam of families) {
       // Élèves de cette famille
       const studentItems: InvoiceStudentItem[] = fam.students.map((st) => {
-        const remaining = Math.max(0, st.monthlyFee - st.paidAmount);
+        const feeDue = st?.encadrement?.due ?? st?.monthlyFee ?? 0;
+        const feePaid = st?.encadrement?.paid ?? st?.paidAmount ?? 0;
+        const remaining = Math.max(0, feeDue - feePaid);
         return {
           studentId: st.id,
           studentMatricule: st.matricule,
@@ -44,8 +46,8 @@ export function generateMonthlyInvoices(
           stream: st.stream,
           subjects: st.subjects || [],
           sessionsPerWeek: st.sessionsPerWeek || 3,
-          monthlyFee: st.monthlyFee,
-          paidAmount: st.paidAmount,
+          monthlyFee: feeDue,
+          paidAmount: feePaid,
           balanceRemaining: remaining,
           tutoringStatus: st.tutoringStatus,
         };
@@ -84,15 +86,17 @@ export function generateMonthlyInvoices(
         status,
         notes:
           fam.students.length > 1
-            ? `Facture groupée fratrie couvrant ${fam.students.length} enfants inscrits.`
-            : `Scolarité mensuelle pour ${fam.students[0]?.fullName || 'élève'}.`,
+            ? `Avis d'échéance Frais d'Encadrement (Compte Cloisonné) pour ${fam.students.length} enfants inscrits.`
+            : `Frais d'encadrement périodiques (Compte Cloisonné) pour ${fam.students[0]?.fullName || 'élève'}.`,
         createdAt: issueDate,
       });
     }
   } else {
     // Mode individuel strict (1 facture par élève)
     students.forEach((st, idx) => {
-      const remaining = Math.max(0, st.monthlyFee - st.paidAmount);
+      const feeDue = st?.encadrement?.due ?? st?.monthlyFee ?? 0;
+      const feePaid = st?.encadrement?.paid ?? st?.paidAmount ?? 0;
+      const remaining = Math.max(0, feeDue - feePaid);
       const studentItems: InvoiceStudentItem[] = [
         {
           studentId: st.id,
@@ -102,19 +106,19 @@ export function generateMonthlyInvoices(
           stream: st.stream,
           subjects: st.subjects || [],
           sessionsPerWeek: st.sessionsPerWeek || 3,
-          monthlyFee: st.monthlyFee,
-          paidAmount: st.paidAmount,
+          monthlyFee: feeDue,
+          paidAmount: feePaid,
           balanceRemaining: remaining,
           tutoringStatus: st.tutoringStatus,
         },
       ];
 
-      const totalMonthlyFee = st.monthlyFee;
-      const totalPaid = st.paidAmount;
+      const totalMonthlyFee = feeDue;
+      const totalPaid = feePaid;
       const netDue = remaining;
 
       let status: MonthlyInvoice['status'] = 'En attente';
-      if (totalPaid >= totalMonthlyFee) {
+      if (totalPaid >= totalMonthlyFee && totalMonthlyFee > 0) {
         status = 'Payée';
       } else if (totalPaid > 0) {
         status = 'Partielle';

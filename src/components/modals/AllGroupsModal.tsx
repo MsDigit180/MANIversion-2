@@ -13,11 +13,14 @@ import {
   Printer,
   UserPlus,
   Plus,
+  Trash2,
 } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
 import { TutoringGroup } from '../../types';
 import { formatSessionHours, calculateWeeklyHours } from '../../utils/dateUtils';
 import { AddStudentToGroupModal } from './AddStudentToGroupModal';
 import { AssignTutorToGroupModal } from './AssignTutorToGroupModal';
+import { NewGroupModal } from './NewGroupModal';
 
 interface AllGroupsModalProps {
   groups: TutoringGroup[];
@@ -32,6 +35,8 @@ export const AllGroupsModal: React.FC<AllGroupsModalProps> = ({
   onClose,
   onSelectGroup,
 }) => {
+  const { isNewGroupModalOpen, setIsNewGroupModalOpen, deleteTutoringGroup } = useApp();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [streamFilter, setStreamFilter] = useState<string>('all');
 
@@ -85,12 +90,24 @@ export const AllGroupsModal: React.FC<AllGroupsModalProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={onClose}
-              className="rounded-xl p-2 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsNewGroupModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-sm transition-colors cursor-pointer"
+                title="Créer un nouveau groupe d'étude mutualisé"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>+ Nouveau Groupe</span>
+              </button>
+
+              <button
+                onClick={onClose}
+                className="rounded-xl p-2 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           {/* Filter Toolbar */}
@@ -148,9 +165,17 @@ export const AllGroupsModal: React.FC<AllGroupsModalProps> = ({
               <div className="col-span-full py-12 text-center text-slate-400">
                 <Layers className="h-10 w-10 mx-auto mb-2 opacity-40 text-slate-500" />
                 <p className="font-semibold text-white">Aucun groupe d'encadrement trouvé</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Créez ou affectez un identifiant de groupe (ex: GRP-CM1-A) lors de l'inscription d'un élève.
+                <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                  Créez des groupes d'étude mutualisés (ex: GRP-TERM-D) pour regrouper plusieurs élèves avec un emploi du temps partagé.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setIsNewGroupModalOpen(true)}
+                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>+ Créer un Groupe d'Étude</span>
+                </button>
               </div>
             ) : (
               filteredGroups.map((g) => {
@@ -255,6 +280,21 @@ export const AllGroupsModal: React.FC<AllGroupsModalProps> = ({
                           <GraduationCap className="h-3 w-3" />
                           <span>+ Enseignant</span>
                         </button>
+
+                        {/* Delete empty group */}
+                        {g.students.length === 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteTutoringGroup(g.id);
+                            }}
+                            className="p-1 rounded bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-700 transition-colors cursor-pointer"
+                            title="Supprimer ce groupe d'étude vide"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
                       </div>
 
                       <button
@@ -277,12 +317,22 @@ export const AllGroupsModal: React.FC<AllGroupsModalProps> = ({
             <span>
               {filteredGroups.length} groupe(s) affiché(s) · Gestion centralisée des effectifs
             </span>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
-            >
-              Fermer
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsNewGroupModalOpen(true)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-colors cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Nouveau Groupe</span>
+              </button>
+              <button
+                onClick={onClose}
+                className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -299,6 +349,12 @@ export const AllGroupsModal: React.FC<AllGroupsModalProps> = ({
         isOpen={!!groupForAssignTutor}
         onClose={() => setGroupForAssignTutor(null)}
         targetGroup={groupForAssignTutor}
+      />
+
+      {/* New Group Sub-Modal */}
+      <NewGroupModal
+        isOpen={isNewGroupModalOpen}
+        onClose={() => setIsNewGroupModalOpen(false)}
       />
     </>
   );

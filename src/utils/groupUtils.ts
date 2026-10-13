@@ -1,4 +1,4 @@
-import { Student, Tutor, TutoringGroup } from '../types';
+import { Student, Tutor, TutoringGroup, GroupRecord } from '../types';
 
 /**
  * Normalise un identifiant de groupe pour les comparaisons.
@@ -9,10 +9,15 @@ export function normalizeGroupId(id?: string): string {
 }
 
 /**
- * Extrait et agrège tous les groupes d'encadrement collectif à partir de la liste des élèves et des encadreurs.
+ * Extrait et agrège tous les groupes d'encadrement collectif à partir de la liste des élèves,
+ * des encadreurs et des groupes enregistrés.
  * Regroupe selon le `groupId` explicite ou la mutualisation collective.
  */
-export function extractTutoringGroups(students: Student[], tutors: Tutor[]): TutoringGroup[] {
+export function extractTutoringGroups(
+  students: Student[],
+  tutors: Tutor[],
+  customGroups?: GroupRecord[]
+): TutoringGroup[] {
   const groupsMap = new Map<string, {
     id: string;
     name: string;
@@ -23,16 +28,40 @@ export function extractTutoringGroups(students: Student[], tutors: Tutor[]): Tut
     sessionsPerWeek: number;
     tutorIds: Set<string>;
     students: Student[];
+    createdAt?: string;
+    notes?: string;
   }>();
 
+  // 1. Initialiser avec les groupes explicitement créés (y compris ceux sans élèves pour l'instant)
+  if (Array.isArray(customGroups)) {
+    for (const cg of customGroups) {
+      if (!cg || !cg.id) continue;
+      const gId = normalizeGroupId(cg.id);
+      groupsMap.set(gId, {
+        id: cg.id.trim(),
+        name: cg.name || `Groupe ${cg.id}`,
+        level: cg.level || '',
+        stream: cg.stream || '',
+        subjects: new Set<string>(cg.subjects || []),
+        timeSlot: cg.timeSlot,
+        sessionsPerWeek: cg.sessionsPerWeek || 3,
+        tutorIds: new Set<string>(cg.tutorIds || []),
+        students: [],
+        createdAt: cg.createdAt,
+        notes: cg.notes,
+      });
+    }
+  }
+
+  // 2. Parcourir les élèves assignés à un groupe
   for (const s of students) {
     if (!s.groupId || !s.groupId.trim()) continue;
 
-    const gId = s.groupId.trim();
+    const gId = normalizeGroupId(s.groupId);
     if (!groupsMap.has(gId)) {
       groupsMap.set(gId, {
-        id: gId,
-        name: s.groupName || `Groupe ${gId}`,
+        id: s.groupId.trim(),
+        name: s.groupName || `Groupe ${s.groupId}`,
         level: s.level,
         stream: s.stream,
         subjects: new Set<string>(s.subjects || []),
@@ -132,10 +161,11 @@ export function extractTutoringGroups(students: Student[], tutors: Tutor[]): Tut
 export function getStudentGroup(
   student: Student,
   allStudents: Student[],
-  tutors: Tutor[]
+  tutors: Tutor[],
+  customGroups?: GroupRecord[]
 ): TutoringGroup | null {
   if (!student.groupId) return null;
-  const groups = extractTutoringGroups(allStudents, tutors);
+  const groups = extractTutoringGroups(allStudents, tutors, customGroups);
   return groups.find((g) => (g?.id ?? '').toLowerCase() === (student.groupId ?? '').toLowerCase()) || null;
 }
 

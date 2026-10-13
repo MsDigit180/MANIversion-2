@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   Student,
   PaymentReceipt,
@@ -17,10 +17,12 @@ import {
   Tutor,
   isSuperAdminRole,
   TutoringGroup,
+  GroupRecord,
   MultiStudentReceiptItem,
 } from '../types';
 import { calculateMonthlyHours } from '../utils/dateUtils';
 import { validateTutorAssignment, isPrimaryStudent } from '../utils/tutorAssignmentValidation';
+import { extractTutoringGroups } from '../utils/groupUtils';
 import {
   db,
   doc,
@@ -37,6 +39,13 @@ import {
 } from '../firebase';
 import { compressImage } from '../utils/imageOptimizer';
 import { getCurrentFrenchDateTime, getCurrentFrenchDate, formatReceiptPaymentDate } from '../utils/dateUtils';
+import {
+  calculateAccountStatus,
+  getInscriptionAccount,
+  getEncadrementAccount,
+  isInscriptionCategory,
+  isEncadrementCategory,
+} from '../utils/financialUtils';
 
 const DEFAULT_ADMIN_USER: Agent = {
   id: 'agent-admin',
@@ -185,6 +194,23 @@ interface AppContextType {
     subjects: string[]
   ) => Promise<{ success: boolean; error?: string }>;
   unassignTutorFromGroup: (tutorId: string, groupId: string) => Promise<void>;
+  customGroups: GroupRecord[];
+  tutoringGroups: TutoringGroup[];
+  createTutoringGroup: (data: {
+    id: string;
+    name: string;
+    level: string;
+    stream: string;
+    subjects: string[];
+    timeSlot?: string;
+    sessionsPerWeek?: number;
+    initialStudentIds?: string[];
+    initialTutorIds?: string[];
+    notes?: string;
+  }) => Promise<{ success: boolean; error?: string; group?: TutoringGroup }>;
+  deleteTutoringGroup: (groupId: string) => Promise<{ success: boolean; error?: string }>;
+  isNewGroupModalOpen: boolean;
+  setIsNewGroupModalOpen: (b: boolean) => void;
   updateStudent: (id: string, data: Partial<Student>) => Promise<void>;
   deleteStudent: (id: string) => Promise<void>;
   updateExam: (id: string, data: Partial<ExamApplication>) => Promise<void>;
@@ -316,6 +342,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [supplySales, setSupplySales] = useState<SupplySale[]>([]);
   const [operations, setOperations] = useState<OperationItem[]>([]);
   const [alerts, setAlerts] = useState<PriorityAlert[]>([]);
+  const [customGroups, setCustomGroups] = useState<GroupRecord[]>([]);
 
   // Navigation & Filters
   const [currentTab, setCurrentTab] = useState<TabKey>('dashboard');
@@ -330,6 +357,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Modals
   const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
+  const [isNewGroupModalOpen, setIsNewGroupModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [isStopTutoringModalOpen, setIsStopTutoringModalOpen] = useState(false);
   const [selectedStudentForStop, setSelectedStudentForStop] = useState<Student | null>(null);
@@ -404,9 +432,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const list: Student[] = [];
             snapshot.forEach((docSnap) => {
               const sData = docSnap.data() as Student;
+              const insc = getInscriptionAccount(sData);
+              const encad = getEncadrementAccount(sData);
               list.push({
                 ...sData,
                 sessionsPerWeek: sData.sessionsPerWeek || 3,
+                inscription: insc,
+                encadrement: encad,
+                monthlyFee: encad.due,
+                paidAmount: encad.paid,
+                paymentStatus: encad.status === 'PAID' ? 'A jour' : encad.status === 'PENDING' ? 'Partiel' : 'En retard',
               });
             });
             setStudents(list);
@@ -513,6 +548,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.ALERTS)
         );
         unsubscribes.push(unsubAlerts);
+
+        // 9. Groups Listener
+        const unsubGroups = onSnapshot(
+          collection(db, COLLECTIONS.GROUPS),
+          (snapshot) => {
+            const list: GroupRecord[] = [];
+            snapshot.forEach((docSnap) => {
+              list.push(docSnap.data() as GroupRecord);
+            });
+            setCustomGroups(list);
+          },
+          (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.GROUPS)
+        );
+        unsubscribes.push(unsubGroups);
         setIsLoading(false);
       } catch (e) {
         console.warn('Firestore realtime notice:', e);
@@ -941,6 +990,194 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`Affectation retirée entre ${student.fullName} et ${tutor.fullName}.`, 'info');
   };
 
+  // Aggregated dynamic tutoring groups (including custom groups with 0 students)
+  const tutoringGroups = useMemo(() => {
+    return extractTutoringGroups(students, tutors, customGroups);
+  }, [students, tutors, customGroups]);
+
+  const createTutoringGroup = async (data: {
+    id: string;
+    name: string;
+    level: string;
+    stream: string;
+    subjects: string[];
+    timeSlot?: string;
+    sessionsPerWeek?: number;
+    initialStudentIds?: string[];
+    initialTutorIds?: string[];
+    notes?: string;
+  }): Promise<{ success: boolean; error?: string; group?: TutoringGroup }> => {
+    const cleanId = data.id.trim().toUpperCase();
+    if (!cleanId) {
+      showToast("L'identifiant du groupe ne peut pas être vide.", 'warning');
+      return { success: false, error: 'Identifiant requis' };
+    }
+
+    if (!data.name.trim()) {
+      showToast('Le nom du groupe est requis.', 'warning');
+      return { success: false, error: 'Nom requis' };
+    }
+
+    // Check if ID already exists
+    const existingGroup =
+      customGroups.find((g) => g.id.toUpperCase() === cleanId) ||
+      tutoringGroups.find((g) => g.id.toUpperCase() === cleanId);
+
+    if (existingGroup) {
+      showToast(`Le code groupe "${cleanId}" existe déjà. Veuillez utiliser un identifiant unique.`, 'warning');
+      return { success: false, error: 'Identifiant déjà existant' };
+    }
+
+    const newRecord: GroupRecord = {
+      id: cleanId,
+      name: data.name.trim(),
+      level: data.level,
+      stream: data.stream,
+      subjects: Array.isArray(data.subjects) && data.subjects.length > 0 ? data.subjects : ['Général'],
+      timeSlot: data.timeSlot?.trim() || 'Créneau mutualisé',
+      sessionsPerWeek: data.sessionsPerWeek || 3,
+      tutorIds: data.initialTutorIds || [],
+      createdAt: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+      notes: data.notes?.trim() || undefined,
+    };
+
+    // Update local customGroups state immediately
+    setCustomGroups((prev) => [...prev.filter((g) => g.id.toUpperCase() !== cleanId), newRecord]);
+
+    const writes: Promise<any>[] = [
+      setDoc(doc(db, COLLECTIONS.GROUPS, cleanId), sanitizeForFirestore(newRecord), { merge: true }),
+    ];
+
+    // If initial students provided, assign them to this group
+    const initialStudentIds = data.initialStudentIds || [];
+    if (initialStudentIds.length > 0) {
+      const updatedStudentsList: Student[] = [];
+      for (const sId of initialStudentIds) {
+        const student = students.find((s) => s.id === sId);
+        if (student) {
+          const updatedStudent: Student = {
+            ...student,
+            groupId: cleanId,
+            groupName: newRecord.name,
+            timeSlot: newRecord.timeSlot,
+            sessionsPerWeek: newRecord.sessionsPerWeek || student.sessionsPerWeek || 3,
+          };
+          updatedStudentsList.push(updatedStudent);
+          writes.push(
+            setDoc(doc(db, COLLECTIONS.STUDENTS, student.id), sanitizeForFirestore(updatedStudent), { merge: true })
+          );
+        }
+      }
+      if (updatedStudentsList.length > 0) {
+        setStudents((prev) =>
+          prev.map((s) => {
+            const found = updatedStudentsList.find((u) => u.id === s.id);
+            return found || s;
+          })
+        );
+      }
+    }
+
+    // If initial tutors provided, assign them
+    const initialTutorIds = data.initialTutorIds || [];
+    if (initialTutorIds.length > 0) {
+      for (const tId of initialTutorIds) {
+        const tutor = tutors.find((t) => t.id === tId);
+        if (tutor) {
+          const nextStudentIds = Array.from(new Set([...(tutor.assignedStudentIds || []), ...initialStudentIds]));
+          const nextSubjects = { ...(tutor.assignedStudentSubjects || {}) };
+          for (const sId of initialStudentIds) {
+            nextSubjects[sId] = newRecord.subjects;
+          }
+          const tutorStudents = students.filter((s) => nextStudentIds.includes(s.id));
+          const totalWeeklySessions = tutorStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
+          const updatedTutor: Tutor = {
+            ...tutor,
+            assignedStudentIds: nextStudentIds,
+            assignedStudentSubjects: nextSubjects,
+            totalHours: calculateMonthlyHours(totalWeeklySessions),
+          };
+          setTutors((prev) => prev.map((t) => (t.id === tutor.id ? updatedTutor : t)));
+          writes.push(
+            setDoc(doc(db, COLLECTIONS.TUTORS, tutor.id), sanitizeForFirestore(updatedTutor), { merge: true })
+          );
+        }
+      }
+    }
+
+    // Operations log
+    const newOp: OperationItem = {
+      id: `op-grp-${Date.now()}`,
+      type: 'inscription',
+      title: `Création du groupe d'étude ${newRecord.name} (${cleanId})`,
+      subtitle: `${newRecord.level} · ${newRecord.stream} · ${initialStudentIds.length} élève(s) inscrit(s)`,
+      referenceId: cleanId,
+      timestamp: 'À l\'instant',
+      syncStatus: 'synced',
+      metaBadge: 'Groupe',
+      agentId: currentUser.id,
+      agentName: currentUser.fullName,
+      agentRole: currentUser.role,
+      agentAvatar: currentUser.avatar,
+    };
+    setOperations((prev) => [newOp, ...prev]);
+    writes.push(setDoc(doc(db, COLLECTIONS.OPERATIONS, newOp.id), sanitizeForFirestore(newOp), { merge: true }));
+
+    await safeFirestoreWrite(Promise.all(writes), 1500);
+
+    showToast(`✅ Groupe d'étude "${newRecord.name}" (${cleanId}) créé avec succès.`, 'success');
+    return { success: true };
+  };
+
+  const deleteTutoringGroup = async (groupId: string): Promise<{ success: boolean; error?: string }> => {
+    const cleanId = groupId.trim().toUpperCase();
+    const grp =
+      customGroups.find((g) => g.id.toUpperCase() === cleanId) ||
+      tutoringGroups.find((g) => g.id.toUpperCase() === cleanId);
+
+    if (!grp) {
+      showToast('Groupe introuvable.', 'warning');
+      return { success: false, error: 'Groupe introuvable' };
+    }
+
+    const studentsInGroup = students.filter((s) => s.groupId && s.groupId.toUpperCase() === cleanId);
+    if (studentsInGroup.length > 0) {
+      const confirmDissolve = window.confirm(
+        `Ce groupe contient ${studentsInGroup.length} élève(s). Confirmez-vous la dissolution du groupe ? Les élèves seront replacés en encadrement individuel.`
+      );
+      if (!confirmDissolve) return { success: false, error: "Dissolution annulée." };
+    }
+
+    const writes: Promise<any>[] = [deleteDoc(doc(db, COLLECTIONS.GROUPS, cleanId))];
+
+    if (studentsInGroup.length > 0) {
+      const updatedStudents = students.map((s) => {
+        if (s.groupId && s.groupId.toUpperCase() === cleanId) {
+          return { ...s, groupId: undefined, groupName: undefined };
+        }
+        return s;
+      });
+      setStudents(updatedStudents);
+
+      for (const s of studentsInGroup) {
+        writes.push(
+          setDoc(
+            doc(db, COLLECTIONS.STUDENTS, s.id),
+            sanitizeForFirestore({ groupId: null, groupName: null }),
+            { merge: true }
+          )
+        );
+      }
+    }
+
+    setCustomGroups((prev) => prev.filter((g) => g.id.toUpperCase() !== cleanId));
+
+    await safeFirestoreWrite(Promise.all(writes), 1500);
+
+    showToast(`Groupe ${cleanId} supprimé avec succès.`, 'info');
+    return { success: true };
+  };
+
   const assignStudentToGroup = async (
     studentId: string,
     groupId: string,
@@ -959,17 +1196,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Identifiant groupe vide' };
     }
 
-    // Récupérer le nom et le créneau par défaut s'il existe déjà des pairs dans ce groupe
+    // Récupérer le nom et le créneau par défaut s'il existe déjà dans customGroups ou chez des pairs
+    const customGroupMatch = customGroups.find((g) => g.id.toUpperCase() === cleanGroupId);
     const peerInGroup = students.find(
       (s) => s.groupId && s.groupId.trim().toUpperCase() === cleanGroupId && s.id !== studentId
     );
-    const resolvedGroupName = groupName?.trim() || peerInGroup?.groupName || `Groupe ${cleanGroupId}`;
-    const resolvedTimeSlot = timeSlot?.trim() || peerInGroup?.timeSlot || student.timeSlot || 'Créneau mutualisé';
+    const resolvedGroupName =
+      groupName?.trim() || customGroupMatch?.name || peerInGroup?.groupName || `Groupe ${cleanGroupId}`;
+    const resolvedTimeSlot =
+      timeSlot?.trim() || customGroupMatch?.timeSlot || peerInGroup?.timeSlot || student.timeSlot || 'Créneau mutualisé';
 
     // Hériter des encadreurs déjà affectés au groupe si disponible
     let inheritedTutorAssignments = [...(student.tutorAssignments || [])];
     let inheritedTutorIds = [...(student.tutorIds || [])];
     const tutorUpdatePromises: Promise<any>[] = [];
+
+    // Assurer la persistance du groupe dans COLLECTIONS.GROUPS
+    if (!customGroupMatch) {
+      const autoRecord: GroupRecord = {
+        id: cleanGroupId,
+        name: resolvedGroupName,
+        level: student.level,
+        stream: student.stream,
+        subjects: student.subjects || ['Général'],
+        timeSlot: resolvedTimeSlot,
+        sessionsPerWeek: student.sessionsPerWeek || 3,
+        createdAt: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+      };
+      setCustomGroups((prev) => [...prev.filter((g) => g.id.toUpperCase() !== cleanGroupId), autoRecord]);
+      tutorUpdatePromises.push(
+        setDoc(doc(db, COLLECTIONS.GROUPS, cleanGroupId), sanitizeForFirestore(autoRecord), { merge: true })
+      );
+    }
 
     if (peerInGroup && peerInGroup.tutorAssignments && peerInGroup.tutorAssignments.length > 0) {
       for (const peerAssignment of peerInGroup.tutorAssignments) {
@@ -1384,6 +1642,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       optimizedAvatar = await compressImage(optimizedAvatar, { maxWidth: 600, maxHeight: 600, quality: 0.7 });
     }
 
+    const initialInscriptionDue = Number(studentData.inscription?.due ?? 10000);
+    const initialInscriptionPaid = Number(studentData.inscription?.paid ?? 0);
+    const inscriptionStatus = calculateAccountStatus(initialInscriptionDue, initialInscriptionPaid);
+
+    const initialEncadrementDue = Number(studentData.encadrement?.due ?? studentData.monthlyFee ?? 20000);
+    const initialEncadrementPaid = Number(studentData.encadrement?.paid ?? studentData.paidAmount ?? 0);
+    const encadrementStatus = calculateAccountStatus(initialEncadrementDue, initialEncadrementPaid);
+
     const newStudentId = `stu-${Date.now()}`;
     const newStudent: Student = {
       ...studentData,
@@ -1391,6 +1657,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       avatar: optimizedAvatar,
       id: newStudentId,
       matricule,
+      monthlyFee: initialEncadrementDue,
+      paidAmount: initialEncadrementPaid,
+      paymentStatus: encadrementStatus === 'PAID' ? 'A jour' : encadrementStatus === 'PENDING' ? 'Partiel' : 'En retard',
+      // Cloisonnement strict des flux financiers
+      inscription: {
+        due: initialInscriptionDue,
+        paid: initialInscriptionPaid,
+        status: inscriptionStatus,
+      },
+      encadrement: {
+        due: initialEncadrementDue,
+        paid: initialEncadrementPaid,
+        status: encadrementStatus,
+      },
       tutoringStatus: studentData.tutoringStatus || 'Actif',
       syncStatus: 'synced',
       agentId,
@@ -1602,19 +1882,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPayments((prev) => [newPayment, ...prev]);
     setOperations((prev) => [newOp, ...prev]);
 
-    const isTuitionCategory = !paymentData.category || paymentData.category === 'Scolarité Mensuelle';
+    const isInscription = isInscriptionCategory(paymentData.category);
+    const isEncadrement = isEncadrementCategory(paymentData.category);
 
     if (paymentData.studentId) {
       setStudents((prev) =>
         prev.map((s) => {
           if (s.id === paymentData.studentId) {
-            const addedAmount = isTuitionCategory ? paymentData.amount : 0;
-            const updatedPaid = (s.paidAmount || 0) + addedAmount;
-            const updatedStatus = updatedPaid >= s.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+            let updatedInscription = getInscriptionAccount(s);
+            let updatedEncadrement = getEncadrementAccount(s);
+            let updatedPaidAmount = s.paidAmount ?? 0;
+            let updatedPaymentStatus = s.paymentStatus;
+
+            if (isInscription) {
+              // RÈGLE MÉTIER : Modifie EXCLUSIVEMENT le compte Inscription
+              const newPaid = (updatedInscription?.paid ?? 0) + paymentData.amount;
+              const newStatus = calculateAccountStatus(updatedInscription?.due ?? 0, newPaid);
+              updatedInscription = {
+                due: updatedInscription?.due ?? 0,
+                paid: newPaid,
+                status: newStatus,
+              };
+            } else if (isEncadrement) {
+              // RÈGLE MÉTIER : Modifie EXCLUSIVEMENT le compte Encadrement
+              const newPaid = (updatedEncadrement?.paid ?? 0) + paymentData.amount;
+              const newStatus = calculateAccountStatus(updatedEncadrement?.due ?? 0, newPaid);
+              updatedEncadrement = {
+                due: updatedEncadrement?.due ?? 0,
+                paid: newPaid,
+                status: newStatus,
+              };
+              updatedPaidAmount = newPaid;
+              updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+            }
+
             return {
               ...s,
-              paidAmount: updatedPaid,
-              paymentStatus: isTuitionCategory ? updatedStatus : s.paymentStatus,
+              paidAmount: updatedPaidAmount,
+              paymentStatus: updatedPaymentStatus,
+              inscription: updatedInscription,
+              encadrement: updatedEncadrement,
             };
           }
           return s;
@@ -1630,15 +1937,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (paymentData.studentId) {
       const student = students.find((s) => s.id === paymentData.studentId);
       if (student) {
-        const addedAmount = isTuitionCategory ? paymentData.amount : 0;
-        const updatedPaid = (student.paidAmount || 0) + addedAmount;
-        const updatedStatus = updatedPaid >= student.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+        let updatedInscription = getInscriptionAccount(student);
+        let updatedEncadrement = getEncadrementAccount(student);
+        let updatedPaidAmount = student.paidAmount ?? 0;
+        let updatedPaymentStatus = student.paymentStatus;
+
+        if (isInscription) {
+          const newPaid = (updatedInscription?.paid ?? 0) + paymentData.amount;
+          const newStatus = calculateAccountStatus(updatedInscription?.due ?? 0, newPaid);
+          updatedInscription = {
+            due: updatedInscription?.due ?? 0,
+            paid: newPaid,
+            status: newStatus,
+          };
+        } else if (isEncadrement) {
+          const newPaid = (updatedEncadrement?.paid ?? 0) + paymentData.amount;
+          const newStatus = calculateAccountStatus(updatedEncadrement?.due ?? 0, newPaid);
+          updatedEncadrement = {
+            due: updatedEncadrement?.due ?? 0,
+            paid: newPaid,
+            status: newStatus,
+          };
+          updatedPaidAmount = newPaid;
+          updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+        }
+
         writes.push(
           setDoc(
             doc(db, COLLECTIONS.STUDENTS, student.id),
             sanitizeForFirestore({
-              paidAmount: updatedPaid,
-              paymentStatus: isTuitionCategory ? updatedStatus : student.paymentStatus,
+              paidAmount: updatedPaidAmount,
+              paymentStatus: updatedPaymentStatus,
+              inscription: updatedInscription,
+              encadrement: updatedEncadrement,
             }),
             { merge: true }
           )
@@ -1727,15 +2058,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((s) => {
         if (breakdownMap.has(s.id)) {
           const breakdownItem = breakdownMap.get(s.id)!;
-          const isTuition = !breakdownItem.category || breakdownItem.category === 'Scolarité Mensuelle';
-          const addedAmount = isTuition ? breakdownItem.amount : 0;
-          const updatedPaid = (s.paidAmount || 0) + addedAmount;
-          const updatedStatus = updatedPaid >= s.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+          const isItemInscription = isInscriptionCategory(breakdownItem.category);
+          const isItemEncadrement = isEncadrementCategory(breakdownItem.category);
+
+          let updatedInscription = getInscriptionAccount(s);
+          let updatedEncadrement = getEncadrementAccount(s);
+          let updatedPaidAmount = s.paidAmount ?? 0;
+          let updatedPaymentStatus = s.paymentStatus;
+
+          if (isItemInscription) {
+            const newPaid = (updatedInscription?.paid ?? 0) + breakdownItem.amount;
+            const newStatus = calculateAccountStatus(updatedInscription?.due ?? 0, newPaid);
+            updatedInscription = {
+              due: updatedInscription?.due ?? 0,
+              paid: newPaid,
+              status: newStatus,
+            };
+          } else if (isItemEncadrement) {
+            const newPaid = (updatedEncadrement?.paid ?? 0) + breakdownItem.amount;
+            const newStatus = calculateAccountStatus(updatedEncadrement?.due ?? 0, newPaid);
+            updatedEncadrement = {
+              due: updatedEncadrement?.due ?? 0,
+              paid: newPaid,
+              status: newStatus,
+            };
+            updatedPaidAmount = newPaid;
+            updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+          }
+
           const shouldReactivate = data.autoReactivate && s.tutoringStatus !== 'Actif';
           return {
             ...s,
-            paidAmount: updatedPaid,
-            paymentStatus: isTuition ? updatedStatus : s.paymentStatus,
+            paidAmount: updatedPaidAmount,
+            paymentStatus: updatedPaymentStatus,
+            inscription: updatedInscription,
+            encadrement: updatedEncadrement,
             tutoringStatus: shouldReactivate ? 'Actif' : s.tutoringStatus,
             stopDate: shouldReactivate ? undefined : s.stopDate,
             stopReason: shouldReactivate ? undefined : s.stopReason,
@@ -1753,17 +2110,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     for (const item of data.studentBreakdown) {
       const student = students.find((s) => s.id === item.studentId);
       if (student) {
-        const isTuition = !item.category || item.category === 'Scolarité Mensuelle';
-        const addedAmount = isTuition ? item.amount : 0;
-        const updatedPaid = (student.paidAmount || 0) + addedAmount;
-        const updatedStatus = updatedPaid >= student.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+        const isItemInscription = isInscriptionCategory(item.category);
+        const isItemEncadrement = isEncadrementCategory(item.category);
+
+        let updatedInscription = getInscriptionAccount(student);
+        let updatedEncadrement = getEncadrementAccount(student);
+        let updatedPaidAmount = student.paidAmount ?? 0;
+        let updatedPaymentStatus = student.paymentStatus;
+
+        if (isItemInscription) {
+          const newPaid = (updatedInscription?.paid ?? 0) + item.amount;
+          const newStatus = calculateAccountStatus(updatedInscription?.due ?? 0, newPaid);
+          updatedInscription = {
+            due: updatedInscription?.due ?? 0,
+            paid: newPaid,
+            status: newStatus,
+          };
+        } else if (isItemEncadrement) {
+          const newPaid = (updatedEncadrement?.paid ?? 0) + item.amount;
+          const newStatus = calculateAccountStatus(updatedEncadrement?.due ?? 0, newPaid);
+          updatedEncadrement = {
+            due: updatedEncadrement?.due ?? 0,
+            paid: newPaid,
+            status: newStatus,
+          };
+          updatedPaidAmount = newPaid;
+          updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+        }
+
         const shouldReactivate = data.autoReactivate && student.tutoringStatus !== 'Actif';
         writes.push(
           setDoc(
             doc(db, COLLECTIONS.STUDENTS, student.id),
             sanitizeForFirestore({
-              paidAmount: updatedPaid,
-              paymentStatus: isTuition ? updatedStatus : student.paymentStatus,
+              paidAmount: updatedPaidAmount,
+              paymentStatus: updatedPaymentStatus,
+              inscription: updatedInscription,
+              encadrement: updatedEncadrement,
               ...(shouldReactivate ? { tutoringStatus: 'Actif', stopDate: null, stopReason: null } : {}),
             }),
             { merge: true }
@@ -1800,27 +2183,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteDoc(doc(db, COLLECTIONS.PAYMENTS, paymentId)),
     ];
 
-    // 2. Revert student paid amount & status
+    // 2. Revert student paid amount & status with strict isolation
+    const isPaymentInscription = isInscriptionCategory(paymentToDelete.category);
+    const isPaymentEncadrement = isEncadrementCategory(paymentToDelete.category);
+
     if (
       paymentToDelete.isMultiStudent &&
       paymentToDelete.studentBreakdown &&
       paymentToDelete.studentBreakdown.length > 0
     ) {
       const breakdownMap = new Map(
-        paymentToDelete.studentBreakdown.map((item) => [item.studentId, item.amount])
+        paymentToDelete.studentBreakdown.map((item) => [item.studentId, item])
       );
 
       setStudents((prev) =>
         prev.map((s) => {
           if (breakdownMap.has(s.id)) {
-            const deductedAmount = breakdownMap.get(s.id)!;
-            const updatedPaid = Math.max(0, (s.paidAmount || 0) - deductedAmount);
-            const updatedStatus =
-              updatedPaid >= s.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+            const item = breakdownMap.get(s.id)!;
+            const isItemInscription = isInscriptionCategory(item.category);
+            const isItemEncadrement = isEncadrementCategory(item.category);
+
+            let updatedInscription = getInscriptionAccount(s);
+            let updatedEncadrement = getEncadrementAccount(s);
+            let updatedPaidAmount = s.paidAmount ?? 0;
+            let updatedPaymentStatus = s.paymentStatus;
+
+            if (isItemInscription) {
+              const newPaid = Math.max(0, (updatedInscription?.paid ?? 0) - item.amount);
+              const newStatus = calculateAccountStatus(updatedInscription?.due ?? 0, newPaid);
+              updatedInscription = {
+                due: updatedInscription?.due ?? 0,
+                paid: newPaid,
+                status: newStatus,
+              };
+            } else if (isItemEncadrement) {
+              const newPaid = Math.max(0, (updatedEncadrement?.paid ?? 0) - item.amount);
+              const newStatus = calculateAccountStatus(updatedEncadrement?.due ?? 0, newPaid);
+              updatedEncadrement = {
+                due: updatedEncadrement?.due ?? 0,
+                paid: newPaid,
+                status: newStatus,
+              };
+              updatedPaidAmount = newPaid;
+              updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+            }
+
             return {
               ...s,
-              paidAmount: updatedPaid,
-              paymentStatus: updatedStatus,
+              paidAmount: updatedPaidAmount,
+              paymentStatus: updatedPaymentStatus,
+              inscription: updatedInscription,
+              encadrement: updatedEncadrement,
             };
           }
           return s;
@@ -1830,15 +2243,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       for (const item of paymentToDelete.studentBreakdown) {
         const student = students.find((s) => s.id === item.studentId);
         if (student) {
-          const updatedPaid = Math.max(0, (student.paidAmount || 0) - item.amount);
-          const updatedStatus =
-            updatedPaid >= student.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+          const isItemInscription = isInscriptionCategory(item.category);
+          const isItemEncadrement = isEncadrementCategory(item.category);
+
+          let updatedInscription = getInscriptionAccount(student);
+          let updatedEncadrement = getEncadrementAccount(student);
+          let updatedPaidAmount = student.paidAmount ?? 0;
+          let updatedPaymentStatus = student.paymentStatus;
+
+          if (isItemInscription) {
+            const newPaid = Math.max(0, (updatedInscription?.paid ?? 0) - item.amount);
+            const newStatus = calculateAccountStatus(updatedInscription?.due ?? 0, newPaid);
+            updatedInscription = {
+              due: updatedInscription?.due ?? 0,
+              paid: newPaid,
+              status: newStatus,
+            };
+          } else if (isItemEncadrement) {
+            const newPaid = Math.max(0, (updatedEncadrement?.paid ?? 0) - item.amount);
+            const newStatus = calculateAccountStatus(updatedEncadrement?.due ?? 0, newPaid);
+            updatedEncadrement = {
+              due: updatedEncadrement?.due ?? 0,
+              paid: newPaid,
+              status: newStatus,
+            };
+            updatedPaidAmount = newPaid;
+            updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+          }
+
           writes.push(
             setDoc(
               doc(db, COLLECTIONS.STUDENTS, student.id),
               sanitizeForFirestore({
-                paidAmount: updatedPaid,
-                paymentStatus: updatedStatus,
+                paidAmount: updatedPaidAmount,
+                paymentStatus: updatedPaymentStatus,
+                inscription: updatedInscription,
+                encadrement: updatedEncadrement,
               }),
               { merge: true }
             )
@@ -1849,13 +2289,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setStudents((prev) =>
         prev.map((s) => {
           if (s.id === paymentToDelete.studentId) {
-            const updatedPaid = Math.max(0, (s.paidAmount || 0) - paymentToDelete.amount);
-            const updatedStatus =
-              updatedPaid >= s.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+            let updatedInscription = getInscriptionAccount(s);
+            let updatedEncadrement = getEncadrementAccount(s);
+            let updatedPaidAmount = s.paidAmount ?? 0;
+            let updatedPaymentStatus = s.paymentStatus;
+
+            if (isPaymentInscription) {
+              const newPaid = Math.max(0, (updatedInscription?.paid ?? 0) - paymentToDelete.amount);
+              const newStatus = calculateAccountStatus(updatedInscription?.due ?? 0, newPaid);
+              updatedInscription = {
+                due: updatedInscription?.due ?? 0,
+                paid: newPaid,
+                status: newStatus,
+              };
+            } else if (isPaymentEncadrement) {
+              const newPaid = Math.max(0, (updatedEncadrement?.paid ?? 0) - paymentToDelete.amount);
+              const newStatus = calculateAccountStatus(updatedEncadrement?.due ?? 0, newPaid);
+              updatedEncadrement = {
+                due: updatedEncadrement?.due ?? 0,
+                paid: newPaid,
+                status: newStatus,
+              };
+              updatedPaidAmount = newPaid;
+              updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+            }
+
             return {
               ...s,
-              paidAmount: updatedPaid,
-              paymentStatus: updatedStatus,
+              paidAmount: updatedPaidAmount,
+              paymentStatus: updatedPaymentStatus,
+              inscription: updatedInscription,
+              encadrement: updatedEncadrement,
             };
           }
           return s;
@@ -1864,15 +2328,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const student = students.find((s) => s.id === paymentToDelete.studentId);
       if (student) {
-        const updatedPaid = Math.max(0, (student.paidAmount || 0) - paymentToDelete.amount);
-        const updatedStatus =
-          updatedPaid >= student.monthlyFee ? 'A jour' : updatedPaid > 0 ? 'Partiel' : 'En retard';
+        let updatedInscription = getInscriptionAccount(student);
+        let updatedEncadrement = getEncadrementAccount(student);
+        let updatedPaidAmount = student.paidAmount ?? 0;
+        let updatedPaymentStatus = student.paymentStatus;
+
+        if (isPaymentInscription) {
+          const newPaid = Math.max(0, (updatedInscription?.paid ?? 0) - paymentToDelete.amount);
+          const newStatus = calculateAccountStatus(updatedInscription?.due ?? 0, newPaid);
+          updatedInscription = {
+            due: updatedInscription?.due ?? 0,
+            paid: newPaid,
+            status: newStatus,
+          };
+        } else if (isPaymentEncadrement) {
+          const newPaid = Math.max(0, (updatedEncadrement?.paid ?? 0) - paymentToDelete.amount);
+          const newStatus = calculateAccountStatus(updatedEncadrement?.due ?? 0, newPaid);
+          updatedEncadrement = {
+            due: updatedEncadrement?.due ?? 0,
+            paid: newPaid,
+            status: newStatus,
+          };
+          updatedPaidAmount = newPaid;
+          updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+        }
+
         writes.push(
           setDoc(
             doc(db, COLLECTIONS.STUDENTS, student.id),
             sanitizeForFirestore({
-              paidAmount: updatedPaid,
-              paymentStatus: updatedStatus,
+              paidAmount: updatedPaidAmount,
+              paymentStatus: updatedPaymentStatus,
+              inscription: updatedInscription,
+              encadrement: updatedEncadrement,
             }),
             { merge: true }
           )
@@ -2264,6 +2752,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         removeStudentFromGroup,
         assignTutorToGroup,
         unassignTutorFromGroup,
+        customGroups,
+        tutoringGroups,
+        createTutoringGroup,
+        deleteTutoringGroup,
+        isNewGroupModalOpen,
+        setIsNewGroupModalOpen,
         updateStudent,
         deleteStudent,
         updateExam,

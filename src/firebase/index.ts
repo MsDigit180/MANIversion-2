@@ -169,6 +169,7 @@ export const COLLECTIONS = {
   OPERATIONS: 'operations',
   ALERTS: 'alerts',
   SETTINGS: 'settings',
+  GROUPS: 'groups',
 } as const;
 
 export { doc, setDoc, getDocs, onSnapshot, deleteDoc, collection };

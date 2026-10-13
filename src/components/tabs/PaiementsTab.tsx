@@ -43,6 +43,10 @@ import {
   exportPaymentsToCSV,
   getPaymentListDocumentTitle,
 } from '../modals/PrintPaymentListModal';
+import {
+  isInscriptionCategory,
+  isEncadrementCategory,
+} from '../../utils/financialUtils';
 
 export const PaiementsTab: React.FC = () => {
   const {
@@ -119,6 +123,15 @@ export const PaiementsTab: React.FC = () => {
   }, [safePayments, search, categoryFilter, methodFilter, monthFilter]);
 
   const totalCollected = filteredPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
+
+  // RÈGLE MÉTIER : SÉPARATION STRICTE DES COMPTES D'INSCRIPTION ET D'ENCADREMENT
+  const encadrementCollected = filteredPayments
+    .filter((p) => isEncadrementCategory(p.category))
+    .reduce((acc, p) => acc + (p.amount || 0), 0);
+
+  const inscriptionCollected = filteredPayments
+    .filter((p) => isInscriptionCategory(p.category))
+    .reduce((acc, p) => acc + (p.amount || 0), 0);
 
   // Method breakdown
   const cashTotal = filteredPayments
@@ -333,37 +346,70 @@ export const PaiementsTab: React.FC = () => {
       {activeSubTab === 'receipts' && (
         <>
           {/* Top Financial Breakdown Cards */}
+          {/* Top Financial Breakdown Cards - FLUX FINANCIERS CLOISONNÉS */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Encaissé (Période)</span>
-              <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
-                {(totalCollected ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
+            {/* Compte 1 : Frais d'Encadrement */}
+            <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
+                  Compte Frais d'Encadrement
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                  Scolarité
+                </span>
               </div>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">100% rapproché en caisse</span>
+              <div className="mt-2 font-mono text-2xl font-bold text-emerald-950 dark:text-white tabular-nums">
+                {(encadrementCollected ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
+              </div>
+              <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium block mt-1">
+                Suivi pédagogique & cours continus
+              </span>
             </div>
 
+            {/* Compte 2 : Frais d'Inscription */}
+            <div className="rounded-2xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/40 dark:bg-amber-950/20 p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wide">
+                  Compte Frais d'Inscription
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                  Admission
+                </span>
+              </div>
+              <div className="mt-2 font-mono text-2xl font-bold text-amber-950 dark:text-white tabular-nums">
+                {(inscriptionCollected ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
+              </div>
+              <span className="text-[11px] text-amber-700 dark:text-amber-400 font-medium block mt-1">
+                Frais d'admission uniques (cloisonnés)
+              </span>
+            </div>
+
+            {/* Canal 1 : Espèces au Guichet */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Encaissements Espèces</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Encaissements Espèces</span>
+                <span className="text-[10px] text-slate-400 font-mono">Guichet</span>
+              </div>
               <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">
                 {(cashTotal ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">Guichet & Caisse physique</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-1">
+                Caisse physique Niamey 2000
+              </span>
             </div>
 
+            {/* Canal 2 : Mobile Money & Virements */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Airtel Money & Flooz</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Digital & Banques</span>
+                <span className="text-[10px] text-indigo-500 font-mono">Airtel/Moov/BOA</span>
+              </div>
               <div className="mt-2 font-mono text-2xl font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
-                {(mobileTotal ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
+                {(mobileTotal + bankTotal).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
               </div>
-              <span className="text-[11px] text-indigo-600 dark:text-indigo-300">Paiements digitaux instantanés</span>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Virements / Amana Transfert</span>
-              <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-slate-200 tabular-nums">
-                {(bankTotal ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
-              </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">SONIBANK / BOA / AMANA</span>
+              <span className="text-[11px] text-indigo-600 dark:text-indigo-300 block mt-1">
+                Airtel, Flooz, Amana & Virement
+              </span>
             </div>
           </div>
 
@@ -527,9 +573,19 @@ export const PaiementsTab: React.FC = () => {
                           )}
                         </td>
                         <td className="py-3.5 px-4">
-                          <span className="inline-block rounded-md bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">
-                            {pay.category}
-                          </span>
+                          {isInscriptionCategory(pay.category) ? (
+                            <span className="inline-block rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80 px-2 py-0.5 text-[10.5px] font-bold">
+                              Compte Inscription
+                            </span>
+                          ) : isEncadrementCategory(pay.category) ? (
+                            <span className="inline-block rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/80 px-2 py-0.5 text-[10.5px] font-bold">
+                              Compte Encadrement
+                            </span>
+                          ) : (
+                            <span className="inline-block rounded-md bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                              {pay.category}
+                            </span>
+                          )}
                         </td>
                         <td className="py-3.5 px-4">
                           <span className="font-medium text-slate-700 dark:text-slate-300">

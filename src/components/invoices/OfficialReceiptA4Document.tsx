@@ -17,6 +17,13 @@ import { PaymentReceipt, Student } from '../../types';
 import { numberToFrenchWords } from '../../utils/familyUtils';
 import { formatReceiptPaymentDate } from '../../utils/dateUtils';
 import { CAB_APPUIS_LOGO, CAB_APPUIS_INFO } from '../../assets/logo';
+import {
+  getInscriptionAccount,
+  getEncadrementAccount,
+  getAccountStatusBadgeInfo,
+  isInscriptionCategory,
+  isEncadrementCategory,
+} from '../../utils/financialUtils';
 
 export interface OfficialReceiptA4DocumentProps {
   receipt: PaymentReceipt;
@@ -39,6 +46,13 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
   const studentLevel = student?.level || 'Secondaire';
   const studentStream = student?.stream || 'Enseignement Général';
   const studentMatricule = student?.matricule || 'CAS-2026-0042';
+
+  const inscAcc = student ? getInscriptionAccount(student) : null;
+  const encadAcc = student ? getEncadrementAccount(student) : null;
+  const inscBadge = inscAcc ? getAccountStatusBadgeInfo(inscAcc.status, 'inscription') : null;
+  const encadBadge = encadAcc ? getAccountStatusBadgeInfo(encadAcc.status, 'encadrement') : null;
+  const isInscriptionPay = isInscriptionCategory(receipt.category);
+  const isEncadrementPay = isEncadrementCategory(receipt.category);
 
   return (
     <div
@@ -299,11 +313,28 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
             <tbody className="divide-y divide-gray-200 text-slate-900 bg-white">
               <tr>
                 <td className="py-2.5 px-3 align-middle">
-                  <div className="font-bold text-slate-950 text-[11px] leading-tight">
-                    {receipt.category}
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-950 text-[11px] leading-tight">
+                      {isInscriptionPay
+                        ? "Frais d'Inscription (Compte Inscription)"
+                        : isEncadrementPay
+                        ? "Frais d'Encadrement (Compte Encadrement)"
+                        : receipt.category}
+                    </span>
+                    <span
+                      className={`text-[8px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                        isInscriptionPay
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          : isEncadrementPay
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {isInscriptionPay ? 'Admission Unique' : isEncadrementPay ? 'Scolarité Périodique' : 'Prestation'}
+                    </span>
                   </div>
                   <div className="text-[8.5px] text-slate-600 mt-0.5">
-                    {receipt.notes || "Encadrement pédagogique régulier, cours d'appuis et suivi continu de l'élève"}
+                    {receipt.notes || (isInscriptionPay ? "Droits d'admission et ouverture du dossier élève" : "Encadrement pédagogique régulier, cours d'appuis et suivi continu")}
                   </div>
                 </td>
                 <td className="py-2.5 px-2.5 text-center align-middle font-mono text-[10px] text-slate-800">
@@ -334,9 +365,55 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
       </div>
 
       {/* ==================================================================== */}
-      {/* BLOC 4 : ARRESTATION DE LA SOMME & MENTIONS LÉGALES                  */}
+      {/* BLOC 4 : BILAN COMPTABLE CLOISONNÉ & ARRESTATION DE LA SOMME        */}
       {/* ==================================================================== */}
       <div className="relative z-10 space-y-1.5 shrink-0">
+        {/* RÈGLE MÉTIER : BILAN DES COMPTES CLOISONNÉS ÉLÈVE (SÉPARATION STRICTE) */}
+        {student && (
+          <div className="p-2 rounded-lg bg-slate-50 border border-slate-300 text-[9px] shadow-2xs">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+              <span className="font-bold text-slate-900 uppercase tracking-wide text-[8.5px]">
+                Situation des Comptes Élève · Cloisonnement Strict des Flux
+              </span>
+              <span className="text-[7.5px] text-slate-500 italic">
+                Règle CAS-MANI : Isolation étanche Inscription / Encadrement
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 pt-1.5 text-slate-800">
+              {/* Ligne 1 : Compte Frais d'Inscription */}
+              <div className="flex items-center justify-between bg-amber-50/60 rounded p-1.5 border border-amber-200/80">
+                <div>
+                  <div className="flex items-center gap-1">
+                    <span className="font-bold text-amber-900 text-[8.5px] uppercase">1. Compte Inscription</span>
+                    <span className="text-[7.5px] text-amber-700 italic">(Admission)</span>
+                  </div>
+                  <div className="font-mono text-[9.5px] font-bold text-slate-900 mt-0.5">
+                    {(inscAcc?.paid ?? 0).toLocaleString()} / {(inscAcc?.due ?? 10000).toLocaleString()} FCFA
+                  </div>
+                </div>
+                <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded border ${inscBadge?.badgeClass}`}>
+                  {inscBadge?.label}
+                </span>
+              </div>
+
+              {/* Ligne 2 : Compte Frais d'Encadrement */}
+              <div className="flex items-center justify-between bg-emerald-50/60 rounded p-1.5 border border-emerald-200/80">
+                <div>
+                  <div className="flex items-center gap-1">
+                    <span className="font-bold text-emerald-900 text-[8.5px] uppercase">2. Compte Encadrement</span>
+                    <span className="text-[7.5px] text-emerald-700 italic">(Scolarité)</span>
+                  </div>
+                  <div className="font-mono text-[9.5px] font-bold text-slate-900 mt-0.5">
+                    {(encadAcc?.paid ?? 0).toLocaleString()} / {(encadAcc?.due ?? student.monthlyFee).toLocaleString()} FCFA
+                  </div>
+                </div>
+                <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded border ${encadBadge?.badgeClass}`}>
+                  {encadBadge?.label}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Encadré Arrêté la présente quittance */}
         <div className="p-2 rounded-lg bg-slate-50 border border-gray-300 text-[10px] text-slate-900 flex items-center justify-between shadow-2xs">
           <div>

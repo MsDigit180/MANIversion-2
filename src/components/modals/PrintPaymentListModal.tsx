@@ -10,6 +10,7 @@ import {
 import { PaymentReceipt } from '../../types';
 import { CAB_APPUIS_LOGO } from '../../assets/logo';
 import { formatReceiptPaymentDate, formatYYYYMMToFrench } from '../../utils/dateUtils';
+import { isInscriptionCategory, isEncadrementCategory } from '../../utils/financialUtils';
 
 export interface PaymentListFilterOptions {
   categoryFilter?: string;
@@ -222,6 +223,15 @@ export const PrintPaymentListModal: React.FC<PrintPaymentListModalProps> = ({
   });
 
   const totalCollected = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
+
+  // RÈGLE MÉTIER : SÉPARATION STRICTE DES COMPTES D'INSCRIPTION ET D'ENCADREMENT
+  const encadrementTotal = payments
+    .filter((p) => isEncadrementCategory(p.category))
+    .reduce((a, b) => a + (b.amount || 0), 0);
+  const inscriptionTotal = payments
+    .filter((p) => isInscriptionCategory(p.category))
+    .reduce((a, b) => a + (b.amount || 0), 0);
+
   const cashTotal = payments
     .filter((p) => p.paymentMethod === 'Espèces')
     .reduce((a, b) => a + (b.amount || 0), 0);
@@ -430,32 +440,36 @@ export const PrintPaymentListModal: React.FC<PrintPaymentListModalProps> = ({
           </div>
 
           {/* =================================================================
-              3. RÉCAPITULATIF FINANCIER PAR MODE DE PAIEMENT
+              3. RÉCAPITULATIF FINANCIER DES COMPTES CLOISONNÉS
              ================================================================= */}
           <div className="mb-4 grid grid-cols-4 gap-2 text-center print-avoid-break">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-              <span className="block text-[8.5px] font-semibold uppercase text-slate-500">Total Encaissé</span>
-              <span className="font-mono text-[12px] font-bold text-slate-950">
-                {(totalCollected ?? 0).toLocaleString()} <span className="text-[9px] font-normal">FCFA</span>
+            <div className="rounded-lg border border-emerald-300 bg-emerald-50/60 p-2">
+              <span className="block text-[8px] font-bold uppercase text-emerald-900">Compte Encadrement</span>
+              <span className="font-mono text-[11.5px] font-black text-emerald-950">
+                {(encadrementTotal ?? 0).toLocaleString()} <span className="text-[8.5px] font-normal">FCFA</span>
               </span>
+              <span className="block text-[7.5px] text-emerald-700 italic">Scolarité périodique</span>
+            </div>
+            <div className="rounded-lg border border-amber-300 bg-amber-50/60 p-2">
+              <span className="block text-[8px] font-bold uppercase text-amber-900">Compte Inscription</span>
+              <span className="font-mono text-[11.5px] font-black text-amber-950">
+                {(inscriptionTotal ?? 0).toLocaleString()} <span className="text-[8.5px] font-normal">FCFA</span>
+              </span>
+              <span className="block text-[7.5px] text-amber-700 italic">Admission unique</span>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-              <span className="block text-[8.5px] font-semibold uppercase text-slate-500">Espèces (Guichet)</span>
-              <span className="font-mono text-[12px] font-bold text-slate-800">
-                {(cashTotal ?? 0).toLocaleString()} <span className="text-[9px] font-normal">FCFA</span>
+              <span className="block text-[8px] font-semibold uppercase text-slate-500">Espèces (Guichet)</span>
+              <span className="font-mono text-[11.5px] font-bold text-slate-800">
+                {(cashTotal ?? 0).toLocaleString()} <span className="text-[8.5px] font-normal">FCFA</span>
               </span>
+              <span className="block text-[7.5px] text-slate-500 italic">Caisse physique</span>
             </div>
             <div className="rounded-lg border border-indigo-200 bg-indigo-50/50 p-2">
-              <span className="block text-[8.5px] font-semibold uppercase text-indigo-700">Mobile Money / Transfert</span>
-              <span className="font-mono text-[12px] font-bold text-indigo-900">
-                {(mobileTotal ?? 0).toLocaleString()} <span className="text-[9px] font-normal">FCFA</span>
+              <span className="block text-[8px] font-semibold uppercase text-indigo-700">Mobile Money / Virement</span>
+              <span className="font-mono text-[11.5px] font-bold text-indigo-900">
+                {(mobileTotal + bankTotal).toLocaleString()} <span className="text-[8.5px] font-normal">FCFA</span>
               </span>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-              <span className="block text-[8.5px] font-semibold uppercase text-slate-500">Virements / Banque</span>
-              <span className="font-mono text-[12px] font-bold text-slate-800">
-                {(bankTotal ?? 0).toLocaleString()} <span className="text-[9px] font-normal">FCFA</span>
-              </span>
+              <span className="block text-[7.5px] text-indigo-600 italic">Airtel, Flooz, BOA</span>
             </div>
           </div>
 
@@ -562,12 +576,22 @@ export const PrintPaymentListModal: React.FC<PrintPaymentListModalProps> = ({
             {/* TOTAL GÉNÉRAL AU PIED DU TABLEAU */}
             {payments.length > 0 && (
               <tfoot>
-                <tr className="bg-slate-100 border-t-2 border-slate-400 font-bold text-slate-950 print-avoid-break">
-                  <td colSpan={6} className="py-2.5 px-3 text-right uppercase text-[9.5px] tracking-wider border-r border-slate-300">
-                    Total Général des Règlements Encaissés :
+                {/* Ligne 1 : Frais d'Encadrement */}
+                <tr className="bg-emerald-50/80 border-t-2 border-emerald-400 font-bold text-slate-950 print-avoid-break">
+                  <td colSpan={6} className="py-2 px-3 text-right uppercase text-[9px] tracking-wider border-r border-slate-300 text-emerald-950">
+                    Sous-Total Compte Frais d'Encadrement (Scolarité) :
                   </td>
-                  <td className="py-2.5 px-2 text-right font-mono text-[12px] font-black text-emerald-900">
-                    {(totalCollected ?? 0).toLocaleString()} FCFA
+                  <td className="py-2 px-2 text-right font-mono text-[11px] font-black text-emerald-950">
+                    {(encadrementTotal ?? 0).toLocaleString()} FCFA
+                  </td>
+                </tr>
+                {/* Ligne 2 : Frais d'Inscription */}
+                <tr className="bg-amber-50/80 border-t border-amber-300 font-bold text-slate-950 print-avoid-break">
+                  <td colSpan={6} className="py-2 px-3 text-right uppercase text-[9px] tracking-wider border-r border-slate-300 text-amber-950">
+                    Sous-Total Compte Frais d'Inscription (Admission) :
+                  </td>
+                  <td className="py-2 px-2 text-right font-mono text-[11px] font-black text-amber-950">
+                    {(inscriptionTotal ?? 0).toLocaleString()} FCFA
                   </td>
                 </tr>
               </tfoot>

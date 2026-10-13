@@ -12,6 +12,14 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
+import {
+  calculateAccountStatus,
+  getInscriptionAccount,
+  getEncadrementAccount,
+  isInscriptionCategory,
+  isEncadrementCategory,
+} from '../../utils/financialUtils';
+
 export const KPIHighlights: React.FC = () => {
   const { students, payments, exams, inventory, setCurrentTab, timePeriod } = useApp();
 
@@ -26,11 +34,28 @@ export const KPIHighlights: React.FC = () => {
   const stoppedUnpaidCount = safeStudents.filter((s) => s.tutoringStatus === 'Arrêté (Défaut de paiement)').length;
   const totalStudents = safeStudents.length;
 
-  // 2. Recouvrement & Paiements réels
-  const totalCollected = safePayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-  const totalExpected = safeStudents.reduce((sum, s) => sum + (s.monthlyFee || 0), 0);
-  const totalUnpaid = Math.max(0, totalExpected - totalCollected);
-  const recoveryRate = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : (totalCollected > 0 ? 100 : 0);
+  // 2. RÈGLE MÉTIER : SÉPARATION STRICTE DES FLUX FINANCIERS
+  // Flux A : Frais d'encadrement (scolarité périodique)
+  const encadrementCollected = safePayments
+    .filter((p) => isEncadrementCategory(p.category))
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+  const encadrementDue = safeStudents.reduce(
+    (sum, s) => sum + (s?.encadrement?.due ?? s?.monthlyFee ?? 0),
+    0
+  );
+  const encadrementRemaining = Math.max(0, encadrementDue - encadrementCollected);
+  const encadrementRate = encadrementDue > 0 ? Math.round((encadrementCollected / encadrementDue) * 100) : 100;
+
+  // Flux B : Frais d'inscription (admission unique)
+  const inscriptionCollected = safePayments
+    .filter((p) => isInscriptionCategory(p.category))
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+  const inscriptionDue = safeStudents.reduce(
+    (sum, s) => sum + (s?.inscription?.due ?? 10000),
+    0
+  );
+  const inscriptionRemaining = Math.max(0, inscriptionDue - inscriptionCollected);
+  const inscriptionRate = inscriptionDue > 0 ? Math.round((inscriptionCollected / inscriptionDue) * 100) : 100;
 
   // 3. Candidatures Concours réelles
   const totalExams = safeExams.length;
@@ -84,33 +109,60 @@ export const KPIHighlights: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI 2: Recouvrement & Caisse */}
+      {/* KPI 2: Recouvrement & Caisse - SÉPARATION STRICTE DES COMPTES */}
       <div
         onClick={() => setCurrentTab('paiements')}
         className="group relative cursor-pointer rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 hover:border-emerald-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all duration-200 shadow-sm"
       >
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Pôle 2 · Caisse & Recouvrement</span>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Pôle 2 · Caisse (Flux Cloisonnés)</span>
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-500/20 transition-colors">
             <CreditCard className="h-4 w-4" />
           </div>
         </div>
 
-        <div className="mt-3 flex items-baseline gap-2">
-          <span className="font-mono text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 dark:text-white tabular-nums">
-            {(totalCollected ?? 0).toLocaleString()}
-          </span>
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">FCFA</span>
+        {/* Ligne 1 : Frais d'Encadrement */}
+        <div className="mt-3 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+              Frais d'Encadrement :
+            </span>
+            <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+              {encadrementRate}% recouvré
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between mt-1">
+            <span className="font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+              {(encadrementCollected ?? 0).toLocaleString()} <span className="text-[11px] font-normal text-slate-500">FCFA</span>
+            </span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+              Reste: {(encadrementRemaining ?? 0).toLocaleString()} FCFA
+            </span>
+          </div>
         </div>
 
-        <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-          <span className="font-semibold text-emerald-600 dark:text-emerald-400">{recoveryRate}% recouvré</span>
-          <span aria-hidden="true">·</span>
-          <span>Reste: {(totalUnpaid ?? 0).toLocaleString()} FCFA</span>
+        {/* Ligne 2 : Frais d'Inscription */}
+        <div className="mt-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
+              Frais d'Inscription :
+            </span>
+            <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+              {inscriptionRate}% recouvré
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between mt-1">
+            <span className="font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+              {(inscriptionCollected ?? 0).toLocaleString()} <span className="text-[11px] font-normal text-slate-500">FCFA</span>
+            </span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+              Reste: {(inscriptionRemaining ?? 0).toLocaleString()} FCFA
+            </span>
+          </div>
         </div>
 
         <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-300">
-          <span>Journal caisse & reçus</span>
+          <span>Journal de caisse & quittances</span>
           <ArrowUpRight className="h-3.5 w-3.5" />
         </div>
       </div>

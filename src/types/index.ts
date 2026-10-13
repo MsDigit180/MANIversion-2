@@ -328,6 +328,19 @@ export interface MultiStudentReceiptItem {
   notes?: string;
 }
 
+export interface GroupRecord {
+  id: string; // Identifiant unique du groupe (ex: GRP-CM1-A, GRP-BAC-D-SCI)
+  name: string; // Libellé informatif
+  level: string;
+  stream: string;
+  subjects: string[];
+  timeSlot?: string;
+  sessionsPerWeek: number;
+  tutorIds?: string[];
+  createdAt?: string;
+  notes?: string;
+}
+
 export interface TutoringGroup {
   id: string; // Identifiant unique du groupe (ex: GRP-CM1-A, GRP-BAC-D-SCI)
   name: string; // Libellé informatif
@@ -350,6 +363,8 @@ export interface TutoringGroup {
   totalBalance: number;
   activeCount: number;
   stoppedCount: number;
+  createdAt?: string;
+  notes?: string;
 }
 
 export interface PaymentReceipt {

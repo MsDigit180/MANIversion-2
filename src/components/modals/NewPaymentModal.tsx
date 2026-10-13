@@ -25,6 +25,15 @@ import {
   numberToFrenchWords,
   FamilyGroup,
 } from '../../utils/familyUtils';
+import {
+  getInscriptionAccount,
+  getEncadrementAccount,
+  getInscriptionBalance,
+  getEncadrementBalance,
+  isInscriptionCategory,
+  isEncadrementCategory,
+  getFinancialStatusBadge,
+} from '../../utils/financialUtils';
 
 export const NewPaymentModal: React.FC = () => {
   const {
@@ -129,9 +138,17 @@ export const NewPaymentModal: React.FC = () => {
     const stu = students.find((s) => s.id === id);
     if (stu) {
       setCustomName(stu.fullName);
-      const remaining = Math.max(0, stu.monthlyFee - stu.paidAmount);
-      setAmount(remaining > 0 ? remaining : stu.monthlyFee);
-      setNotes(`Règlement scolarité pour ${stu.fullName} (${stu.level})`);
+      if (category === 'Inscription') {
+        const remaining = getInscriptionBalance(stu);
+        setAmount(remaining > 0 ? remaining : (getInscriptionAccount(stu).due || 10000));
+        setNotes(`Frais d'inscription (Compte Inscription Cloisonné) pour ${stu.fullName} (${stu.level})`);
+      } else if (category === 'Scolarité Mensuelle') {
+        const remaining = getEncadrementBalance(stu);
+        setAmount(remaining > 0 ? remaining : (getEncadrementAccount(stu).due || stu.monthlyFee));
+        setNotes(`Règlement scolarité (Compte Encadrement Cloisonné) pour ${stu.fullName} (${stu.level})`);
+      } else {
+        setNotes(`Paiement ${category} pour ${stu.fullName}`);
+      }
       setAutoReactivate(true);
     }
   };
@@ -139,8 +156,13 @@ export const NewPaymentModal: React.FC = () => {
   const handleCategoryChange = (newCat: PaymentReceipt['category']) => {
     setCategory(newCat);
     if (newCat === 'Inscription') {
-      setNotes('Règlement des frais d\'inscription');
-      setAmount(10000); // Standard inscription fee default
+      setNotes('Règlement des frais d\'inscription (Compte Inscription Cloisonné)');
+      if (selectedStudent) {
+        const remaining = getInscriptionBalance(selectedStudent);
+        setAmount(remaining > 0 ? remaining : (getInscriptionAccount(selectedStudent).due || 10000));
+      } else {
+        setAmount(10000);
+      }
     } else if (newCat === 'Frais Concours') {
       setNotes('Frais de préparation concours');
       setAmount(25000);
@@ -148,10 +170,10 @@ export const NewPaymentModal: React.FC = () => {
       setNotes('Achat fournitures scolaires');
       setAmount(15000);
     } else {
-      setNotes('Règlement scolarité du mois');
+      setNotes('Règlement scolarité du mois (Compte Encadrement Cloisonné)');
       if (selectedStudent) {
-        const remaining = Math.max(0, selectedStudent.monthlyFee - selectedStudent.paidAmount);
-        setAmount(remaining > 0 ? remaining : selectedStudent.monthlyFee);
+        const remaining = getEncadrementBalance(selectedStudent);
+        setAmount(remaining > 0 ? remaining : (getEncadrementAccount(selectedStudent).due || selectedStudent.monthlyFee));
       } else {
         setAmount(35000);
       }
@@ -511,6 +533,80 @@ export const NewPaymentModal: React.FC = () => {
                       <span>Réactiver automatiquement l'élève en encadrement actif</span>
                     </span>
                   </label>
+                </div>
+              )}
+
+              {/* CARTES FINANCIÈRES DÉCOUPLÉES : INSCRIPTION VS ENCADREMENT */}
+              {selectedStudent && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 rounded-xl bg-slate-800/90 border border-slate-700">
+                    {/* Compte Inscription */}
+                    <div
+                      onClick={() => handleCategoryChange('Inscription')}
+                      className={`p-2.5 rounded-lg border cursor-pointer transition-all ${
+                        category === 'Inscription'
+                          ? 'bg-amber-950/40 border-amber-500 ring-1 ring-amber-500 shadow-sm'
+                          : 'bg-slate-900/60 border-slate-700/80 hover:border-slate-600 opacity-80'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-amber-300 uppercase">
+                          Compte Frais d'Inscription
+                        </span>
+                        {category === 'Inscription' && (
+                          <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-bold border border-amber-500/40">
+                            Compte Cible
+                          </span>
+                        )}
+                      </div>
+                      <div className="font-mono text-xs font-bold text-white mt-1">
+                        {getInscriptionAccount(selectedStudent).paid.toLocaleString()} / {getInscriptionAccount(selectedStudent).due.toLocaleString()} FCFA
+                      </div>
+                      <div className="text-[10px] mt-0.5 flex justify-between">
+                        <span className="text-slate-400">Reste dû :</span>
+                        <strong className="text-amber-400 font-mono">
+                          {getInscriptionBalance(selectedStudent).toLocaleString()} FCFA
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* Compte Encadrement */}
+                    <div
+                      onClick={() => handleCategoryChange('Scolarité Mensuelle')}
+                      className={`p-2.5 rounded-lg border cursor-pointer transition-all ${
+                        category === 'Scolarité Mensuelle'
+                          ? 'bg-emerald-950/40 border-emerald-500 ring-1 ring-emerald-500 shadow-sm'
+                          : 'bg-slate-900/60 border-slate-700/80 hover:border-slate-600 opacity-80'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-emerald-300 uppercase">
+                          Compte Frais d'Encadrement
+                        </span>
+                        {category === 'Scolarité Mensuelle' && (
+                          <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-bold border border-emerald-500/40">
+                            Compte Cible
+                          </span>
+                        )}
+                      </div>
+                      <div className="font-mono text-xs font-bold text-white mt-1">
+                        {getEncadrementAccount(selectedStudent).paid.toLocaleString()} / {getEncadrementAccount(selectedStudent).due.toLocaleString()} FCFA
+                      </div>
+                      <div className="text-[10px] mt-0.5 flex justify-between">
+                        <span className="text-slate-400">Reste dû :</span>
+                        <strong className="text-emerald-400 font-mono">
+                          {getEncadrementBalance(selectedStudent).toLocaleString()} FCFA
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-[10px] px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-500/30 text-indigo-300 flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3 shrink-0 text-indigo-400" />
+                    <span>
+                      <strong>Isolation comptable stricte :</strong> Ce versement sera imputé exclusivement au {category === 'Inscription' ? "Compte Frais d'Inscription" : category === 'Scolarité Mensuelle' ? "Compte Frais d'Encadrement" : "Compte " + category}. Aucun report sur l'autre compte.
+                    </span>
+                  </div>
                 </div>
               )}
 

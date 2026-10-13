@@ -41,6 +41,8 @@
         "stopReason": { "type": "string", "maxLength": 500 },
         "enrollmentDate": { "type": "string", "maxLength": 100 },
         "syncStatus": { "type": "string", "maxLength": 50 },
+        "inscription": { "type": "object", "description": "Frais d'inscription uniques et autonomes (due, paid, status)" },
+        "encadrement": { "type": "object", "description": "Frais d'encadrement périodiques et autonomes (due, paid, status)" },
         "notes": { "type": "string", "maxLength": 1000 },
         "tutorAssignments": { "type": "array", "description": "Liste des affectations encadreurs par matière" },
         "agentId": { "type": "string", "maxLength": 128 },

@@ -9,6 +9,7 @@ import {
   calculateMonthlyHours,
 } from '../../utils/dateUtils';
 import { DEFAULT_PROMOTION, PRESET_PROMOTIONS } from '../../utils/promotionUtils';
+import { calculateAccountStatus } from '../../utils/financialUtils';
 
 export const NewEnrollmentModal: React.FC = () => {
   const {
@@ -37,9 +38,10 @@ export const NewEnrollmentModal: React.FC = () => {
   const [groupName, setGroupName] = useState('');
   const [timeSlot, setTimeSlot] = useState('');
   const [monthlyFee, setMonthlyFee] = useState<number>(20000);
-  const [initialTuition, setInitialTuition] = useState<number>(20000);
+  const [initialTuition, setInitialTuition] = useState<number>(0);
+  const [registrationFeeDue, setRegistrationFeeDue] = useState<number>(10000);
+  const [registrationFeePaid, setRegistrationFeePaid] = useState<number>(10000);
   const [includeRegistration, setIncludeRegistration] = useState<boolean>(true);
-  const [registrationFee, setRegistrationFee] = useState<number>(10000);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -58,9 +60,11 @@ export const NewEnrollmentModal: React.FC = () => {
       setGroupId(editingStudent.groupId || '');
       setGroupName(editingStudent.groupName || '');
       setTimeSlot(editingStudent.timeSlot || '');
-      setMonthlyFee(editingStudent.monthlyFee);
-      setInitialTuition(editingStudent.paidAmount);
-      setIncludeRegistration(false);
+      setMonthlyFee(editingStudent.encadrement?.due ?? editingStudent.monthlyFee ?? 20000);
+      setInitialTuition(editingStudent.encadrement?.paid ?? editingStudent.paidAmount ?? 0);
+      setRegistrationFeeDue(editingStudent.inscription?.due ?? 10000);
+      setRegistrationFeePaid(editingStudent.inscription?.paid ?? 0);
+      setIncludeRegistration(true);
       setNotes(editingStudent.notes || '');
     } else {
       setStream('Primaire');
@@ -77,9 +81,10 @@ export const NewEnrollmentModal: React.FC = () => {
       setGroupName('');
       setTimeSlot('');
       setMonthlyFee(20000);
-      setInitialTuition(20000);
+      setInitialTuition(0);
+      setRegistrationFeeDue(10000);
+      setRegistrationFeePaid(10000);
       setIncludeRegistration(true);
-      setRegistrationFee(10000);
       setNotes('');
     }
   }, [editingStudent, isNewStudentModalOpen]);
@@ -142,6 +147,14 @@ export const NewEnrollmentModal: React.FC = () => {
     setIsSubmitting(true);
     try {
       const cleanPromotion = promotion.trim() || DEFAULT_PROMOTION;
+      const regDue = Number(registrationFeeDue || 0);
+      const regPaid = includeRegistration ? Number(registrationFeePaid || 0) : 0;
+      const regStatus = calculateAccountStatus(regDue, regPaid);
+
+      const encDue = Number(monthlyFee || 0);
+      const encPaid = Number(initialTuition || 0);
+      const encStatus = calculateAccountStatus(encDue, encPaid);
+
       if (editingStudent) {
         await updateStudent(editingStudent.id, {
           fullName: fullName.trim(),
@@ -157,10 +170,22 @@ export const NewEnrollmentModal: React.FC = () => {
           groupId: groupId.trim() || undefined,
           groupName: groupName.trim() || undefined,
           timeSlot: timeSlot.trim() || undefined,
-          monthlyFee,
+          monthlyFee: encDue,
+          paidAmount: encPaid,
+          paymentStatus: encStatus === 'PAID' ? 'A jour' : encStatus === 'PENDING' ? 'Partiel' : 'En retard',
+          inscription: {
+            due: regDue,
+            paid: regPaid,
+            status: regStatus,
+          },
+          encadrement: {
+            due: encDue,
+            paid: encPaid,
+            status: encStatus,
+          },
           notes,
         });
-        showToast(`Dossier de l'élève ${fullName.trim()} mis à jour avec succès (${cleanPromotion}).`, 'success');
+        showToast(`Dossier de l'élève ${fullName.trim()} mis à jour avec succès (${cleanPromotion}). Flux financiers cloisonnés.`, 'success');
       } else {
         const newStu = await addStudent({
           fullName: fullName.trim(),
@@ -176,30 +201,55 @@ export const NewEnrollmentModal: React.FC = () => {
           groupId: groupId.trim() || undefined,
           groupName: groupName.trim() || undefined,
           timeSlot: timeSlot.trim() || undefined,
-          monthlyFee,
-          paidAmount: initialTuition,
-          paymentStatus: initialTuition >= monthlyFee ? 'A jour' : initialTuition > 0 ? 'Partiel' : 'En retard',
+          monthlyFee: encDue,
+          paidAmount: encPaid,
+          paymentStatus: encStatus === 'PAID' ? 'A jour' : encStatus === 'PENDING' ? 'Partiel' : 'En retard',
+          inscription: {
+            due: regDue,
+            paid: regPaid,
+            status: regStatus,
+          },
+          encadrement: {
+            due: encDue,
+            paid: encPaid,
+            status: encStatus,
+          },
           tutoringStatus: 'Actif',
           enrollmentDate: getCurrentFrenchDate(),
           notes,
         });
 
-        // If registration fee is included, record it as a separate receipt of category 'Inscription'
-        if (includeRegistration && registrationFee > 0 && newStu) {
+        // 1. Émission du reçu autonome pour les Frais d'Inscription si encaissés
+        if (regPaid > 0 && newStu) {
           await addPayment({
             studentId: newStu.id,
             studentName: fullName.trim(),
             category: 'Inscription',
-            amount: registrationFee,
+            amount: regPaid,
             paymentMethod: 'Espèces',
             paymentDate: `${getCurrentFrenchDate()} à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
             cashierName: 'Guichet Inscription CAS MANI',
             status: 'Validé',
-            notes: `Frais d'inscription initiaux pour ${fullName.trim()}`,
+            notes: `Frais d'inscription uniques (Compte Inscription Cloisonné) pour ${fullName.trim()}`,
           });
         }
 
-        showToast(`Nouvelle inscription de ${fullName.trim()} enregistrée (${cleanPromotion}).`, 'success');
+        // 2. Émission du reçu autonome pour les Frais d'Encadrement si acompte versé
+        if (encPaid > 0 && newStu) {
+          await addPayment({
+            studentId: newStu.id,
+            studentName: fullName.trim(),
+            category: 'Scolarité Mensuelle',
+            amount: encPaid,
+            paymentMethod: 'Espèces',
+            paymentDate: `${getCurrentFrenchDate()} à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
+            cashierName: 'Guichet Inscription CAS MANI',
+            status: 'Validé',
+            notes: `Acompte frais d'encadrement périodiques (Compte Encadrement Cloisonné) pour ${fullName.trim()}`,
+          });
+        }
+
+        showToast(`Nouvelle inscription de ${fullName.trim()} enregistrée. Flux Inscription & Encadrement strictement cloisonnés.`, 'success');
       }
 
       handleClose();
@@ -466,8 +516,101 @@ export const NewEnrollmentModal: React.FC = () => {
             </div>
           </div>
 
-          {/* FEES SECTION (SEPARATING REGISTRATION & TUITION) */}
-          <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 space-y-4">
+          {/* BANDEAU RÈGLE MÉTIER : CLOISONNEMENT STRICT DES COMPTES */}
+          <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/30 p-3 flex items-start gap-2.5 text-xs text-indigo-300">
+            <Sparkles className="h-4 w-4 shrink-0 text-indigo-400 mt-0.5" />
+            <div>
+              <strong className="text-white block font-semibold mb-0.5">Règle Financière CAS-MANI : Isolation des Comptes</strong>
+              <span>
+                Les <strong>Frais d'inscription</strong> (admission unique) et les <strong>Frais d'encadrement</strong> (scolarité périodique) sont gérés dans des comptes strictement séparés. Aucun versement d'une catégorie ne peut compenser l'autre.
+              </span>
+            </div>
+          </div>
+
+          {/* COMPTE 1 : FRAIS D'INSCRIPTION (ADMISSION UNIQUE) */}
+          <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-700/60">
+              <div className="flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-500/20 text-amber-400 font-bold text-[10px]">
+                  1
+                </span>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  Compte Frais d'Inscription (Admission & Enregistrement Unique)
+                </span>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                Admission Unique
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Montant dû d'inscription (FCFA) *
+                </label>
+                <input
+                  type="number"
+                  step="500"
+                  value={registrationFeeDue}
+                  onChange={(e) => setRegistrationFeeDue(Math.max(0, Number(e.target.value)))}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-mono font-bold text-slate-200 focus:border-indigo-500 focus:outline-none"
+                />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  Ex: 10 000 FCFA pour l'ouverture du dossier élève.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Montant versé à l'admission (FCFA) *
+                </label>
+                <input
+                  type="number"
+                  step="500"
+                  value={registrationFeePaid}
+                  onChange={(e) => setRegistrationFeePaid(Math.max(0, Number(e.target.value)))}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-mono font-bold text-amber-300 focus:border-indigo-500 focus:outline-none"
+                />
+                <div className="flex items-center justify-between text-[10px] mt-1">
+                  <span className="text-slate-400">
+                    Reste dû : {Math.max(0, registrationFeeDue - registrationFeePaid).toLocaleString()} FCFA
+                  </span>
+                  <span
+                    className={`font-bold px-1.5 py-0.2 rounded text-[9px] ${
+                      registrationFeePaid >= registrationFeeDue && registrationFeeDue > 0
+                        ? 'bg-emerald-500/20 text-emerald-300'
+                        : registrationFeePaid > 0
+                        ? 'bg-amber-500/20 text-amber-300'
+                        : 'bg-rose-500/20 text-rose-300'
+                    }`}
+                  >
+                    {registrationFeePaid >= registrationFeeDue && registrationFeeDue > 0
+                      ? 'PAID (Soldé)'
+                      : registrationFeePaid > 0
+                      ? 'PENDING (Partiel)'
+                      : 'UNPAID (Non réglé)'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* COMPTE 2 : FRAIS D'ENCADREMENT (SCOLARITÉ PÉRIODIQUE) */}
+          <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-700/60">
+              <div className="flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
+                  2
+                </span>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  Compte Frais d'Encadrement (Scolarité & Cours Périodiques)
+                </span>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+                Périodique (Mois)
+              </span>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
@@ -477,59 +620,47 @@ export const NewEnrollmentModal: React.FC = () => {
                   type="number"
                   step="1000"
                   value={monthlyFee}
-                  onChange={(e) => setMonthlyFee(Number(e.target.value))}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-mono text-slate-200 focus:border-indigo-500 focus:outline-none"
+                  onChange={(e) => setMonthlyFee(Math.max(0, Number(e.target.value)))}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-mono font-bold text-slate-200 focus:border-indigo-500 focus:outline-none"
                 />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  Échéance due par mois d'encadrement pédagogique.
+                </span>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  {editingStudent ? 'Montant de scolarité réglé (FCFA)' : "Acompte scolarité versé (FCFA)"}
+                  Acompte scolarité / encadrement versé (FCFA)
                 </label>
                 <input
                   type="number"
                   step="1000"
                   value={initialTuition}
-                  onChange={(e) => setInitialTuition(Number(e.target.value))}
-                  disabled={!!editingStudent}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-mono text-slate-200 focus:border-indigo-500 focus:outline-none disabled:opacity-60"
+                  onChange={(e) => setInitialTuition(Math.max(0, Number(e.target.value)))}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-mono font-bold text-emerald-300 focus:border-indigo-500 focus:outline-none"
                 />
-                <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  Uniquement pour les frais d'encadrement mensuels.
-                </span>
+                <div className="flex items-center justify-between text-[10px] mt-1">
+                  <span className="text-slate-400">
+                    Reste dû : {Math.max(0, monthlyFee - initialTuition).toLocaleString()} FCFA
+                  </span>
+                  <span
+                    className={`font-bold px-1.5 py-0.2 rounded text-[9px] ${
+                      initialTuition >= monthlyFee && monthlyFee > 0
+                        ? 'bg-emerald-500/20 text-emerald-300'
+                        : initialTuition > 0
+                        ? 'bg-amber-500/20 text-amber-300'
+                        : 'bg-rose-500/20 text-rose-300'
+                    }`}
+                  >
+                    {initialTuition >= monthlyFee && monthlyFee > 0
+                      ? 'PAID (Soldé)'
+                      : initialTuition > 0
+                      ? 'PENDING (Partiel)'
+                      : 'UNPAID (Non réglé)'}
+                  </span>
+                </div>
               </div>
             </div>
-
-            {!editingStudent && (
-              <div className="pt-3 border-t border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <label className="flex items-center gap-2 cursor-pointer font-semibold text-white text-xs">
-                  <input
-                    type="checkbox"
-                    checked={includeRegistration}
-                    onChange={(e) => setIncludeRegistration(e.target.checked)}
-                    className="rounded border-slate-600 bg-slate-900 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
-                  />
-                  <span className="flex items-center gap-1.5 text-indigo-300">
-                    <CreditCard className="h-3.5 w-3.5" />
-                    <span>Encaisser les Frais d'Inscription (Frais de dossier distincts)</span>
-                  </span>
-                </label>
-
-                {includeRegistration && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400">Montant :</span>
-                    <input
-                      type="number"
-                      step="500"
-                      value={registrationFee}
-                      onChange={(e) => setRegistrationFee(Number(e.target.value))}
-                      className="w-28 rounded-lg border border-indigo-500/50 bg-slate-900 px-2.5 py-1 text-xs text-right font-mono font-bold text-indigo-300 focus:outline-none"
-                    />
-                    <span className="text-xs text-slate-400">FCFA</span>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           <div>

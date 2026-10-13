@@ -42,10 +42,16 @@ import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
 import { GroupDetailModal } from '../modals/GroupDetailModal';
 import { AllGroupsModal } from '../modals/AllGroupsModal';
 import { SelectGroupForStudentModal } from '../modals/SelectGroupForStudentModal';
+import { NewGroupModal } from '../modals/NewGroupModal';
 import { formatSessionHours, calculateWeeklyHours, calculateTotalVolume } from '../../utils/dateUtils';
 import { extractTutoringGroups } from '../../utils/groupUtils';
 import { getStudentSiblings } from '../../utils/familyUtils';
 import { DEFAULT_PROMOTION, comparePromotions, getAllAvailablePromotions } from '../../utils/promotionUtils';
+import {
+  getInscriptionAccount,
+  getEncadrementAccount,
+  getAccountStatusBadgeInfo,
+} from '../../utils/financialUtils';
 
 export const InscriptionsTab: React.FC = () => {
   const {
@@ -63,6 +69,9 @@ export const InscriptionsTab: React.FC = () => {
     setIsGroupDetailModalOpen,
     selectedGroupForDetail,
     setSelectedGroupForDetail,
+    tutoringGroups,
+    isNewGroupModalOpen,
+    setIsNewGroupModalOpen,
     setFamilyPaymentTargetParent,
     campus,
     showToast,
@@ -80,10 +89,9 @@ export const InscriptionsTab: React.FC = () => {
   const [isAllGroupsModalOpen, setIsAllGroupsModalOpen] = useState(false);
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<Student | null>(null);
 
-  // Groups extracted from students
+  // Groups and promotions
   const safeStudents = students || [];
   const safeTutors = tutors || [];
-  const tutoringGroups = extractTutoringGroups(safeStudents, safeTutors);
   const availablePromotions = getAllAvailablePromotions(safeStudents);
 
   // Delete state
@@ -402,6 +410,16 @@ export const InscriptionsTab: React.FC = () => {
             <span>Groupes ({tutoringGroups.length})</span>
           </button>
 
+          {/* Nouveau Groupe d'Étude Button */}
+          <button
+            onClick={() => setIsNewGroupModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-indigo-400/80 dark:border-indigo-600 bg-indigo-600/10 dark:bg-indigo-500/20 px-3 py-2 text-xs font-semibold text-indigo-800 dark:text-indigo-200 hover:bg-indigo-600/20 dark:hover:bg-indigo-500/30 transition-colors cursor-pointer shadow-sm"
+            title="Créer directement un nouveau groupe d'étude mutualisé"
+          >
+            <Plus className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>+ Nouveau Groupe</span>
+          </button>
+
           {/* CSV Export Button */}
           <button
             onClick={handleDirectExportCSV}
@@ -656,7 +674,7 @@ export const InscriptionsTab: React.FC = () => {
                 <th className="py-3 px-4">Date d'Inscription</th>
                 <th className="py-3 px-4">Tuteur Légal (Niamey)</th>
                 <th className="py-3 px-4 text-center">Encadrement</th>
-                <th className="py-3 px-4">Scolarité (FCFA)</th>
+                <th className="py-3 px-4">Comptes Cloisonnés (FCFA)</th>
                 <th className="py-3 px-4">Agent Responsable</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
@@ -696,8 +714,13 @@ export const InscriptionsTab: React.FC = () => {
                 </tr>
               ) : (
                 sortedStudents.map((stu) => {
-                  const balanceDue = (stu.monthlyFee || 0) - (stu.paidAmount || 0);
                   const weeklySessions = stu.sessionsPerWeek || 3;
+                  const inscAcc = getInscriptionAccount(stu);
+                  const encadAcc = getEncadrementAccount(stu);
+                  const inscBadge = getAccountStatusBadgeInfo(inscAcc.status, 'inscription');
+                  const encadBadge = getAccountStatusBadgeInfo(encadAcc.status, 'encadrement');
+                  const inscRemaining = Math.max(0, (inscAcc?.due ?? 10000) - (inscAcc?.paid ?? 0));
+                  const encadRemaining = Math.max(0, (encadAcc?.due ?? stu.monthlyFee) - (encadAcc?.paid ?? 0));
 
                   return (
                     <tr
@@ -868,20 +891,36 @@ export const InscriptionsTab: React.FC = () => {
                         )}
                       </td>
 
-                      {/* Scolarité & Paiement */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
-                            {(stu?.paidAmount ?? 0).toLocaleString()} / {(stu?.monthlyFee ?? 0).toLocaleString()}
+                      {/* Comptes Financiers Découplés : Inscription & Encadrement */}
+                      <td className="py-3 px-4 min-w-[210px]">
+                        {/* Ligne 1 : Frais d'Inscription (Admission Unique) */}
+                        <div className="flex items-center justify-between text-[11px] pb-1 border-b border-slate-100 dark:border-slate-800">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-[9px] uppercase px-1 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                              Inscr.
+                            </span>
+                            <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-[10.5px]">
+                              {(inscAcc?.paid ?? 0).toLocaleString()} / {(inscAcc?.due ?? 10000).toLocaleString()}
+                            </span>
+                          </div>
+                          <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded border ${inscBadge.badgeClass}`}>
+                            {inscBadge.label}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {getStatusBadge(stu?.paymentStatus)}
-                          {balanceDue > 0 && (
-                            <span className="text-[10px] text-rose-600 dark:text-rose-400 font-mono font-semibold">
-                              -{(balanceDue ?? 0).toLocaleString()}
+
+                        {/* Ligne 2 : Frais d'Encadrement (Scolarité Périodique) */}
+                        <div className="flex items-center justify-between text-[11px] pt-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-[9px] uppercase px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                              Encadr.
                             </span>
-                          )}
+                            <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-[10.5px]">
+                              {(encadAcc?.paid ?? 0).toLocaleString()} / {(encadAcc?.due ?? stu.monthlyFee).toLocaleString()}
+                            </span>
+                          </div>
+                          <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded border ${encadBadge.badgeClass}`}>
+                            {encadBadge.label}
+                          </span>
                         </div>
                       </td>
 
@@ -1097,6 +1136,12 @@ export const InscriptionsTab: React.FC = () => {
         isOpen={!!studentForGroupAssignment}
         onClose={() => setStudentForGroupAssignment(null)}
         student={studentForGroupAssignment}
+      />
+
+      {/* New Group Modal */}
+      <NewGroupModal
+        isOpen={isNewGroupModalOpen}
+        onClose={() => setIsNewGroupModalOpen(false)}
       />
     </div>
   );
