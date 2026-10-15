@@ -475,9 +475,27 @@ export interface SupplySale {
   agentAvatar?: string;
 }
 
+export interface SalaryPayment {
+  id: string;
+  paymentNumber: string; // e.g. "SAL-2026-0001"
+  tutorId: string;
+  tutorName: string;
+  tutorMatricule: string;
+  amount: number; // in FCFA (manual entry)
+  month: string; // e.g. "Octobre 2026"
+  paymentMethod: 'Espèces' | 'Airtel Money' | 'Moov Flooz' | 'Virement Bancaire' | 'Chèque' | string;
+  paymentDate: string;
+  notes?: string;
+  syncStatus: SyncState;
+  agentId: string;
+  agentName: string;
+  agentRole: AgentRole;
+  agentAvatar?: string;
+}
+
 export interface OperationItem {
   id: string;
-  type: 'inscription' | 'paiement' | 'vente' | 'concours';
+  type: 'inscription' | 'paiement' | 'vente' | 'concours' | 'salaire';
   title: string;
   subtitle: string;
   referenceId: string;

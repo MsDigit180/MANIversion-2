@@ -19,6 +19,7 @@ import {
   Eye,
   Layers,
   Download,
+  Wallet,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Tutor, Student } from '../../types';
@@ -49,9 +50,12 @@ export const EncadreursTab: React.FC = () => {
     setSelectedStudentForAssignment,
     selectedTutorForAssignment,
     setSelectedTutorForAssignment,
+    setIsPaySalaryModalOpen,
+    setSelectedTutorForSalary,
+    salaryPayments,
   } = useApp();
 
-  const [activeView, setActiveView] = useState<'annuaire' | 'planning'>('annuaire');
+  const [activeView, setActiveView] = useState<'annuaire' | 'planning' | 'salaires'>('annuaire');
   const [search, setSearch] = useState('');
   const [genderFilter, setGenderFilter] = useState<string>('all');
   const [levelFilter, setLevelFilter] = useState<string>('all');
@@ -288,6 +292,17 @@ export const EncadreursTab: React.FC = () => {
             <Calendar className="h-4 w-4" />
             <span>Tableau de Planification des Séances & Affectations Matières</span>
           </button>
+          <button
+            onClick={() => setActiveView('salaires')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+              activeView === 'salaires'
+                ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-300 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Wallet className="h-4 w-4" />
+            <span>Salaires & Rémunérations ({salaryPayments.length})</span>
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -310,6 +325,17 @@ export const EncadreursTab: React.FC = () => {
           >
             <BookOpen className="h-4 w-4" />
             <span>Affecter Matière / Élève</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedTutorForSalary(null);
+              setIsPaySalaryModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
+          >
+            <Wallet className="h-4 w-4" />
+            <span>Verser un Salaire</span>
           </button>
 
           <button
@@ -567,6 +593,17 @@ export const EncadreursTab: React.FC = () => {
                             </button>
                             <button
                               onClick={() => {
+                                setSelectedTutorForSalary(tutor);
+                                setIsPaySalaryModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition-colors text-[11px] font-semibold cursor-pointer"
+                              title="Verser un salaire à cet encadreur"
+                            >
+                              <Wallet className="h-3 w-3" />
+                              <span>Payer Salaire</span>
+                            </button>
+                            <button
+                              onClick={() => {
                                 setEditingTutor(tutor);
                                 setIsModalOpen(true);
                               }}
@@ -595,6 +632,79 @@ export const EncadreursTab: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {activeView === 'salaires' && (
+        <div className="space-y-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-emerald-600" />
+                  <span>Journal des Salaires & Rémunérations Versés aux Encadreurs</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Total cumulé des versements : <strong className="text-emerald-600 font-mono">{salaryPayments.reduce((acc, p) => acc + p.amount, 0).toLocaleString()} FCFA</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-100 dark:bg-slate-750 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-700">
+                    <th className="py-3 px-4">N° Réf.</th>
+                    <th className="py-3 px-4">Encadreur & Matricule</th>
+                    <th className="py-3 px-4">Mois / Période</th>
+                    <th className="py-3 px-4">Montant Versé</th>
+                    <th className="py-3 px-4">Mode de Versement</th>
+                    <th className="py-3 px-4">Date & Agent Caissier</th>
+                    <th className="py-3 px-4">Observations</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                  {salaryPayments.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-400 italic">
+                        Aucun versement de salaire enregistré pour le moment. Cliquez sur "Payer Salaire" sur un encadreur dans l'annuaire.
+                      </td>
+                    </tr>
+                  ) : (
+                    salaryPayments.map((sal) => (
+                      <tr key={sal.id} className="hover:bg-slate-50 dark:hover:bg-slate-750/50 transition-colors">
+                        <td className="py-3 px-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                          {sal.paymentNumber}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-bold text-slate-900 dark:text-white block">{sal.tutorName}</span>
+                          <span className="text-[10px] font-mono text-slate-400">{sal.tutorMatricule}</span>
+                        </td>
+                        <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
+                          {sal.month}
+                        </td>
+                        <td className="py-3 px-4 font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                          {sal.amount.toLocaleString()} FCFA
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-medium text-[10px]">
+                            {sal.paymentMethod}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
+                          <div>{sal.paymentDate}</div>
+                          <div className="text-[10px] text-slate-400">{sal.agentName} ({sal.agentRole})</div>
+                        </td>
+                        <td className="py-3 px-4 text-slate-500 italic max-w-xs truncate">
+                          {sal.notes || '—'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

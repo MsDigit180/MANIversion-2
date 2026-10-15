@@ -27,6 +27,7 @@ import { ReceiptModal } from './components/modals/ReceiptModal';
 import { StopTutoringModal } from './components/modals/StopTutoringModal';
 import { AssignTutorModal } from './components/modals/AssignTutorModal';
 import { SyncDrawerModal } from './components/modals/SyncDrawerModal';
+import { PayTutorSalaryModal } from './components/modals/PayTutorSalaryModal';
 import { GlobalSearchPalette } from './components/modals/GlobalSearchPalette';
 import { Toast } from './components/common/Toast';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
@@ -111,6 +112,10 @@ const DashboardContent: React.FC = () => {
     setSelectedStudentForAssignment,
     selectedTutorForAssignment,
     setSelectedTutorForAssignment,
+    isPaySalaryModalOpen,
+    setIsPaySalaryModalOpen,
+    selectedTutorForSalary,
+    setSelectedTutorForSalary,
   } = useApp();
   const [embeddedTab, setEmbeddedTab] = useState<'inscriptions' | 'paiements' | 'concours' | 'boutique'>('inscriptions');
 
@@ -340,6 +345,14 @@ const DashboardContent: React.FC = () => {
         initialTutor={selectedTutorForAssignment}
       />
       <SyncDrawerModal />
+      <PayTutorSalaryModal
+        isOpen={isPaySalaryModalOpen}
+        onClose={() => {
+          setIsPaySalaryModalOpen(false);
+          setSelectedTutorForSalary(null);
+        }}
+        tutor={selectedTutorForSalary}
+      />
       <GlobalSearchPalette />
       <Toast />
       <OfflineIndicator />

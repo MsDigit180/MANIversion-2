@@ -15,6 +15,7 @@ import {
   Agent,
   AgentRole,
   Tutor,
+  SalaryPayment,
   isSuperAdminRole,
   TutoringGroup,
   GroupRecord,
@@ -168,6 +169,12 @@ interface AppContextType {
   ) => Promise<void>;
   supplySales: SupplySale[];
   tutors: Tutor[];
+  salaryPayments: SalaryPayment[];
+  payTutorSalary: (data: { tutorId: string; amount: number; month: string; paymentMethod: string; notes?: string }) => Promise<SalaryPayment>;
+  isPaySalaryModalOpen: boolean;
+  setIsPaySalaryModalOpen: (open: boolean) => void;
+  selectedTutorForSalary: Tutor | null;
+  setSelectedTutorForSalary: (tutor: Tutor | null) => void;
   addTutor: (tutorData: Omit<Tutor, 'id' | 'matricule' | 'syncStatus' | 'agentId' | 'agentName' | 'agentRole' | 'agentAvatar'>) => Promise<Tutor>;
   updateTutor: (id: string, data: Partial<Tutor>) => Promise<void>;
   deleteTutor: (id: string) => Promise<void>;
@@ -343,6 +350,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [operations, setOperations] = useState<OperationItem[]>([]);
   const [alerts, setAlerts] = useState<PriorityAlert[]>([]);
   const [customGroups, setCustomGroups] = useState<GroupRecord[]>([]);
+  const [salaryPayments, setSalaryPayments] = useState<SalaryPayment[]>([]);
 
   // Navigation & Filters
   const [currentTab, setCurrentTab] = useState<TabKey>('dashboard');
@@ -376,6 +384,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedGroupForDetail, setSelectedGroupForDetail] = useState<TutoringGroup | null>(null);
   const [familyPaymentTargetParent, setFamilyPaymentTargetParent] = useState<{ guardianName: string; guardianPhone: string; studentIds?: string[] } | null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceipt | null>(null);
+  const [isPaySalaryModalOpen, setIsPaySalaryModalOpen] = useState(false);
+  const [selectedTutorForSalary, setSelectedTutorForSalary] = useState<Tutor | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Toast
@@ -562,6 +572,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.GROUPS)
         );
         unsubscribes.push(unsubGroups);
+
+        // 10. Salary Payments Listener
+        const unsubSalaryPayments = onSnapshot(
+          collection(db, COLLECTIONS.SALARY_PAYMENTS),
+          (snapshot) => {
+            const list: SalaryPayment[] = [];
+            snapshot.forEach((docSnap) => {
+              list.push(docSnap.data() as SalaryPayment);
+            });
+            setSalaryPayments(list);
+          },
+          (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.SALARY_PAYMENTS)
+        );
+        unsubscribes.push(unsubSalaryPayments);
         setIsLoading(false);
       } catch (e) {
         console.warn('Firestore realtime notice:', e);
@@ -802,6 +826,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteTutor = async (id: string) => {
     setTutors((prev) => prev.filter((t) => t.id !== id));
     await safeFirestoreWrite(deleteDoc(doc(db, COLLECTIONS.TUTORS, id)), 1200);
+  };
+
+  const payTutorSalary = async (salaryData: {
+    tutorId: string;
+    amount: number;
+    month: string;
+    paymentMethod: string;
+    notes?: string;
+  }): Promise<SalaryPayment> => {
+    if (!salaryData || salaryData.amount <= 0) {
+      showToast("Montant du salaire invalide.", 'warning');
+      throw new Error("Montant du salaire invalide.");
+    }
+    const tutor = tutors.find((t) => t.id === salaryData.tutorId);
+    if (!tutor) {
+      showToast("Encadreur introuvable.", 'warning');
+      throw new Error("Encadreur introuvable.");
+    }
+
+    const paymentNumber = `SAL-2026-${String(salaryPayments.length + 1).padStart(4, '0')}`;
+    const agentId = currentUser.id;
+    const agentName = currentUser.fullName;
+    const agentRole = currentUser.role;
+    const agentAvatar = currentUser.avatar;
+
+    const newSalaryPayment: SalaryPayment = {
+      id: `sal-${Date.now()}`,
+      paymentNumber,
+      tutorId: tutor.id,
+      tutorName: tutor.fullName,
+      tutorMatricule: tutor.matricule,
+      amount: salaryData.amount,
+      month: salaryData.month || 'Octobre 2026',
+      paymentMethod: salaryData.paymentMethod || 'Espèces',
+      paymentDate: new Date().toLocaleDateString('fr-FR'),
+      notes: salaryData.notes,
+      syncStatus: 'synced',
+      agentId,
+      agentName,
+      agentRole,
+      agentAvatar,
+    };
+
+    const newOp: OperationItem = {
+      id: `op-sal-${Date.now()}`,
+      type: 'salaire',
+      title: `Paiement de salaire · ${tutor.fullName}`,
+      subtitle: `Mois : ${newSalaryPayment.month} · Réf ${paymentNumber}`,
+      referenceId: paymentNumber,
+      amount: salaryData.amount,
+      timestamp: "À l'instant",
+      syncStatus: 'synced',
+      metaBadge: newSalaryPayment.paymentMethod,
+      agentId,
+      agentName,
+      agentRole,
+      agentAvatar,
+    };
+
+    setSalaryPayments((prev) => [newSalaryPayment, ...prev]);
+    setOperations((prev) => [newOp, ...prev]);
+
+    await safeFirestoreWrite(
+      Promise.all([
+        setDoc(doc(db, COLLECTIONS.SALARY_PAYMENTS, newSalaryPayment.id), sanitizeForFirestore(newSalaryPayment), { merge: true }),
+        setDoc(doc(db, COLLECTIONS.OPERATIONS, newOp.id), sanitizeForFirestore(newOp), { merge: true }),
+      ]),
+      1200
+    );
+
+    showToast(`Salaire de ${salaryData.amount.toLocaleString()} FCFA versé avec succès à ${tutor.fullName}.`, 'success');
+    return newSalaryPayment;
   };
 
   const assignTutorToStudent = async (
@@ -2743,6 +2839,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         recordSupplySale,
         supplySales,
         tutors,
+        salaryPayments,
+        payTutorSalary,
+        isPaySalaryModalOpen,
+        setIsPaySalaryModalOpen,
+        selectedTutorForSalary,
+        setSelectedTutorForSalary,
         addTutor,
         updateTutor,
         deleteTutor,

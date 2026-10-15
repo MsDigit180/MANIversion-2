@@ -170,6 +170,7 @@ export const COLLECTIONS = {
   ALERTS: 'alerts',
   SETTINGS: 'settings',
   GROUPS: 'groups',
+  SALARY_PAYMENTS: 'salaryPayments',
 } as const;
 
 export { doc, setDoc, getDocs, onSnapshot, deleteDoc, collection };
