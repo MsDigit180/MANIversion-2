@@ -251,6 +251,53 @@ export function getStudentPedagogicalCoverage(
 }
 
 /**
+ * Retourne la liste des matières prises en charge par un encadreur pour un élève donné
+ */
+export function getTutorStudentAssignedSubjects(
+  tutor: { id: string; assignedStudentSubjects?: Record<string, string[]>; subjects?: string[] },
+  student: Student
+): string[] {
+  if (!student) return [];
+  if (isPrimaryStudent(student)) {
+    return Array.isArray(student.subjects) && student.subjects.length > 0 ? student.subjects : ['Toutes les matières'];
+  }
+  const fromMapping = tutor.assignedStudentSubjects?.[student.id];
+  if (Array.isArray(fromMapping) && fromMapping.length > 0) {
+    return fromMapping;
+  }
+  const fromAssignments = student.tutorAssignments?.find((a) => a.tutorId === tutor.id)?.subjects;
+  if (Array.isArray(fromAssignments) && fromAssignments.length > 0) {
+    return fromAssignments;
+  }
+  const tutorSubjects = Array.isArray(tutor.subjects) ? tutor.subjects : [];
+  const matches = (student.subjects || []).filter((stuSubj) =>
+    tutorSubjects.some((tSubj) => normalizeSubjectName(tSubj) === normalizeSubjectName(stuSubj))
+  );
+  if (matches.length > 0) return matches;
+  return Array.isArray(student.subjects) && student.subjects.length > 0 ? [student.subjects[0]] : ['Mathématiques'];
+}
+
+/**
+ * Calcule le nombre de séances par semaine pour un encadreur auprès d'un élève :
+ * - Primaire : l'encadreur référent assure le quota complet de l'élève (s.sessionsPerWeek || 3).
+ * - Collège & Lycée : Règle stricte : 1 matière encadrée (Maths, PC, etc.) = 2 séances par semaine.
+ *   Exemple : 1 matière = 2 séances/semaine, 2 matières = 4 séances/semaine.
+ */
+export function getTutorStudentWeeklySessions(
+  tutor: { id: string; assignedStudentSubjects?: Record<string, string[]>; subjects?: string[] },
+  student: Student
+): number {
+  if (!student) return 0;
+  if (isPrimaryStudent(student)) {
+    return student.sessionsPerWeek || 3;
+  }
+  // Collège ou Lycée : 1 matière = 2 séances par semaine
+  const subjectsTaught = getTutorStudentAssignedSubjects(tutor, student);
+  const count = subjectsTaught.length > 0 ? subjectsTaught.length : 1;
+  return count * 2;
+}
+
+/**
  * Calcule le nombre total de séances par semaine pour un encadreur, en tenant compte de :
  * 1. Élèves du primaire : s.sessionsPerWeek || 3
  * 2. Élèves du collège ou lycée : 1 matière encadrée = 2 séances par semaine (sessions = nb_matieres * 2)
@@ -298,18 +345,7 @@ export function calculateTutorWeeklySessions(
 
   let individualSessionsTotal = 0;
   for (const s of individualStudents) {
-    if (isPrimaryStudent(s)) {
-      individualSessionsTotal += s.sessionsPerWeek || 3;
-    } else {
-      // Collège / Lycée : 1 matière encadrée = 2 séances par semaine
-      const subjectsTaught =
-        tutor.assignedStudentSubjects?.[s.id] ||
-        s.tutorAssignments?.find((a) => a.tutorId === tutor.id)?.subjects ||
-        s.subjects ||
-        [];
-      const numSubjects = subjectsTaught.length > 0 ? subjectsTaught.length : 1;
-      individualSessionsTotal += numSubjects * 2;
-    }
+    individualSessionsTotal += getTutorStudentWeeklySessions(tutor, s);
   }
 
   return individualSessionsTotal + groupSessionsTotal;

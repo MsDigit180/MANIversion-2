@@ -674,7 +674,10 @@ export const NewEncadreurModal: React.FC<NewEncadreurModalProps> = ({
                 filteredStudents.map((stu) => {
                   const isAssigned = selectedStudentIds.includes(stu.id);
                   const isPrimary = isPrimaryStudent(stu);
-                  const sessions = stu.sessionsPerWeek || 3;
+                  const currentStudentSubjects = studentSubjectsMap[stu.id] || [];
+                  const sessions = isPrimary
+                    ? (stu.sessionsPerWeek || 3)
+                    : Math.max(2, (currentStudentSubjects.length || 1) * 2);
                   const studentWeeklyDuration = calculateWeeklyHours(sessions);
 
                   // Contrôle primaire : déjà attribué à un autre encadreur ?

@@ -528,16 +528,29 @@ export const AssignTutorModal: React.FC<AssignTutorModalProps> = ({
 
           {/* RAPPEL DU VOLUME HORAIRE DÉDUIT (1 SÉANCE = 1H 30MN) */}
           {validationResult.valid && selectedStudent && selectedTutor && (
-            <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/50 text-emerald-200 text-xs flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/50 text-emerald-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>
-                  Validation réussie : Quota élève de <strong>{selectedStudent.sessionsPerWeek || 3} séances/semaine</strong>.
+                <div>
+                  {isPrimary ? (
+                    <span>
+                      Encadreur référent Primaire : <strong>{selectedStudent.sessionsPerWeek || 3} séances/semaine</strong> (socle complet).
+                    </span>
+                  ) : (
+                    <span>
+                      Règle Collège / Lycée : <strong>{Math.max(2, selectedSubjects.length * 2)} séances/semaine</strong> (2 séances par semaine pour {selectedSubjects.length} matière{selectedSubjects.length > 1 ? 's' : ''} : {selectedSubjects.join(', ')}).
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="font-mono text-emerald-300 font-bold bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-700/60 text-[11px]">
+                  = {formatSessionHours((isPrimary ? (selectedStudent.sessionsPerWeek || 3) : Math.max(2, selectedSubjects.length * 2)) * 1.5)} / sem.
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  (1h30/séance)
                 </span>
               </div>
-              <span className="font-mono text-emerald-300 font-bold bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-700/60 text-[11px]">
-                1 séance = 1h 30mn
-              </span>
             </div>
           )}
 

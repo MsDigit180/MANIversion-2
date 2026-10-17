@@ -37,6 +37,8 @@ import {
   getPrimaryTutorForStudent,
   getStudentPedagogicalCoverage,
   calculateTutorWeeklySessions,
+  getTutorStudentWeeklySessions,
+  getTutorStudentAssignedSubjects,
 } from '../../utils/tutorAssignmentValidation';
 import { extractTutoringGroups } from '../../utils/groupUtils';
 
@@ -554,18 +556,28 @@ export const EncadreursTab: React.FC = () => {
                               {assignedStudentsList.length === 0 && (!tutorHours.assignedGroups || tutorHours.assignedGroups.length === 0) ? (
                                 <span className="text-[10px] text-slate-400 italic">Aucun élève affecté</span>
                               ) : (
-                                (assignedStudentsList || []).map((s) => (
-                                  <span
-                                    key={s.id}
-                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px]"
-                                    title={`${s.level} · Quota : ${s.sessionsPerWeek || 3} séances/semaine = ${formatSessionHours((s.sessionsPerWeek || 3) * 1.5)}`}
-                                  >
-                                    <span>{s.fullName}</span>
-                                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                                      ({s.sessionsPerWeek || 3}s/sem. = {formatSessionHours((s.sessionsPerWeek || 3) * 1.5)})
+                                (assignedStudentsList || []).map((s) => {
+                                  const sSessions = getTutorStudentWeeklySessions(tutor, s);
+                                  const sSubjects = getTutorStudentAssignedSubjects(tutor, s);
+                                  const isPrimary = isPrimaryStudent(s);
+                                  return (
+                                    <span
+                                      key={s.id}
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px]"
+                                      title={`${s.level} · ${sSubjects.join(', ')} : ${sSessions} séance${sSessions > 1 ? 's' : ''}/semaine (2 séances par matière) = ${formatSessionHours(sSessions * 1.5)}`}
+                                    >
+                                      <span className="font-semibold">{s.fullName}</span>
+                                      {!isPrimary && sSubjects.length > 0 && (
+                                        <span className="text-[9px] text-indigo-600 dark:text-indigo-400 font-medium">
+                                          [{sSubjects.join(', ')}]
+                                        </span>
+                                      )}
+                                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-300">
+                                        ({sSessions}s/sem = {formatSessionHours(sSessions * 1.5)})
+                                      </span>
                                     </span>
-                                  </span>
-                                ))
+                                  );
+                                })
                               )}
                             </div>
 

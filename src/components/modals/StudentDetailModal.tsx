@@ -763,7 +763,10 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
                         <div className="text-right shrink-0">
                           <span className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 font-bold block">
-                            Séance = 1h 30mn
+                            {isPrimary ? 'Socle Primaire' : '2 séances / sem.'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {isPrimary ? '1h30 / séance' : 'soit 3h00 / semaine'}
                           </span>
                         </div>
                       </div>

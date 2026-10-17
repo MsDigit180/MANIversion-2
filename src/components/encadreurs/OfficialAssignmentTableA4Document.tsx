@@ -2,7 +2,12 @@ import React from 'react';
 import { GraduationCap, Users, Clock, ShieldCheck, Award } from 'lucide-react';
 import { Tutor, Student } from '../../types';
 import { formatSessionHours } from '../../utils/dateUtils';
-import { calculateTutorWeeklySessions } from '../../utils/tutorAssignmentValidation';
+import {
+  calculateTutorWeeklySessions,
+  getTutorStudentWeeklySessions,
+  getTutorStudentAssignedSubjects,
+  isPrimaryStudent,
+} from '../../utils/tutorAssignmentValidation';
 import { CAB_APPUIS_LOGO, CAB_APPUIS_INFO } from '../../assets/logo';
 
 interface OfficialAssignmentTableA4DocumentProps {
@@ -145,14 +150,19 @@ export const OfficialAssignmentTableA4Document: React.FC<OfficialAssignmentTable
                           <span className="text-slate-400 italic text-[11px]">Aucun élève affecté</span>
                         ) : (
                           <div className="space-y-1">
-                            {stats.assignedStudents.map((s) => (
-                              <div key={s.id} className="text-xs flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/50 pb-0.5 last:border-0">
-                                <span className="font-semibold text-slate-900 dark:text-slate-100">• {s.fullName}</span>
-                                <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.2 rounded">
-                                  {s.level} ({s.sessionsPerWeek || 3}s/sem)
-                                </span>
-                              </div>
-                            ))}
+                            {stats.assignedStudents.map((s) => {
+                              const sSessions = getTutorStudentWeeklySessions(t, s);
+                              const sSubjects = getTutorStudentAssignedSubjects(t, s);
+                              const isPrimary = isPrimaryStudent(s);
+                              return (
+                                <div key={s.id} className="text-xs flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/50 pb-0.5 last:border-0">
+                                  <span className="font-semibold text-slate-900 dark:text-slate-100">• {s.fullName}</span>
+                                  <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.2 rounded">
+                                    {s.level} {!isPrimary && sSubjects.length > 0 ? `[${sSubjects.join(', ')}] ` : ''}({sSessions}s/sem)
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </td>

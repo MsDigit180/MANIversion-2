@@ -937,15 +937,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       [student.id]: isPrimary ? student.subjects : subjects,
     };
 
-    // Calcul du volume horaire déduit (1 séance = 1h 30mn)
-    const tutorStudents = students.filter((s) => nextAssignedStudentIds.includes(s.id));
-    const totalWeeklySessions = tutorStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
-    const deducedMonthlyHours = calculateMonthlyHours(totalWeeklySessions);
-
-    const updatedTutor: Tutor = {
+    // Calcul du volume horaire déduit (1 matière = 2 séances/semaine pour collège/lycée, 1 séance = 1h 30mn)
+    const nextTutorObj: Tutor = {
       ...tutor,
       assignedStudentIds: nextAssignedStudentIds,
       assignedStudentSubjects: nextAssignedSubjects,
+    };
+    const totalWeeklySessions = calculateTutorWeeklySessions(nextTutorObj, students, customGroups);
+    const deducedMonthlyHours = calculateMonthlyHours(totalWeeklySessions);
+
+    const updatedTutor: Tutor = {
+      ...nextTutorObj,
       totalHours: deducedMonthlyHours,
     };
 
@@ -1019,14 +1021,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         delete nextSubjectsMap[studentId];
       }
 
-      const tutorStudents = students.filter((s) => nextStudentIds.includes(s.id));
-      const totalWeeklySessions = tutorStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
-      const deducedMonthlyHours = calculateMonthlyHours(totalWeeklySessions);
-
-      updatedTutor = {
+      const nextTutorObj: Tutor = {
         ...tutor,
         assignedStudentIds: nextStudentIds,
         assignedStudentSubjects: nextSubjectsMap,
+      };
+      const totalWeeklySessions = calculateTutorWeeklySessions(nextTutorObj, students, customGroups);
+      const deducedMonthlyHours = calculateMonthlyHours(totalWeeklySessions);
+
+      updatedTutor = {
+        ...nextTutorObj,
         totalHours: deducedMonthlyHours,
       };
 
@@ -1053,14 +1057,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const nextSubjectsMap = { ...(tutor.assignedStudentSubjects || {}) };
       delete nextSubjectsMap[studentId];
 
-      const tutorStudents = students.filter((s) => nextStudentIds.includes(s.id));
-      const totalWeeklySessions = tutorStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
-      const deducedMonthlyHours = calculateMonthlyHours(totalWeeklySessions);
-
-      updatedTutor = {
+      const nextTutorObj: Tutor = {
         ...tutor,
         assignedStudentIds: nextStudentIds,
         assignedStudentSubjects: nextSubjectsMap,
+      };
+      const totalWeeklySessions = calculateTutorWeeklySessions(nextTutorObj, students, customGroups);
+      const deducedMonthlyHours = calculateMonthlyHours(totalWeeklySessions);
+
+      updatedTutor = {
+        ...nextTutorObj,
         totalHours: deducedMonthlyHours,
       };
 

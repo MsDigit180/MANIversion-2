@@ -512,13 +512,22 @@ export const NewEnrollmentModal: React.FC = () => {
             </label>
             <input
               type="text"
-              placeholder="Ex: Toutes les matières / Mathématiques, Français..."
+              placeholder="Ex: Toutes les matières / Mathématiques, Physique-Chimie..."
               value={subjects}
-              onChange={(e) => setSubjects(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSubjects(val);
+                if (stream !== 'Primaire') {
+                  const list = val.split(',').map((s) => s.trim()).filter(Boolean);
+                  if (list.length > 0) {
+                    setSessionsPerWeek(list.length * 2);
+                  }
+                }
+              }}
               className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
             />
             <span className="text-[10px] text-slate-400 mt-0.5 block">
-              Par défaut « Toutes les matières » pour les élèves du niveau primaire.
+              Par défaut « Toutes les matières » pour le primaire. Au collège et lycée : <strong>1 matière = 2 séances par semaine</strong> (ex: Maths = 2 séances).
             </span>
           </div>
 
@@ -530,12 +539,17 @@ export const NewEnrollmentModal: React.FC = () => {
               <input
                 type="number"
                 min="1"
-                max="7"
+                max="14"
                 required
                 value={sessionsPerWeek}
                 onChange={(e) => setSessionsPerWeek(Number(e.target.value))}
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-mono text-slate-200 focus:border-indigo-500 focus:outline-none"
               />
+              {stream !== 'Primaire' && (
+                <span className="text-[10px] text-indigo-400 mt-0.5 block">
+                  Règle : 2 séances par matière (soit 3h de cours par matière / sem).
+                </span>
+              )}
             </div>
 
             <div>
