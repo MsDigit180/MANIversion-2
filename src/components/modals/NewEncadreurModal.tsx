@@ -29,6 +29,7 @@ import {
   getAssignedSubjectsMapForStudent,
   validateTutorAssignment,
   normalizeSubjectName,
+  calculateTutorWeeklySessions,
 } from '../../utils/tutorAssignmentValidation';
 
 interface NewEncadreurModalProps {
@@ -42,7 +43,7 @@ export const NewEncadreurModal: React.FC<NewEncadreurModalProps> = ({
   onClose,
   editingTutor = null,
 }) => {
-  const { addTutor, updateTutor, updateStudent, students, tutors, showToast } = useApp();
+  const { addTutor, updateTutor, updateStudent, students, tutors, customGroups, showToast } = useApp();
 
   const safeStudents = students || [];
   const safeTutors = tutors || [];
@@ -76,8 +77,12 @@ export const NewEncadreurModal: React.FC<NewEncadreurModalProps> = ({
       setStudentSubjectsMap(editingTutor.assignedStudentSubjects || {});
 
       // Déduction volume horaire : 1 séance = 1h 30mn
-      const currentAssigned = safeStudents.filter((s) => currentIds.includes(s.id));
-      const sessionsCount = currentAssigned.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
+      const tempTutor: Tutor = {
+        ...(editingTutor as any),
+        assignedStudentIds: currentIds,
+        assignedStudentSubjects: editingTutor.assignedStudentSubjects || {},
+      };
+      const sessionsCount = calculateTutorWeeklySessions(tempTutor, safeStudents, customGroups);
       const deducedMonthly = calculateMonthlyHours(sessionsCount);
       setTotalHours(editingTutor.totalHours ?? (deducedMonthly > 0 ? deducedMonthly : 18));
     } else {
@@ -95,7 +100,7 @@ export const NewEncadreurModal: React.FC<NewEncadreurModalProps> = ({
     setValidationError(null);
     setExpandedStudentId(null);
     setStudentSearch('');
-  }, [editingTutor, isOpen, safeStudents]);
+  }, [editingTutor, isOpen, safeStudents, customGroups]);
 
   if (!isOpen) return null;
 
@@ -126,7 +131,24 @@ export const NewEncadreurModal: React.FC<NewEncadreurModalProps> = ({
 
   // Volume horaire déduit : 1 séance = 1h 30mn
   const assignedStudents = safeStudents.filter((s) => selectedStudentIds.includes(s.id));
-  const totalWeeklySessions = assignedStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
+  const tempTutorObj: Tutor = {
+    id: editingTutor?.id || 'temp',
+    matricule: editingTutor?.matricule || 'TUT-TEMP',
+    fullName: fullName || 'Temp',
+    phone: phone || '',
+    email: email || '',
+    subjects: tutorTaughtSubjects,
+    levels: selectedLevels,
+    assignedStudentIds: selectedStudentIds,
+    assignedStudentSubjects: studentSubjectsMap,
+    sessions: [],
+    totalHours: totalHours,
+    syncStatus: 'synced',
+    agentId: editingTutor?.agentId || 'agent-1',
+    agentName: editingTutor?.agentName || 'Admin',
+    agentRole: editingTutor?.agentRole || 'Admin Principal',
+  };
+  const totalWeeklySessions = calculateTutorWeeklySessions(tempTutorObj, safeStudents, customGroups);
   const weeklyHours = calculateWeeklyHours(totalWeeklySessions);
   const monthlyHours = calculateMonthlyHours(totalWeeklySessions);
 

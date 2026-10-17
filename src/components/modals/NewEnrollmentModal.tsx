@@ -145,7 +145,11 @@ export const NewEnrollmentModal: React.FC = () => {
     e.preventDefault();
     if (!fullName.trim() || !guardianName.trim() || isSubmitting) return;
 
-    const validatedSessions = Math.max(1, Number(sessionsPerWeek) || 1);
+    const subjectsArray = subjects.split(',').map((s) => s.trim()).filter(Boolean);
+    const validatedSessions =
+      stream === 'Primaire'
+        ? Math.max(1, Number(sessionsPerWeek) || 3)
+        : Math.max(2, subjectsArray.length * 2);
 
     setIsSubmitting(true);
     try {

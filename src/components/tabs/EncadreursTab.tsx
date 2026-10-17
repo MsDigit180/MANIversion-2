@@ -36,13 +36,16 @@ import {
   isPrimaryStudent,
   getPrimaryTutorForStudent,
   getStudentPedagogicalCoverage,
+  calculateTutorWeeklySessions,
 } from '../../utils/tutorAssignmentValidation';
+import { extractTutoringGroups } from '../../utils/groupUtils';
 
 export const EncadreursTab: React.FC = () => {
   const {
     tutors,
     deleteTutor,
     students,
+    customGroups,
     showToast,
     isAssignModalOpen,
     setIsAssignModalOpen,
@@ -75,10 +78,20 @@ export const EncadreursTab: React.FC = () => {
 
   // Helper pour calculer les heures déduites d'un encadreur (1 séance = 1.5h = 1h 30mn)
   const getTutorHours = (t: Tutor) => {
-    if (!t) return { sessionsCount: 0, weeklyHours: 0, monthlyHours: 0, studentsCount: 0 };
+    if (!t) return { sessionsCount: 0, weeklyHours: 0, monthlyHours: 0, studentsCount: 0, assignedGroups: [] };
     const assignedIds = Array.isArray(t.assignedStudentIds) ? t.assignedStudentIds : [];
     const tStudents = safeStudents.filter((s) => s && assignedIds.includes(s.id));
-    const tSessions = tStudents.reduce((acc, s) => acc + (s?.sessionsPerWeek || 3), 0);
+    const allGroups = extractTutoringGroups(safeStudents, [t], customGroups);
+    const assignedGroups = allGroups.filter((g) =>
+      g.tutors?.some((tut) => tut.id === t.id) ||
+      (customGroups &&
+        customGroups.some(
+          (cg) =>
+            cg.id.trim().toUpperCase() === g.id.trim().toUpperCase() &&
+            cg.tutorIds?.includes(t.id)
+        ))
+    );
+    const tSessions = calculateTutorWeeklySessions(t, safeStudents, customGroups);
     const weekly = calculateWeeklyHours(tSessions);
     const monthly = calculateMonthlyHours(tSessions);
     return {
@@ -86,6 +99,7 @@ export const EncadreursTab: React.FC = () => {
       weeklyHours: weekly,
       monthlyHours: monthly,
       studentsCount: tStudents.length,
+      assignedGroups,
     };
   };
 
@@ -537,7 +551,7 @@ export const EncadreursTab: React.FC = () => {
                             </div>
 
                             <div className="flex flex-wrap gap-1 max-w-sm">
-                              {assignedStudentsList.length === 0 ? (
+                              {assignedStudentsList.length === 0 && (!tutorHours.assignedGroups || tutorHours.assignedGroups.length === 0) ? (
                                 <span className="text-[10px] text-slate-400 italic">Aucun élève affecté</span>
                               ) : (
                                 (assignedStudentsList || []).map((s) => (
@@ -554,6 +568,24 @@ export const EncadreursTab: React.FC = () => {
                                 ))
                               )}
                             </div>
+
+                            {tutorHours.assignedGroups && tutorHours.assignedGroups.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-0.5">
+                                {tutorHours.assignedGroups.map((grp: any) => (
+                                  <span
+                                    key={grp.id}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[10px] font-semibold border border-purple-200 dark:border-purple-800"
+                                    title={`Groupe ${grp.name} (${grp.students?.length || 0} élèves) · ${grp.sessionsPerWeek} séances/semaine ajoutées au volume de l'encadreur`}
+                                  >
+                                    <Layers className="h-3 w-3 text-purple-500" />
+                                    <span>{grp.name}</span>
+                                    <span className="font-mono font-bold text-purple-800 dark:text-purple-200">
+                                      (+{grp.sessionsPerWeek} séa/sem)
+                                    </span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </td>
 

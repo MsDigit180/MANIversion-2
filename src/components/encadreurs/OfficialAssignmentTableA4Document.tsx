@@ -2,6 +2,7 @@ import React from 'react';
 import { GraduationCap, Users, Clock, ShieldCheck, Award } from 'lucide-react';
 import { Tutor, Student } from '../../types';
 import { formatSessionHours } from '../../utils/dateUtils';
+import { calculateTutorWeeklySessions } from '../../utils/tutorAssignmentValidation';
 import { CAB_APPUIS_LOGO, CAB_APPUIS_INFO } from '../../assets/logo';
 
 interface OfficialAssignmentTableA4DocumentProps {
@@ -21,7 +22,7 @@ export const OfficialAssignmentTableA4Document: React.FC<OfficialAssignmentTable
   const getTutorStats = (t: Tutor) => {
     const assignedIds = Array.isArray(t.assignedStudentIds) ? t.assignedStudentIds : [];
     const assignedStudents = safeStudents.filter((s) => s && assignedIds.includes(s.id));
-    const totalSessions = assignedStudents.reduce((acc, s) => acc + (s?.sessionsPerWeek || 3), 0);
+    const totalSessions = calculateTutorWeeklySessions(t, safeStudents);
     return {
       assignedStudents,
       totalSessions,

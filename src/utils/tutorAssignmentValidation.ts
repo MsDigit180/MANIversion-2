@@ -1,4 +1,5 @@
-import { Student, Tutor, StudentTutorAssignment } from '../types';
+import { Student, Tutor, StudentTutorAssignment, GroupRecord } from '../types';
+import { extractTutoringGroups } from './groupUtils';
 
 /**
  * Normalise le nom d'une matière pour les comparaisons insensibles à la casse et aux espaces
@@ -248,3 +249,69 @@ export function getStudentPedagogicalCoverage(
     };
   });
 }
+
+/**
+ * Calcule le nombre total de séances par semaine pour un encadreur, en tenant compte de :
+ * 1. Élèves du primaire : s.sessionsPerWeek || 3
+ * 2. Élèves du collège ou lycée : 1 matière encadrée = 2 séances par semaine (sessions = nb_matieres * 2)
+ * 3. Séances de cours au niveau des groupes assignés à cet encadreur (group.sessionsPerWeek)
+ */
+export function calculateTutorWeeklySessions(
+  tutor: Tutor,
+  students: Student[],
+  customGroups?: GroupRecord[]
+): number {
+  if (!tutor) return 0;
+  const safeStudents = Array.isArray(students) ? students : [];
+  const assignedIds = Array.isArray(tutor.assignedStudentIds) ? tutor.assignedStudentIds : [];
+
+  // 1. Extraire les groupes de tutorat et identifier ceux assignés à cet encadreur
+  const tutoringGroups = extractTutoringGroups(safeStudents, [tutor], customGroups);
+  const assignedGroupIds = new Set<string>();
+  let groupSessionsTotal = 0;
+
+  for (const g of tutoringGroups) {
+    const isAssigned =
+      g.tutors?.some((t) => t.id === tutor.id) ||
+      (customGroups &&
+        customGroups.some(
+          (cg) =>
+            cg.id.trim().toUpperCase() === g.id.trim().toUpperCase() &&
+            cg.tutorIds?.includes(tutor.id)
+        ));
+
+    if (isAssigned) {
+      assignedGroupIds.add(g.id.trim().toUpperCase());
+      // Règle Métier : le nombre de séances pour le groupe s'additionne au volume de l'encadreur
+      groupSessionsTotal += g.sessionsPerWeek || 3;
+    }
+  }
+
+  // 2. Séances individuelles : uniquement pour les élèves assignés qui ne font PAS partie d'un groupe pris en charge
+  // (car les élèves d'un groupe participent aux séances collectives du groupe déjà comptabilisées ci-dessus)
+  const individualStudents = safeStudents.filter(
+    (s) =>
+      s &&
+      assignedIds.includes(s.id) &&
+      (!s.groupId || !assignedGroupIds.has(s.groupId.trim().toUpperCase()))
+  );
+
+  let individualSessionsTotal = 0;
+  for (const s of individualStudents) {
+    if (isPrimaryStudent(s)) {
+      individualSessionsTotal += s.sessionsPerWeek || 3;
+    } else {
+      // Collège / Lycée : 1 matière encadrée = 2 séances par semaine
+      const subjectsTaught =
+        tutor.assignedStudentSubjects?.[s.id] ||
+        s.tutorAssignments?.find((a) => a.tutorId === tutor.id)?.subjects ||
+        s.subjects ||
+        [];
+      const numSubjects = subjectsTaught.length > 0 ? subjectsTaught.length : 1;
+      individualSessionsTotal += numSubjects * 2;
+    }
+  }
+
+  return individualSessionsTotal + groupSessionsTotal;
+}
+

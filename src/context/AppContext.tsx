@@ -22,7 +22,7 @@ import {
   MultiStudentReceiptItem,
 } from '../types';
 import { calculateMonthlyHours } from '../utils/dateUtils';
-import { validateTutorAssignment, isPrimaryStudent } from '../utils/tutorAssignmentValidation';
+import { validateTutorAssignment, isPrimaryStudent, calculateTutorWeeklySessions } from '../utils/tutorAssignmentValidation';
 import { extractTutoringGroups } from '../utils/groupUtils';
 import {
   db,
@@ -1470,14 +1470,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       nextAssignedSubjects[s.id] = subjects.length > 0 ? subjects : (s.subjects || []);
     }
 
-    const allAssignedStudents = students
-      .filter((s) => nextAssignedStudentIds.includes(s.id))
-      .concat(updatedStudentsList.filter((us) => !students.some((s) => s.id === us.id)));
-    const totalWeeklySessions = allAssignedStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
-    const updatedTutor: Tutor = {
+    const updatedCustomGroups = customGroups.map((cg) => {
+      if (cg.id.toUpperCase() === cleanGroupId) {
+        return {
+          ...cg,
+          tutorIds: Array.from(new Set([...(cg.tutorIds || []), tutor.id])),
+        };
+      }
+      return cg;
+    });
+    setCustomGroups(updatedCustomGroups);
+
+    const groupRecord = customGroups.find((cg) => cg.id.toUpperCase() === cleanGroupId);
+    const groupWrites: Promise<any>[] = [];
+    if (groupRecord) {
+      const updatedGroupRecord: GroupRecord = {
+        ...groupRecord,
+        tutorIds: Array.from(new Set([...(groupRecord.tutorIds || []), tutor.id])),
+      };
+      groupWrites.push(
+        setDoc(doc(db, COLLECTIONS.GROUPS, cleanGroupId), sanitizeForFirestore(updatedGroupRecord), { merge: true })
+      );
+    }
+
+    const nextTutorObj: Tutor = {
       ...tutor,
       assignedStudentIds: nextAssignedStudentIds,
       assignedStudentSubjects: nextAssignedSubjects,
+    };
+    const allStudentsList = [
+      ...students.filter((s) => !updatedStudentsList.some((us) => us.id === s.id)),
+      ...updatedStudentsList,
+    ];
+    const totalWeeklySessions = calculateTutorWeeklySessions(
+      nextTutorObj,
+      allStudentsList,
+      updatedCustomGroups
+    );
+    const updatedTutor: Tutor = {
+      ...nextTutorObj,
       totalHours: calculateMonthlyHours(totalWeeklySessions),
     };
 
@@ -1493,6 +1524,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       Promise.all([
         setDoc(doc(db, COLLECTIONS.TUTORS, tutor.id), sanitizeForFirestore(updatedTutor), { merge: true }),
         ...studentWrites,
+        ...groupWrites,
       ]),
       1200
     );
@@ -1538,12 +1570,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       delete nextAssignedSubjects[sid];
     }
 
-    const remainingTutorStudents = students.filter((s) => nextAssignedStudentIds.includes(s.id));
-    const totalWeeklySessions = remainingTutorStudents.reduce((acc, s) => acc + (s.sessionsPerWeek || 3), 0);
-    const updatedTutor: Tutor = {
+    const updatedCustomGroups = customGroups.map((cg) => {
+      if (cg.id.toUpperCase() === cleanGroupId) {
+        return {
+          ...cg,
+          tutorIds: (cg.tutorIds || []).filter((id) => id !== tutorId),
+        };
+      }
+      return cg;
+    });
+    setCustomGroups(updatedCustomGroups);
+
+    const groupRecord = customGroups.find((cg) => cg.id.toUpperCase() === cleanGroupId);
+    const groupWrites: Promise<any>[] = [];
+    if (groupRecord) {
+      const updatedGroupRecord: GroupRecord = {
+        ...groupRecord,
+        tutorIds: (groupRecord.tutorIds || []).filter((id) => id !== tutorId),
+      };
+      groupWrites.push(
+        setDoc(doc(db, COLLECTIONS.GROUPS, cleanGroupId), sanitizeForFirestore(updatedGroupRecord), { merge: true })
+      );
+    }
+
+    const nextTutorObj: Tutor = {
       ...tutor,
       assignedStudentIds: nextAssignedStudentIds,
       assignedStudentSubjects: nextAssignedSubjects,
+    };
+    const allStudentsList = [
+      ...students.filter((s) => !updatedStudentsList.some((us) => us.id === s.id)),
+      ...updatedStudentsList,
+    ];
+    const totalWeeklySessions = calculateTutorWeeklySessions(
+      nextTutorObj,
+      allStudentsList,
+      updatedCustomGroups
+    );
+    const updatedTutor: Tutor = {
+      ...nextTutorObj,
       totalHours: calculateMonthlyHours(totalWeeklySessions),
     };
 
@@ -1559,6 +1624,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       Promise.all([
         setDoc(doc(db, COLLECTIONS.TUTORS, tutor.id), sanitizeForFirestore(updatedTutor), { merge: true }),
         ...studentWrites,
+        ...groupWrites,
       ]),
       1200
     );
