@@ -66,16 +66,17 @@
 
   /* Quand le portail d'impression du modal est actif, cacher le dashboard principal #root */
   body:has(#print-modal-portal) #root,
-  body.is-printing-invoice #root {
+  body.is-printing-invoice #root,
+  body.is-printing-student-list #root > *:not(#student-list-modal-root) {
     display: none !important;
   }
 
   /* Unlock all document heights and scroll containers for printing */
   html, body {
-    width: 210mm !important;
-    height: 297mm !important;
-    max-height: 297mm !important;
-    overflow: hidden !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
     background: #ffffff !important;
     color: #111827 !important;
     margin: 0 !important;

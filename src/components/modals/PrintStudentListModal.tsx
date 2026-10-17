@@ -3,10 +3,14 @@ import {
   X,
   Printer,
   FileSpreadsheet,
+  Download,
 } from 'lucide-react';
 import { Student } from '../../types';
 import { CAB_APPUIS_LOGO } from '../../assets/logo';
 import { useApp } from '../../context/AppContext';
+import { downloadStudentListPDF } from '../../utils/pdfExportUtils';
+
+export { downloadStudentListPDF };
 
 export interface StudentListFilterOptions {
   cycleFilter?: string;
@@ -248,6 +252,10 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
     window.print();
   };
 
+  const handleDownloadPDF = () => {
+    downloadStudentListPDF(students, titleInfo.title, titleInfo.subtitle, campusName);
+  };
+
   const handleExportCSV = () => {
     exportStudentsToCSV(students, titleInfo.title);
   };
@@ -269,15 +277,25 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
             </div>
             <div>
               <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                {titleInfo.title} · Document PDF ({students.length} élève{students.length > 1 ? 's' : ''})
+                {titleInfo.title} · Document ({students.length} élève{students.length > 1 ? 's' : ''})
               </span>
               <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                En-tête officiel & tableau : Nom complet, Niveau, Matières d'encadrement, Numéro du parent
+                Colonnes : Nom complet de l'élève · Niveau · Matières · Tuteur légal / Numéro
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Bouton Télécharger le PDF Officiel */}
+            <button
+              onClick={handleDownloadPDF}
+              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-bold text-white transition-colors cursor-pointer shadow-md shadow-indigo-600/20"
+              title="Télécharger directement le fichier PDF avec le tableau de la liste d'élèves"
+            >
+              <Download className="h-4 w-4" />
+              <span>Télécharger PDF</span>
+            </button>
+
             {/* Bouton Exporter CSV */}
             <button
               onClick={handleExportCSV}
@@ -285,17 +303,17 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
               title="Exporter la liste filtrée au format CSV"
             >
               <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Exporter CSV (.csv)</span>
+              <span>Exporter CSV</span>
             </button>
 
-            {/* Bouton Imprimer / Enregistrer en PDF */}
+            {/* Bouton Imprimer (imprimante papier) */}
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-bold text-white transition-colors cursor-pointer shadow-md shadow-indigo-600/20"
-              title="Lancer l'impression ou enregistrer en PDF"
+              className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-sm"
+              title="Lancer l'impression sur imprimante"
             >
-              <Printer className="h-4 w-4" />
-              <span>Imprimer / PDF</span>
+              <Printer className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              <span>Imprimer</span>
             </button>
 
             {/* Bouton Fermer */}
@@ -420,7 +438,7 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
           </div>
 
           {/* =================================================================
-              3. TABLEAU : NOM COMPLET, NIVEAU, MATIÈRES D'ENCADREMENT, NUMÉRO DU PARENT
+              3. TABLEAU : NOM COMPLET DE L'ÉLÈVE, NIVEAU, MATIÈRES, TUTEUR LÉGAL / NUMÉRO
              ================================================================= */}
           <table className="w-full border-collapse border border-slate-300 text-[10.5px] leading-normal print-table">
             <thead>
@@ -428,17 +446,17 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
                 <th style={{ width: '6%' }} className="py-2.5 px-2 text-center border-r border-slate-300">
                   N°
                 </th>
-                <th style={{ width: '34%' }} className="py-2.5 px-3 text-left border-r border-slate-300">
-                  Nom Complet
+                <th style={{ width: '32%' }} className="py-2.5 px-3 text-left border-r border-slate-300">
+                  Nom Complet de l'Élève
                 </th>
                 <th style={{ width: '18%' }} className="py-2.5 px-2.5 text-left border-r border-slate-300">
                   Niveau
                 </th>
-                <th style={{ width: '24%' }} className="py-2.5 px-2.5 text-left border-r border-slate-300">
-                  Matières d'Encadrement
+                <th style={{ width: '22%' }} className="py-2.5 px-2.5 text-left border-r border-slate-300">
+                  Matières
                 </th>
-                <th style={{ width: '18%' }} className="py-2.5 px-3 text-left">
-                  Numéro du Parent
+                <th style={{ width: '22%' }} className="py-2.5 px-3 text-left">
+                  Tuteur Légal / Numéro
                 </th>
               </tr>
             </thead>
@@ -452,9 +470,14 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
                 </tr>
               ) : (
                 students.map((stu, index) => {
-                  const subjectsList = Array.isArray(stu.subjects) && stu.subjects.length > 0
-                    ? stu.subjects.join(', ')
-                    : 'Toutes matières';
+                  const subjectsList =
+                    Array.isArray(stu.subjects) && stu.subjects.length > 0
+                      ? stu.subjects.join(', ')
+                      : typeof stu.subjects === 'string' && stu.subjects
+                      ? stu.subjects
+                      : stu.stream === 'Primaire'
+                      ? 'Toutes les matières'
+                      : 'Toutes les matières';
 
                   return (
                     <tr
@@ -468,7 +491,7 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
                         {index + 1}
                       </td>
 
-                      {/* NOM COMPLET */}
+                      {/* NOM COMPLET DE L'ÉLÈVE */}
                       <td className="py-2 px-3 font-semibold text-slate-950 border-r border-slate-200">
                         <span className="font-bold uppercase tracking-tight text-slate-900">
                           {stu.fullName}
@@ -477,24 +500,22 @@ export const PrintStudentListModal: React.FC<PrintStudentListModalProps> = ({
 
                       {/* NIVEAU */}
                       <td className="py-2 px-2.5 font-medium text-slate-800 border-r border-slate-200">
-                        {stu.level || 'Non spécifié'}
+                        {stu.level || stu.stream || 'Non spécifié'}
                       </td>
 
-                      {/* MATIÈRES D'ENCADREMENT */}
+                      {/* MATIÈRES */}
                       <td className="py-2 px-2.5 text-slate-800 border-r border-slate-200">
                         {subjectsList}
                       </td>
 
-                      {/* NUMÉRO DU PARENT */}
+                      {/* TUTEUR LÉGAL / NUMÉRO */}
                       <td className="py-2 px-3 text-slate-900">
-                        <div className="font-mono font-bold text-slate-900">
+                        <div className="font-semibold text-slate-900">
+                          {stu.guardianName || 'Tuteur non spécifié'}
+                        </div>
+                        <div className="font-mono text-[10px] text-slate-600">
                           {stu.guardianPhone || '-'}
                         </div>
-                        {stu.guardianName && (
-                          <div className="text-[9px] text-slate-500 font-normal">
-                            ({stu.guardianName})
-                          </div>
-                        )}
                       </td>
                     </tr>
                   );

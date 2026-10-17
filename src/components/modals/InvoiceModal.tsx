@@ -21,6 +21,7 @@ import {
   OfficialInvoiceA4Document,
   OfficialInvoiceData,
 } from '../invoices/OfficialInvoiceA4Document';
+import { downloadInvoicePDF } from '../../utils/pdfExportUtils';
 
 export interface InvoiceModalProps {
   invoice?: MonthlyInvoice | null;
@@ -37,7 +38,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   onClose,
   onPayInvoice,
 }) => {
-  const { showToast, setIsNewPaymentModalOpen, setFamilyPaymentTargetParent, currentUser } = useApp();
+  const { showToast, setIsNewPaymentModalOpen, setFamilyPaymentTargetParent, currentUser, campus } = useApp();
   const [exporting, setExporting] = useState(false);
   const [copiedSMS, setCopiedSMS] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -88,13 +89,17 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     }, 50);
   };
 
-  const handleExportPDF = () => {
-    setExporting(true);
-    document.body.classList.add('is-printing-invoice');
-    setTimeout(() => {
-      window.print();
+  const handleExportPDF = async () => {
+    try {
+      setExporting(true);
+      await downloadInvoicePDF(invoice, customData, campus);
+      showToast('Facture officielle téléchargée en PDF avec succès.', 'success');
+    } catch (err) {
+      console.error('Error exporting invoice PDF:', err);
+      showToast('Erreur lors de la génération du PDF.', 'warning');
+    } finally {
       setExporting(false);
-    }, 300);
+    }
   };
 
   const handleCopySMS = () => {
@@ -213,7 +218,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               title="Exporter au format PDF A4"
             >
               <Download className="h-3.5 w-3.5" />
-              <span>{exporting ? 'Export...' : 'PDF'}</span>
+              <span>{exporting ? 'Génération...' : 'Télécharger PDF (A4)'}</span>
             </button>
 
             {/* Print Button principal */}

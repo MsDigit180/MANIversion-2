@@ -13,9 +13,10 @@ import {
 import { useApp } from '../../context/AppContext';
 import { OfficialReceiptA4Document } from '../invoices/OfficialReceiptA4Document';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { downloadReceiptPDF } from '../../utils/pdfExportUtils';
 
 export const ReceiptModal: React.FC = () => {
-  const { selectedReceipt, setSelectedReceipt, students, deletePayment } = useApp();
+  const { selectedReceipt, setSelectedReceipt, students, deletePayment, campus, showToast } = useApp();
   const [exporting, setExporting] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
@@ -77,13 +78,18 @@ export const ReceiptModal: React.FC = () => {
     }, 50);
   };
 
-  const handleExportPDF = () => {
-    setExporting(true);
-    document.body.classList.add('is-printing-invoice');
-    setTimeout(() => {
-      window.print();
+  const handleExportPDF = async () => {
+    if (!selectedReceipt) return;
+    try {
+      setExporting(true);
+      await downloadReceiptPDF(selectedReceipt, studentRecord, campus);
+      showToast?.('Quittance officielle téléchargée en PDF avec succès.', 'success');
+    } catch (err) {
+      console.error('Error exporting receipt PDF:', err);
+      showToast?.('Erreur lors de la génération du PDF.', 'warning');
+    } finally {
       setExporting(false);
-    }, 300);
+    }
   };
 
   const modalContent = (
@@ -125,7 +131,7 @@ export const ReceiptModal: React.FC = () => {
               title="Exporter au format PDF A4"
             >
               <Download className="h-3.5 w-3.5" />
-              <span>{exporting ? 'Export...' : 'Exporter PDF A4'}</span>
+              <span>{exporting ? 'Téléchargement...' : 'Télécharger PDF (A4)'}</span>
             </button>
 
             {/* Print Button */}

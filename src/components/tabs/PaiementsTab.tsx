@@ -42,6 +42,7 @@ import {
   PrintPaymentListModal,
   exportPaymentsToCSV,
   getPaymentListDocumentTitle,
+  downloadPaymentListPDF,
 } from '../modals/PrintPaymentListModal';
 import {
   isInscriptionCategory,
@@ -57,6 +58,7 @@ export const PaiementsTab: React.FC = () => {
     setFamilyPaymentTargetParent,
     deletePayment,
     showToast,
+    campus,
   } = useApp();
 
   const [paymentToDelete, setPaymentToDelete] = useState<PaymentReceipt | null>(null);
@@ -249,6 +251,17 @@ export const PaiementsTab: React.FC = () => {
     });
     exportPaymentsToCSV(filteredPayments, titleInfo.title);
     showToast(`Export CSV généré avec succès pour ${filteredPayments.length} paiement(s).`, 'success');
+  };
+
+  const handleDirectExportPaymentsPDF = () => {
+    const titleInfo = getPaymentListDocumentTitle({
+      categoryFilter,
+      methodFilter,
+      monthFilter,
+      searchQuery: search,
+    });
+    downloadPaymentListPDF(filteredPayments, titleInfo.title, titleInfo.subtitle, campus);
+    showToast(`Journal PDF officiel téléchargé avec succès pour ${filteredPayments.length} règlement(s).`, 'success');
   };
 
   return (

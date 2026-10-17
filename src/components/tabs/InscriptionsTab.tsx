@@ -36,6 +36,7 @@ import {
   PrintStudentListModal,
   exportStudentsToCSV,
   getStudentListDocumentTitle,
+  downloadStudentListPDF,
 } from '../modals/PrintStudentListModal';
 import { StudentDetailModal } from '../modals/StudentDetailModal';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
@@ -225,6 +226,24 @@ export const InscriptionsTab: React.FC = () => {
     });
     exportStudentsToCSV(filteredStudents, titleInfo.title);
     showToast(`Export CSV généré avec succès pour ${filteredStudents.length} élève(s).`, 'success');
+  };
+
+  const handleDirectExportPDF = () => {
+    const titleInfo = getStudentListDocumentTitle({
+      cycleFilter,
+      genderFilter,
+      promotionFilter,
+      statusFilter,
+      tutoringFilter,
+      groupFilter,
+      groupName:
+        groupFilter !== 'all' && groupFilter !== 'groups_only' && groupFilter !== 'individual_only'
+          ? tutoringGroups.find((g) => g.id === groupFilter)?.name
+          : undefined,
+      searchQuery: search,
+    });
+    downloadStudentListPDF(filteredStudents, titleInfo.title, titleInfo.subtitle, campus);
+    showToast(`Document PDF officiel téléchargé avec succès pour ${filteredStudents.length} élève(s).`, 'success');
   };
 
   const handleEditStudent = (stu: Student) => {
@@ -420,24 +439,34 @@ export const InscriptionsTab: React.FC = () => {
             <span>+ Nouveau Groupe</span>
           </button>
 
+          {/* Download PDF Button */}
+          <button
+            onClick={handleDirectExportPDF}
+            className="flex items-center gap-1.5 rounded-xl border border-indigo-300 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-500/10 px-3.5 py-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors cursor-pointer shadow-sm"
+            title="Télécharger directement le fichier PDF (tableau propre des élèves)"
+          >
+            <Download className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>Télécharger PDF</span>
+          </button>
+
           {/* CSV Export Button */}
           <button
             onClick={handleDirectExportCSV}
             className="flex items-center gap-1.5 rounded-xl border border-emerald-300 dark:border-emerald-600/80 bg-emerald-50 dark:bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors cursor-pointer shadow-sm"
-            title="Exporter directement la liste filtrée au format CSV (avec quota séances)"
+            title="Exporter directement la liste filtrée au format CSV"
           >
             <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>Exporter CSV</span>
           </button>
 
-          {/* Print / PDF Button */}
+          {/* Print / PDF Preview Button */}
           <button
             onClick={() => setIsPrintModalOpen(true)}
             className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer shadow-sm"
-            title="Ouvrir la vue optimisée d'impression et export PDF"
+            title="Aperçu avant impression et vue document"
           >
             <Printer className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
-            <span>Imprimer la Liste</span>
+            <span>Aperçu / Impression</span>
           </button>
 
           {/* New Enrollment Button */}
