@@ -43,6 +43,7 @@ export const NewEnrollmentModal: React.FC = () => {
   const [registrationFeePaid, setRegistrationFeePaid] = useState<number>(10000);
   const [includeRegistration, setIncludeRegistration] = useState<boolean>(true);
   const [notes, setNotes] = useState('');
+  const [schoolAttended, setSchoolAttended] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export const NewEnrollmentModal: React.FC = () => {
       setRegistrationFeePaid(editingStudent.inscription?.paid ?? 0);
       setIncludeRegistration(true);
       setNotes(editingStudent.notes || '');
+      setSchoolAttended(editingStudent.schoolAttended || editingStudent.etablissementFrequente || '');
     } else {
       setStream('Primaire');
       setLevel('CM2 (CFEPD & Entrée en 6ème)');
@@ -86,6 +88,7 @@ export const NewEnrollmentModal: React.FC = () => {
       setRegistrationFeePaid(10000);
       setIncludeRegistration(true);
       setNotes('');
+      setSchoolAttended('');
     }
   }, [editingStudent, isNewStudentModalOpen]);
 
@@ -184,6 +187,8 @@ export const NewEnrollmentModal: React.FC = () => {
             status: encStatus,
           },
           notes,
+          schoolAttended: schoolAttended.trim() || undefined,
+          etablissementFrequente: schoolAttended.trim() || undefined,
         });
         showToast(`Dossier de l'élève ${fullName.trim()} mis à jour avec succès (${cleanPromotion}). Flux financiers cloisonnés.`, 'success');
       } else {
@@ -217,6 +222,8 @@ export const NewEnrollmentModal: React.FC = () => {
           tutoringStatus: 'Actif',
           enrollmentDate: getCurrentFrenchDate(),
           notes,
+          schoolAttended: schoolAttended.trim() || undefined,
+          etablissementFrequente: schoolAttended.trim() || undefined,
         });
 
         // 1. Émission du reçu autonome pour les Frais d'Inscription si encaissés
@@ -480,6 +487,19 @@ export const NewEnrollmentModal: React.FC = () => {
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-mono text-slate-200 focus:border-indigo-500 focus:outline-none"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Établissement fréquenté (Optionnel)
+            </label>
+            <input
+              type="text"
+              placeholder="Ex: École Primaire Publique / Collège Mariama..."
+              value={schoolAttended}
+              onChange={(e) => setSchoolAttended(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

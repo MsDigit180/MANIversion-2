@@ -463,6 +463,12 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 ))}
               </div>
             </div>
+            {(student.schoolAttended || student.etablissementFrequente) && (
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+                <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Établissement fréquenté :</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{student.schoolAttended || student.etablissementFrequente}</span>
+              </div>
+            )}
           </div>
 
           {/* GROUPE D'ENCADREMENT COLLECTIF (USER REQUIREMENT) */}

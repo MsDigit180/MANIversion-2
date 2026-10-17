@@ -230,6 +230,8 @@ export interface Student {
   enrollmentDate: string;
   syncStatus: SyncState;
   notes?: string;
+  schoolAttended?: string; // Établissement fréquenté (optionnel)
+  etablissementFrequente?: string; // Alias pour compatibilité
   tutorId?: string; // Reference tutor for primary school (1 tutor max rule)
   tutorIds?: string[]; // Multiple tutors for college/lycée
   tutorAssignments?: StudentTutorAssignment[]; // Rich subject-based tutor assignments
