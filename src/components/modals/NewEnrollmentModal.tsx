@@ -30,7 +30,7 @@ export const NewEnrollmentModal: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [gender, setGender] = useState<'Masculin (M)' | 'Féminin (F)'>('Masculin (M)');
   const [avatar, setAvatar] = useState<string>('');
-  const [subjects, setSubjects] = useState('Calcul, Français, Dictée, Éveil');
+  const [subjects, setSubjects] = useState('Toutes les matières');
   const [guardianName, setGuardianName] = useState('');
   const [guardianPhone, setGuardianPhone] = useState('+227 ');
   const [sessionsPerWeek, setSessionsPerWeek] = useState<number>(3);
@@ -54,7 +54,7 @@ export const NewEnrollmentModal: React.FC = () => {
       setFullName(editingStudent.fullName);
       setGender(editingStudent.gender || 'Masculin (M)');
       setAvatar(editingStudent.avatar || '');
-      setSubjects(editingStudent.subjects ? editingStudent.subjects.join(', ') : '');
+      setSubjects(editingStudent.subjects ? editingStudent.subjects.join(', ') : (editingStudent.stream === 'Primaire' ? 'Toutes les matières' : ''));
       setGuardianName(editingStudent.guardianName);
       setGuardianPhone(editingStudent.guardianPhone);
       setSessionsPerWeek(editingStudent.sessionsPerWeek || 3);
@@ -75,7 +75,7 @@ export const NewEnrollmentModal: React.FC = () => {
       setFullName('');
       setGender('Masculin (M)');
       setAvatar('');
-      setSubjects('Calcul & Problèmes, Français, Dictée, Éveil');
+      setSubjects('Toutes les matières');
       setGuardianName('');
       setGuardianPhone('+227 ');
       setSessionsPerWeek(3);
@@ -104,7 +104,7 @@ export const NewEnrollmentModal: React.FC = () => {
     if (!editingStudent) {
       if (newStream === 'Primaire') {
         setLevel('CM2 (CFEPD & Entrée en 6ème)');
-        setSubjects('Calcul & Problèmes, Français, Dictée, Éveil');
+        setSubjects('Toutes les matières');
         setMonthlyFee(20000);
         setInitialTuition(20000);
         setSessionsPerWeek(3);
@@ -500,6 +500,22 @@ export const NewEnrollmentModal: React.FC = () => {
               onChange={(e) => setSchoolAttended(e.target.value)}
               className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Matières d'encadrement (Optionnel)
+            </label>
+            <input
+              type="text"
+              placeholder="Ex: Toutes les matières / Mathématiques, Français..."
+              value={subjects}
+              onChange={(e) => setSubjects(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
+            />
+            <span className="text-[10px] text-slate-400 mt-0.5 block">
+              Par défaut « Toutes les matières » pour les élèves du niveau primaire.
+            </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
