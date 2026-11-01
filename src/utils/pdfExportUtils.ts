@@ -339,7 +339,7 @@ export const downloadPaymentListPDF = async (
       (index + 1).toString(),
       `${p.receiptNumber}\n${formattedDate}`,
       (p.studentName || '').toUpperCase(),
-      `${p.category || 'Paiement'}\n(${p.monthCovered || 'En cours'})`,
+      `${p.category || 'Paiement'}\n(${((p as any).monthCovered || (p as any).month || 'En cours')})`,
       p.paymentMethod || 'Espèces',
       `${(p.amount || 0).toLocaleString()} FCFA`,
     ];
@@ -483,7 +483,7 @@ export const downloadReceiptPDF = async (
   const receiptRows = [
     [
       receipt.category || "Frais d'encadrement",
-      receipt.monthCovered || formattedPaymentDate,
+      (receipt as any).monthCovered || (receipt as any).month || formattedPaymentDate,
       receipt.paymentMethod || 'Espèces',
       `${(receipt.amount || 0).toLocaleString()} FCFA`,
     ],
@@ -752,18 +752,17 @@ export const downloadTutorAssignmentPDF = async (
 
   const tableData = tutors.map((t, index) => {
     const weeklySessions = calculateTutorWeeklySessions(t, students, customGroups);
-    const weeklyHours = formatSessionHours(weeklySessions * 2);
 
     // Élèves assignés
     const assignedStus = (students || []).filter((s) => {
       const direct = (t.assignedStudentIds || []).includes(s.id);
-      const sub = (t.assignedStudentSubjects || []).some((as) => as.studentId === s.id);
+      const sub = Boolean((t.assignedStudentSubjects as Record<string, string[] | undefined>)?.[s.id]?.length);
       return direct || sub;
     });
 
     const studentsStr =
       assignedStus.length > 0
-        ? assignedStus.map((s) => `${s.fullName} (${s.level || ''})`).join(', ')
+        ? assignedStus.map((s) => `${s.fullName} (${s.level || ''})`).join('; ')
         : 'Aucun élève direct';
 
     // Groupes
@@ -771,17 +770,16 @@ export const downloadTutorAssignmentPDF = async (
     const tutorGroups = allGroups.filter((g) => (g.tutors || []).some((tu) => tu.id === t.id));
     const groupsStr =
       tutorGroups.length > 0
-        ? tutorGroups.map((g) => `${g.name} (${g.sessionsPerWeek || 2} s/sem)`).join(', ')
-        : '-';
+        ? ` Groupes : ` + tutorGroups.map((g) => `${g.name} (${g.sessionsPerWeek || 2} s/sem)`).join(', ')
+        : '';
+
+    const fullStudentsList = [studentsStr, groupsStr].filter(Boolean).join(' | ');
 
     return [
       (index + 1).toString(),
       (t.fullName || '').toUpperCase(),
-      `${t.subject || 'Enseignant'}\n${t.phone || '-'}`,
-      studentsStr,
-      groupsStr,
-      `${weeklySessions} séanc./sem.`,
-      weeklyHours,
+      fullStudentsList,
+      `${weeklySessions} séance(s) / sem.`,
     ];
   });
 
@@ -790,20 +788,17 @@ export const downloadTutorAssignmentPDF = async (
     head: [
       [
         'N°',
-        "Nom de l'Encadreur",
-        'Spécialité & Téléphone',
-        'Élèves Assignés',
-        'Groupes Encadrés',
-        'Séances / Sem.',
-        'Volume Hebdo',
+        "Nom de l'encadreur",
+        'Liste des élèves à charge',
+        'Nombre de séances par semaine',
       ],
     ],
     body: tableData,
     theme: 'grid',
     styles: {
       font: 'helvetica',
-      fontSize: 7.5,
-      cellPadding: 2,
+      fontSize: 8,
+      cellPadding: 2.5,
       textColor: [30, 41, 59],
       lineColor: [203, 213, 225],
       lineWidth: 0.1,
@@ -812,16 +807,13 @@ export const downloadTutorAssignmentPDF = async (
       fillColor: [30, 27, 75],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 8,
+      fontSize: 8.5,
     },
     columnStyles: {
       0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 42, fontStyle: 'bold' },
-      2: { cellWidth: 38 },
-      3: { cellWidth: 75 },
-      4: { cellWidth: 50 },
-      5: { cellWidth: 26, halign: 'center', fontStyle: 'bold' },
-      6: { cellWidth: 28, halign: 'center' },
+      1: { cellWidth: 55, fontStyle: 'bold' },
+      2: { cellWidth: 145 },
+      3: { cellWidth: 57, halign: 'center', fontStyle: 'bold' },
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252],
@@ -884,7 +876,7 @@ export const downloadGroupCardPDF = async (
     50
   );
 
-  const tutorNames = (group.tutors || []).map((t) => t.fullName).join(', ') || 'Non assigné';
+  const tutorNames = (group.tutors || []).map((t: any) => t.fullName || t.name).join(', ') || 'Non assigné';
   doc.text(`Encadreur(s) : ${tutorNames}`, 110, 44);
   doc.text(`Séances : ${group.sessionsPerWeek || 2} par semaine (2h / séance)`, 110, 50);
 

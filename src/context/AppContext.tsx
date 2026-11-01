@@ -171,6 +171,7 @@ interface AppContextType {
   tutors: Tutor[];
   salaryPayments: SalaryPayment[];
   payTutorSalary: (data: { tutorId: string; amount: number; month: string; paymentMethod: string; notes?: string }) => Promise<SalaryPayment>;
+  deleteSalaryPayment: (salaryPaymentId: string) => Promise<void>;
   isPaySalaryModalOpen: boolean;
   setIsPaySalaryModalOpen: (open: boolean) => void;
   selectedTutorForSalary: Tutor | null;
@@ -898,6 +899,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showToast(`Salaire de ${salaryData.amount.toLocaleString()} FCFA versé avec succès à ${tutor.fullName}.`, 'success');
     return newSalaryPayment;
+  };
+
+  const deleteSalaryPayment = async (salaryPaymentId: string): Promise<void> => {
+    const target = salaryPayments.find((s) => s.id === salaryPaymentId);
+    if (!target) {
+      showToast('Paiement de salaire introuvable.', 'warning');
+      return;
+    }
+
+    setSalaryPayments((prev) => prev.filter((s) => s.id !== salaryPaymentId));
+    setOperations((prev) =>
+      prev.filter(
+        (op) =>
+          op.referenceId !== target.paymentNumber &&
+          op.referenceId !== `SAL-${target.paymentNumber}` &&
+          op.id !== target.id
+      )
+    );
+
+    const writes: Promise<any>[] = [
+      deleteDoc(doc(db, COLLECTIONS.SALARY_PAYMENTS, salaryPaymentId)),
+    ];
+
+    const matchingOp = operations.find((op) => op.referenceId === target.paymentNumber);
+    if (matchingOp) {
+      writes.push(deleteDoc(doc(db, COLLECTIONS.OPERATIONS, matchingOp.id)));
+    }
+
+    await safeFirestoreWrite(Promise.all(writes), 1200);
+    showToast(`Versement de salaire ${target.paymentNumber} supprimé avec succès.`, 'info');
   };
 
   const assignTutorToStudent = async (
@@ -2913,6 +2944,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         tutors,
         salaryPayments,
         payTutorSalary,
+        deleteSalaryPayment,
         isPaySalaryModalOpen,
         setIsPaySalaryModalOpen,
         selectedTutorForSalary,

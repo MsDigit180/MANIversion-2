@@ -27,6 +27,7 @@ import { NewEncadreurModal } from '../modals/NewEncadreurModal';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
 import { AssignTutorToGroupModal } from '../modals/AssignTutorToGroupModal';
 import { OfficialAssignmentTableA4Document } from '../encadreurs/OfficialAssignmentTableA4Document';
+import { downloadTutorAssignmentPDF } from '../../utils/pdfExportUtils';
 import {
   formatSessionHours,
   calculateWeeklyHours,
@@ -58,6 +59,8 @@ export const EncadreursTab: React.FC = () => {
     setIsPaySalaryModalOpen,
     setSelectedTutorForSalary,
     salaryPayments,
+    deleteSalaryPayment,
+    campus,
   } = useApp();
 
   const [activeView, setActiveView] = useState<'annuaire' | 'planning' | 'salaires'>('annuaire');
@@ -201,37 +204,11 @@ export const EncadreursTab: React.FC = () => {
 
   const handleDownloadAssignmentTable = () => {
     try {
-      const headers = ['Nom Complet Encadreur', 'Matricule', 'Matières Enseignées', 'Élèves Encadrés', 'Nombre de Séances (Semaine)', 'Nombre d\'Élèves'];
-      const rows = safeTutors.map((t) => {
-        const stats = getTutorHours(t);
-        const assignedIds = Array.isArray(t.assignedStudentIds) ? t.assignedStudentIds : [];
-        const assignedStudents = safeStudents.filter((s) => s && assignedIds.includes(s.id));
-        const studentsListStr = assignedStudents.map((s) => `${s.fullName} (${s.level})`).join('; ');
-        const subjectsStr = Array.isArray(t.subjects) ? t.subjects.join(', ') : '';
-
-        return [
-          `"${t.fullName || ''}"`,
-          `"${t.matricule || ''}"`,
-          `"${subjectsStr}"`,
-          `"${studentsListStr}"`,
-          stats.sessionsCount,
-          stats.studentsCount,
-        ];
-      });
-
-      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `tableau_affectation_encadreurs_${new Date().toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showToast('Tableau d\'affectation téléchargé avec succès.', 'success');
+      downloadTutorAssignmentPDF(safeTutors, safeStudents, customGroups, campus);
+      showToast('Tableau d’affectation téléchargé en PDF avec succès.', 'success');
     } catch (err) {
-      console.error('Error downloading assignment table:', err);
-      showToast('Erreur lors du téléchargement du tableau d\'affectation.', 'warning');
+      console.error('Error downloading tutor assignment PDF:', err);
+      showToast('Erreur lors du téléchargement du PDF.', 'warning');
     }
   };
 
@@ -706,12 +683,13 @@ export const EncadreursTab: React.FC = () => {
                     <th className="py-3 px-4">Mode de Versement</th>
                     <th className="py-3 px-4">Date & Agent Caissier</th>
                     <th className="py-3 px-4">Observations</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                   {salaryPayments.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-400 italic">
+                      <td colSpan={8} className="py-12 text-center text-slate-400 italic">
                         Aucun versement de salaire enregistré pour le moment. Cliquez sur "Payer Salaire" sur un encadreur dans l'annuaire.
                       </td>
                     </tr>
@@ -742,6 +720,19 @@ export const EncadreursTab: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-slate-500 italic max-w-xs truncate">
                           {sal.notes || '—'}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Confirmez-vous la suppression du versement de salaire n° ${sal.paymentNumber} (${sal.amount.toLocaleString()} FCFA) pour ${sal.tutorName} ?`)) {
+                                deleteSalaryPayment(sal.id);
+                              }
+                            }}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 transition-colors cursor-pointer ml-auto"
+                            title="Supprimer ce versement de salaire"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))
