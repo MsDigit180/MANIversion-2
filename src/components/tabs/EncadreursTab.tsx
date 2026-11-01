@@ -202,13 +202,14 @@ export const EncadreursTab: React.FC = () => {
     setIsAssignModalOpen(true);
   };
 
-  const handleDownloadAssignmentTable = () => {
+  const handleDownloadAssignmentTable = async () => {
     try {
-      downloadTutorAssignmentPDF(safeTutors, safeStudents, customGroups, campus);
-      showToast('Tableau d’affectation téléchargé en PDF avec succès.', 'success');
+      showToast('Génération du document PDF officiel en cours...', 'info');
+      await downloadTutorAssignmentPDF(safeTutors, safeStudents, customGroups, campus);
+      showToast('Tableau officiel des encadreurs téléchargé en PDF avec succès.', 'success');
     } catch (err) {
       console.error('Error downloading tutor assignment PDF:', err);
-      showToast('Erreur lors du téléchargement du PDF.', 'warning');
+      showToast('Erreur lors de la génération du document PDF.', 'warning');
     }
   };
 
@@ -300,12 +301,21 @@ export const EncadreursTab: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowPdfPreview(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 px-3.5 py-2 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-            title="Télécharger le tableau d'affectation en PDF"
+            onClick={handleDownloadAssignmentTable}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
+            title="Télécharger le fichier PDF officiel (Vectoriel - Non capture d'écran)"
           >
             <Download className="h-4 w-4" />
             <span>Télécharger en PDF</span>
+          </button>
+
+          <button
+            onClick={() => setShowPdfPreview(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-750 px-3 py-2 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            title="Aperçu du tableau officiel avant impression"
+          >
+            <Eye className="h-4 w-4 text-slate-500" />
+            <span>Aperçu</span>
           </button>
 
           <button
@@ -973,6 +983,8 @@ export const EncadreursTab: React.FC = () => {
         <OfficialAssignmentTableA4Document
           tutors={safeTutors}
           students={safeStudents}
+          customGroups={customGroups}
+          campus={campus}
           onClose={() => setShowPdfPreview(false)}
         />
       )}

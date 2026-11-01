@@ -1,6 +1,6 @@
 import React from 'react';
-import { GraduationCap, Users, Clock, ShieldCheck, Award } from 'lucide-react';
-import { Tutor, Student } from '../../types';
+import { GraduationCap, Users, Clock, ShieldCheck, Award, Download, Printer, X } from 'lucide-react';
+import { Tutor, Student, GroupRecord } from '../../types';
 import { formatSessionHours } from '../../utils/dateUtils';
 import {
   calculateTutorWeeklySessions,
@@ -9,16 +9,21 @@ import {
   isPrimaryStudent,
 } from '../../utils/tutorAssignmentValidation';
 import { CAB_APPUIS_LOGO, CAB_APPUIS_INFO } from '../../assets/logo';
+import { downloadTutorAssignmentPDF } from '../../utils/pdfExportUtils';
 
 interface OfficialAssignmentTableA4DocumentProps {
   tutors: Tutor[];
   students: Student[];
+  customGroups?: GroupRecord[];
+  campus?: string;
   onClose?: () => void;
 }
 
 export const OfficialAssignmentTableA4Document: React.FC<OfficialAssignmentTableA4DocumentProps> = ({
   tutors,
   students,
+  customGroups,
+  campus,
   onClose,
 }) => {
   const safeTutors = tutors || [];
@@ -27,7 +32,7 @@ export const OfficialAssignmentTableA4Document: React.FC<OfficialAssignmentTable
   const getTutorStats = (t: Tutor) => {
     const assignedIds = Array.isArray(t.assignedStudentIds) ? t.assignedStudentIds : [];
     const assignedStudents = safeStudents.filter((s) => s && assignedIds.includes(s.id));
-    const totalSessions = calculateTutorWeeklySessions(t, safeStudents);
+    const totalSessions = calculateTutorWeeklySessions(t, safeStudents, customGroups);
     return {
       assignedStudents,
       totalSessions,
@@ -39,6 +44,10 @@ export const OfficialAssignmentTableA4Document: React.FC<OfficialAssignmentTable
   const totalStudentsAssigned = safeTutors.reduce((acc, t) => acc + (t?.assignedStudentIds?.length || 0), 0);
   const totalSessionsAll = safeTutors.reduce((acc, t) => acc + getTutorStats(t).totalSessions, 0);
 
+  const handleDownloadPDF = async () => {
+    await downloadTutorAssignmentPDF(safeTutors, safeStudents, customGroups, campus);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-6 overflow-y-auto">
       <div className="relative w-full max-w-4xl rounded-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-10 my-auto print:m-0 print:p-0 print:shadow-none print:border-none print:bg-white print:text-black">
@@ -47,21 +56,32 @@ export const OfficialAssignmentTableA4Document: React.FC<OfficialAssignmentTable
         <div className="flex items-center justify-between pb-6 mb-6 border-b border-slate-200 dark:border-slate-800 print:hidden">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
             <GraduationCap className="h-4 w-4 text-indigo-600" />
-            <span>Aperçu avant impression PDF (Tableau Officiel des Affectations)</span>
+            <span>Tableau Officiel des Affectations des Encadreurs</span>
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => window.print()}
-              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
+              onClick={handleDownloadPDF}
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
+              title="Télécharger le document PDF officiel (fichier vectoriel)"
             >
-              Imprimer / Enregistrer en PDF
+              <Download className="h-4 w-4" />
+              <span>Télécharger le Fichier PDF</span>
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+              title="Imprimer directement"
+            >
+              <Printer className="h-4 w-4" />
+              <span>Imprimer</span>
             </button>
             {onClose && (
               <button
                 onClick={onClose}
-                className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Fermer"
               >
-                Fermer
+                <X className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -124,11 +144,9 @@ export const OfficialAssignmentTableA4Document: React.FC<OfficialAssignmentTable
             <table className="w-full text-left text-xs text-slate-800 dark:text-slate-200">
               <thead className="bg-indigo-600 text-white uppercase text-[10px] font-bold tracking-wider">
                 <tr>
-                  <th className="py-3 px-3.5 w-12 text-center">N°</th>
-                  <th className="py-3 px-3.5">Nom Complet de l'Encadreur</th>
-                  <th className="py-3 px-3.5">Élèves Encadrés & Classes</th>
-                  <th className="py-3 px-3.5 text-center w-28">Nombre de Séances</th>
-                  <th className="py-3 px-3.5 text-center w-24">Nombre d'Élèves</th>
+                  <th className="py-3 px-4 w-1/4">Nom de l'encadreur</th>
+                  <th className="py-3 px-4 w-1/2">Liste des élèves à charge</th>
+                  <th className="py-3 px-4 w-1/4 text-center">Nombre de séances par semaine</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -136,29 +154,28 @@ export const OfficialAssignmentTableA4Document: React.FC<OfficialAssignmentTable
                   const stats = getTutorStats(t);
                   return (
                     <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className="py-3 px-3.5 text-center font-mono font-bold text-slate-500">
-                        {idx + 1}
-                      </td>
-                      <td className="py-3 px-3.5 align-top">
-                        <div className="font-bold text-slate-900 dark:text-white text-xs">{t.fullName}</div>
+                      <td className="py-3.5 px-4 align-top">
+                        <div className="font-bold text-slate-900 dark:text-white text-xs">
+                          {idx + 1}. {t.fullName}
+                        </div>
                         <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                          {t.matricule} · {Array.isArray(t.subjects) ? t.subjects.join(', ') : ''}
+                          {t.matricule} {Array.isArray(t.subjects) && t.subjects.length > 0 ? `· ${t.subjects.join(', ')}` : ''}
                         </div>
                       </td>
-                      <td className="py-3 px-3.5 align-top">
+                      <td className="py-3.5 px-4 align-top">
                         {stats.assignedStudents.length === 0 ? (
-                          <span className="text-slate-400 italic text-[11px]">Aucun élève affecté</span>
+                          <span className="text-slate-400 italic text-[11px]">Aucun élève à charge</span>
                         ) : (
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             {stats.assignedStudents.map((s) => {
                               const sSessions = getTutorStudentWeeklySessions(t, s);
                               const sSubjects = getTutorStudentAssignedSubjects(t, s);
                               const isPrimary = isPrimaryStudent(s);
                               return (
-                                <div key={s.id} className="text-xs flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/50 pb-0.5 last:border-0">
+                                <div key={s.id} className="text-xs flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/50 pb-1 last:border-0">
                                   <span className="font-semibold text-slate-900 dark:text-slate-100">• {s.fullName}</span>
-                                  <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.2 rounded">
-                                    {s.level} {!isPrimary && sSubjects.length > 0 ? `[${sSubjects.join(', ')}] ` : ''}({sSessions}s/sem)
+                                  <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded">
+                                    {s.level} {!isPrimary && sSubjects.length > 0 ? `[${sSubjects.join(', ')}] ` : ''}({sSessions} séanc./sem.)
                                   </span>
                                 </div>
                               );
@@ -166,11 +183,10 @@ export const OfficialAssignmentTableA4Document: React.FC<OfficialAssignmentTable
                           </div>
                         )}
                       </td>
-                      <td className="py-3 px-3.5 text-center align-top font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                        {stats.totalSessions} <span className="text-[10px] font-normal text-slate-500">séances</span>
-                      </td>
-                      <td className="py-3 px-3.5 text-center align-top font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                        {stats.studentsCount}
+                      <td className="py-3.5 px-4 text-center align-top font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        <span className="inline-block px-3 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs">
+                          {stats.totalSessions} séance{stats.totalSessions > 1 ? 's' : ''} / semaine
+                        </span>
                       </td>
                     </tr>
                   );

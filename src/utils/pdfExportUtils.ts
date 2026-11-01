@@ -753,33 +753,39 @@ export const downloadTutorAssignmentPDF = async (
   const tableData = tutors.map((t, index) => {
     const weeklySessions = calculateTutorWeeklySessions(t, students, customGroups);
 
-    // Élèves assignés
+    // Élèves assignés directs
     const assignedStus = (students || []).filter((s) => {
       const direct = (t.assignedStudentIds || []).includes(s.id);
       const sub = Boolean((t.assignedStudentSubjects as Record<string, string[] | undefined>)?.[s.id]?.length);
       return direct || sub;
     });
 
-    const studentsStr =
-      assignedStus.length > 0
-        ? assignedStus.map((s) => `${s.fullName} (${s.level || ''})`).join('; ')
-        : 'Aucun élève direct';
+    const studentLines: string[] = [];
+    if (assignedStus.length > 0) {
+      assignedStus.forEach((s) => {
+        const sSubjects = (t.assignedStudentSubjects as Record<string, string[] | undefined>)?.[s.id];
+        const subjStr = sSubjects && sSubjects.length > 0 ? ` [${sSubjects.join(', ')}]` : '';
+        studentLines.push(`• ${s.fullName} (${s.level || 'Élève'}${subjStr})`);
+      });
+    }
 
-    // Groupes
+    // Groupes collectifs assignés
     const allGroups = extractTutoringGroups(students, tutors, customGroups);
     const tutorGroups = allGroups.filter((g) => (g.tutors || []).some((tu) => tu.id === t.id));
-    const groupsStr =
-      tutorGroups.length > 0
-        ? ` Groupes : ` + tutorGroups.map((g) => `${g.name} (${g.sessionsPerWeek || 2} s/sem)`).join(', ')
-        : '';
+    if (tutorGroups.length > 0) {
+      tutorGroups.forEach((g) => {
+        studentLines.push(`• Groupe : ${g.name} (${g.level || 'Collectif'}) — ${g.sessionsPerWeek || 2} séanc./sem.`);
+      });
+    }
 
-    const fullStudentsList = [studentsStr, groupsStr].filter(Boolean).join(' | ');
+    const studentsListText = studentLines.length > 0 ? studentLines.join('\n') : 'Aucun élève à charge';
+
+    const tutorInfo = `${index + 1}. ${(t.fullName || '').toUpperCase()}${t.matricule ? `\nMatricule: ${t.matricule}` : ''}`;
 
     return [
-      (index + 1).toString(),
-      (t.fullName || '').toUpperCase(),
-      fullStudentsList,
-      `${weeklySessions} séance(s) / sem.`,
+      tutorInfo,
+      studentsListText,
+      `${weeklySessions} séance${weeklySessions > 1 ? 's' : ''} / semaine`,
     ];
   });
 
@@ -787,7 +793,6 @@ export const downloadTutorAssignmentPDF = async (
     startY: 38,
     head: [
       [
-        'N°',
         "Nom de l'encadreur",
         'Liste des élèves à charge',
         'Nombre de séances par semaine',
@@ -798,22 +803,23 @@ export const downloadTutorAssignmentPDF = async (
     styles: {
       font: 'helvetica',
       fontSize: 8,
-      cellPadding: 2.5,
+      cellPadding: 3,
       textColor: [30, 41, 59],
       lineColor: [203, 213, 225],
       lineWidth: 0.1,
+      overflow: 'linebreak',
     },
     headStyles: {
       fillColor: [30, 27, 75],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       fontSize: 8.5,
+      halign: 'left',
     },
     columnStyles: {
-      0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 55, fontStyle: 'bold' },
-      2: { cellWidth: 145 },
-      3: { cellWidth: 57, halign: 'center', fontStyle: 'bold' },
+      0: { cellWidth: 65, fontStyle: 'bold' },
+      1: { cellWidth: 150 },
+      2: { cellWidth: 54, halign: 'center', fontStyle: 'bold' },
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252],
