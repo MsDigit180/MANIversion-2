@@ -8,6 +8,8 @@ import {
   Printer,
   Clock,
   CheckCircle2,
+  Receipt,
+  Wallet,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { OperationItem } from '../../types';
@@ -22,6 +24,7 @@ export const OperationsFeed: React.FC = () => {
 
   const filteredOperations = safeOperations.filter((op) => {
     if (filterType === 'all') return true;
+    if (filterType === 'depense') return op.type === 'depense' || op.type === 'salaire';
     return op.type === filterType;
   });
 
@@ -35,6 +38,10 @@ export const OperationsFeed: React.FC = () => {
         return <ShoppingBag className="h-4 w-4 text-amber-500 dark:text-amber-400" />;
       case 'concours':
         return <GraduationCap className="h-4 w-4 text-purple-500 dark:text-purple-400" />;
+      case 'salaire':
+        return <Wallet className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />;
+      case 'depense':
+        return <Receipt className="h-4 w-4 text-rose-500 dark:text-rose-400" />;
     }
   };
 
@@ -110,6 +117,16 @@ export const OperationsFeed: React.FC = () => {
           >
             Boutique
           </button>
+          <button
+            onClick={() => setFilterType('depense')}
+            className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+              filterType === 'depense'
+                ? 'bg-rose-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Dépenses
+          </button>
         </div>
       </div>
 
@@ -135,6 +152,8 @@ export const OperationsFeed: React.FC = () => {
                       ? 'bg-emerald-50 dark:bg-emerald-500/10'
                       : op.type === 'vente'
                       ? 'bg-amber-50 dark:bg-amber-500/10'
+                      : op.type === 'depense'
+                      ? 'bg-rose-50 dark:bg-rose-500/10'
                       : 'bg-purple-50 dark:bg-purple-500/10'
                   }`}
                 >
@@ -170,8 +189,15 @@ export const OperationsFeed: React.FC = () => {
               {/* Right Zone: Amount, Sync State & Quick Actions */}
               <div className="flex items-center justify-between sm:justify-end gap-3 pl-12 sm:pl-0">
                 {typeof op.amount === 'number' && !isNaN(op.amount) && (
-                  <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100 tabular-nums">
-                    +{(op.amount ?? 0).toLocaleString()} FCFA
+                  <span
+                    className={`font-mono text-xs font-bold tabular-nums ${
+                      op.type === 'depense' || op.type === 'salaire'
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : 'text-slate-900 dark:text-slate-100'
+                    }`}
+                  >
+                    {op.type === 'depense' || op.type === 'salaire' ? '-' : '+'}
+                    {(op.amount ?? 0).toLocaleString()} FCFA
                   </span>
                 )}
 

@@ -16,6 +16,7 @@ import {
   Settings,
   Shield,
   UserCheck,
+  Wallet,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { TabKey } from '../../types';
@@ -43,6 +44,7 @@ export const Sidebar: React.FC = () => {
     { key: 'dashboard', label: 'Vue d\'Ensemble', icon: LayoutDashboard },
     { key: 'inscriptions', label: 'Inscriptions & Scolarité', icon: Users },
     { key: 'paiements', label: 'Paiements & Caisse', icon: CreditCard },
+    { key: 'depenses', label: 'Dépenses & Caisse', icon: Wallet },
     { key: 'concours', label: 'Concours Professionnels', icon: GraduationCap },
     { key: 'encadreurs', label: 'Gestion des Encadreurs', icon: UserCheck },
     { key: 'boutique', label: 'Boutique & Stocks', icon: Package },

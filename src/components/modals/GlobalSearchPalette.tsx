@@ -7,6 +7,7 @@ import {
   GraduationCap,
   Package,
   ArrowRight,
+  Receipt,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -16,6 +17,7 @@ export const GlobalSearchPalette: React.FC = () => {
     setIsSearchOpen,
     students,
     payments,
+    expenses,
     exams,
     inventory,
     setCurrentTab,
@@ -42,6 +44,7 @@ export const GlobalSearchPalette: React.FC = () => {
 
   const safeStudents = students || [];
   const safePayments = payments || [];
+  const safeExpenses = expenses || [];
   const safeExams = exams || [];
   const safeInventory = inventory || [];
   const queryLower = query.trim().toLowerCase();
@@ -60,6 +63,15 @@ export const GlobalSearchPalette: React.FC = () => {
         (p) =>
           (p.receiptNumber || '').toLowerCase().includes(queryLower) ||
           (p.studentName || '').toLowerCase().includes(queryLower)
+      )
+    : [];
+
+  const filteredExpenses = queryLower
+    ? safeExpenses.filter(
+        (e) =>
+          (e.expenseNumber || '').toLowerCase().includes(queryLower) ||
+          (e.title || '').toLowerCase().includes(queryLower) ||
+          (e.category || '').toLowerCase().includes(queryLower)
       )
     : [];
 
@@ -83,6 +95,7 @@ export const GlobalSearchPalette: React.FC = () => {
   const hasResults =
     filteredStudents.length > 0 ||
     filteredPayments.length > 0 ||
+    filteredExpenses.length > 0 ||
     filteredExams.length > 0 ||
     filteredInventory.length > 0;
 
@@ -208,6 +221,38 @@ export const GlobalSearchPalette: React.FC = () => {
                           </div>
                           <div className="text-[11px] text-slate-400">
                             {e.examType} ({e.examBatch}) · Statut : {e.status}
+                          </div>
+                        </div>
+                        <ArrowRight className="h-3.5 w-3.5 text-slate-500" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Expenses Results */}
+              {filteredExpenses.length > 0 && (
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Receipt className="h-3.5 w-3.5 text-rose-400" />
+                    <span>Dépenses & Caisse ({filteredExpenses.length})</span>
+                  </div>
+                  <div className="space-y-1">
+                    {filteredExpenses.map((exp) => (
+                      <div
+                        key={exp.id}
+                        onClick={() => {
+                          setCurrentTab('depenses');
+                          setIsSearchOpen(false);
+                        }}
+                        className="flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-800/80 cursor-pointer transition-colors"
+                      >
+                        <div>
+                          <div className="text-xs font-semibold text-white">
+                            {exp.expenseNumber} — {exp.title}
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            {exp.category} · -{(exp.amount ?? 0).toLocaleString()} FCFA ({exp.paymentMethod})
                           </div>
                         </div>
                         <ArrowRight className="h-3.5 w-3.5 text-slate-500" />

@@ -16,6 +16,7 @@ import {
   AgentRole,
   Tutor,
   SalaryPayment,
+  Expense,
   isSuperAdminRole,
   TutoringGroup,
   GroupRecord,
@@ -172,6 +173,22 @@ interface AppContextType {
   salaryPayments: SalaryPayment[];
   payTutorSalary: (data: { tutorId: string; amount: number; month: string; paymentMethod: string; notes?: string }) => Promise<SalaryPayment>;
   deleteSalaryPayment: (salaryPaymentId: string) => Promise<void>;
+  expenses: Expense[];
+  addExpense: (data: {
+    title: string;
+    category: string;
+    amount: number;
+    paymentMethod: string;
+    expenseDate?: string;
+    beneficiary?: string;
+    notes?: string;
+  }) => Promise<Expense>;
+  updateExpense: (id: string, data: Partial<Expense>) => Promise<void>;
+  deleteExpense: (expenseId: string) => Promise<void>;
+  isNewExpenseModalOpen: boolean;
+  setIsNewExpenseModalOpen: (open: boolean) => void;
+  editingExpense: Expense | null;
+  setEditingExpense: (expense: Expense | null) => void;
   isPaySalaryModalOpen: boolean;
   setIsPaySalaryModalOpen: (open: boolean) => void;
   selectedTutorForSalary: Tutor | null;
@@ -352,6 +369,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [alerts, setAlerts] = useState<PriorityAlert[]>([]);
   const [customGroups, setCustomGroups] = useState<GroupRecord[]>([]);
   const [salaryPayments, setSalaryPayments] = useState<SalaryPayment[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
 
   // Navigation & Filters
   const [currentTab, setCurrentTab] = useState<TabKey>('dashboard');
@@ -387,6 +405,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceipt | null>(null);
   const [isPaySalaryModalOpen, setIsPaySalaryModalOpen] = useState(false);
   const [selectedTutorForSalary, setSelectedTutorForSalary] = useState<Tutor | null>(null);
+  const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Toast
@@ -587,6 +607,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.SALARY_PAYMENTS)
         );
         unsubscribes.push(unsubSalaryPayments);
+
+        // 11. Manual Expenses Listener
+        const unsubExpenses = onSnapshot(
+          collection(db, COLLECTIONS.EXPENSES),
+          (snapshot) => {
+            const list: Expense[] = [];
+            snapshot.forEach((docSnap) => {
+              list.push(docSnap.data() as Expense);
+            });
+            setExpenses(list);
+          },
+          (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.EXPENSES)
+        );
+        unsubscribes.push(unsubExpenses);
         setIsLoading(false);
       } catch (e) {
         console.warn('Firestore realtime notice:', e);
@@ -929,6 +963,117 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     await safeFirestoreWrite(Promise.all(writes), 1200);
     showToast(`Versement de salaire ${target.paymentNumber} supprimé avec succès.`, 'info');
+  };
+
+  const addExpense = async (expenseData: {
+    title: string;
+    category: string;
+    amount: number;
+    paymentMethod: string;
+    expenseDate?: string;
+    beneficiary?: string;
+    notes?: string;
+  }): Promise<Expense> => {
+    if (!expenseData || !expenseData.title?.trim() || !expenseData.amount || expenseData.amount <= 0) {
+      showToast('Veuillez saisir un libellé et un montant valide pour la dépense.', 'warning');
+      throw new Error('Données de dépense invalides.');
+    }
+
+    const expenseNumber = `DEP-2026-${String(expenses.length + 1).padStart(4, '0')}`;
+    const agentId = currentUser.id;
+    const agentName = currentUser.fullName;
+    const agentRole = currentUser.role;
+    const agentAvatar = currentUser.avatar;
+    const finalDate = formatReceiptPaymentDate(expenseData.expenseDate || getCurrentFrenchDateTime());
+
+    const newExpense: Expense = {
+      id: `exp-${Date.now()}`,
+      expenseNumber,
+      title: expenseData.title.trim(),
+      category: expenseData.category || 'Autres Dépenses',
+      amount: Number(expenseData.amount),
+      paymentMethod: expenseData.paymentMethod || 'Espèces',
+      expenseDate: finalDate,
+      beneficiary: expenseData.beneficiary?.trim() || undefined,
+      notes: expenseData.notes?.trim() || undefined,
+      syncStatus: 'synced',
+      agentId,
+      agentName,
+      agentRole,
+      agentAvatar,
+    };
+
+    const newOp: OperationItem = {
+      id: `op-exp-${Date.now()}`,
+      type: 'depense',
+      title: `Dépense · ${newExpense.category}`,
+      subtitle: `${newExpense.title} · Réf ${expenseNumber}`,
+      referenceId: expenseNumber,
+      amount: newExpense.amount,
+      timestamp: "À l'instant",
+      syncStatus: 'synced',
+      metaBadge: newExpense.paymentMethod,
+      agentId,
+      agentName,
+      agentRole,
+      agentAvatar,
+    };
+
+    setExpenses((prev) => [newExpense, ...prev]);
+    setOperations((prev) => [newOp, ...prev]);
+
+    await safeFirestoreWrite(
+      Promise.all([
+        setDoc(doc(db, COLLECTIONS.EXPENSES, newExpense.id), sanitizeForFirestore(newExpense), { merge: true }),
+        setDoc(doc(db, COLLECTIONS.OPERATIONS, newOp.id), sanitizeForFirestore(newOp), { merge: true }),
+      ]),
+      1200
+    );
+
+    showToast(`Dépense ${expenseNumber} (${newExpense.amount.toLocaleString()} FCFA) déduite de la caisse.`, 'success');
+    return newExpense;
+  };
+
+  const updateExpense = async (id: string, data: Partial<Expense>): Promise<void> => {
+    const cleanData: Partial<Expense> = { ...data };
+    if (cleanData.expenseDate) {
+      cleanData.expenseDate = formatReceiptPaymentDate(cleanData.expenseDate);
+    }
+    setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...cleanData } : e)));
+    await safeFirestoreWrite(
+      setDoc(doc(db, COLLECTIONS.EXPENSES, id), sanitizeForFirestore(cleanData), { merge: true }),
+      1200
+    );
+    showToast('Dépense mise à jour et solde de caisse recalculé.', 'success');
+  };
+
+  const deleteExpense = async (expenseId: string): Promise<void> => {
+    const target = expenses.find((e) => e.id === expenseId);
+    if (!target) {
+      showToast('Dépense introuvable.', 'warning');
+      return;
+    }
+
+    setExpenses((prev) => prev.filter((e) => e.id !== expenseId));
+    setOperations((prev) =>
+      prev.filter(
+        (op) =>
+          op.referenceId !== target.expenseNumber &&
+          op.id !== target.id
+      )
+    );
+
+    const writes: Promise<any>[] = [
+      deleteDoc(doc(db, COLLECTIONS.EXPENSES, expenseId)),
+    ];
+
+    const matchingOp = operations.find((op) => op.referenceId === target.expenseNumber);
+    if (matchingOp) {
+      writes.push(deleteDoc(doc(db, COLLECTIONS.OPERATIONS, matchingOp.id)));
+    }
+
+    await safeFirestoreWrite(Promise.all(writes), 1200);
+    showToast(`Dépense ${target.expenseNumber} supprimée. Solde de caisse réajusté.`, 'info');
   };
 
   const assignTutorToStudent = async (
@@ -2945,6 +3090,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         salaryPayments,
         payTutorSalary,
         deleteSalaryPayment,
+        expenses,
+        addExpense,
+        updateExpense,
+        deleteExpense,
+        isNewExpenseModalOpen,
+        setIsNewExpenseModalOpen,
+        editingExpense,
+        setEditingExpense,
         isPaySalaryModalOpen,
         setIsPaySalaryModalOpen,
         selectedTutorForSalary,

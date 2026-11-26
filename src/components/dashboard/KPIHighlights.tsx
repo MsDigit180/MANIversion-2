@@ -18,15 +18,20 @@ import {
   getEncadrementAccount,
   isInscriptionCategory,
   isEncadrementCategory,
+  calculateTreasurySummary,
 } from '../../utils/financialUtils';
 
 export const KPIHighlights: React.FC = () => {
-  const { students, payments, exams, inventory, setCurrentTab, timePeriod } = useApp();
+  const { students, payments, expenses, salaryPayments, exams, inventory, setCurrentTab, timePeriod } = useApp();
 
   const safeStudents = students || [];
   const safePayments = payments || [];
+  const safeExpenses = expenses || [];
+  const safeSalaries = salaryPayments || [];
   const safeExams = exams || [];
   const safeInventory = inventory || [];
+
+  const treasury = calculateTreasurySummary(safePayments, safeExpenses, safeSalaries, 'all');
 
   // 1. Inscriptions metrics
   const activeCount = safeStudents.filter((s) => s.tutoringStatus === 'Actif').length;
@@ -159,6 +164,22 @@ export const KPIHighlights: React.FC = () => {
               Reste: {(inscriptionRemaining ?? 0).toLocaleString()} FCFA
             </span>
           </div>
+        </div>
+
+        {/* Ligne 3 : Solde Net en Caisse (Recouvrement - Dépenses) */}
+        <div className="mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
+          <span className="font-semibold text-slate-600 dark:text-slate-300">
+            Caisse Nette (après {treasury.totalExpenses.toLocaleString()} dépenses) :
+          </span>
+          <span
+            className={`font-mono font-bold tabular-nums ${
+              treasury.netCashBalance >= 0
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-rose-600 dark:text-rose-400'
+            }`}
+          >
+            {treasury.netCashBalance.toLocaleString()} FCFA
+          </span>
         </div>
 
         <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-300">

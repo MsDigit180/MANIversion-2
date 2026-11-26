@@ -30,6 +30,9 @@ const COLLECTIONS_TO_CLEAR = [
   'supplySales',
   'operations',
   'alerts',
+  'groups',
+  'salaryPayments',
+  'expenses',
   'settings',
   'test',
 ];

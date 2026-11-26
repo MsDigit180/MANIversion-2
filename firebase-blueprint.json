@@ -176,6 +176,51 @@
         "actionKey": { "type": "string", "maxLength": 100 }
       },
       "required": ["id", "pillar", "title", "description", "count", "urgency", "actionLabel", "actionKey"]
+    },
+    "SalaryPayment": {
+      "title": "SalaryPayment",
+      "description": "Salary disbursement paid to a tutor, automatically deducted from cash treasury",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "paymentNumber": { "type": "string", "maxLength": 100 },
+        "tutorId": { "type": "string", "maxLength": 128 },
+        "tutorName": { "type": "string", "maxLength": 150 },
+        "tutorMatricule": { "type": "string", "maxLength": 100 },
+        "amount": { "type": "number" },
+        "month": { "type": "string", "maxLength": 100 },
+        "paymentMethod": { "type": "string", "maxLength": 100 },
+        "paymentDate": { "type": "string", "maxLength": 100 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "syncStatus": { "type": "string", "maxLength": 50 },
+        "agentId": { "type": "string", "maxLength": 128 },
+        "agentName": { "type": "string", "maxLength": 150 },
+        "agentRole": { "type": "string", "maxLength": 100 },
+        "agentAvatar": { "type": "string", "maxLength": 1000000 }
+      },
+      "required": ["id", "paymentNumber", "tutorId", "tutorName", "amount", "month", "paymentMethod", "paymentDate", "agentId", "agentName", "agentRole"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Manual operational expense deducted from cash treasury",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "expenseNumber": { "type": "string", "maxLength": 100 },
+        "title": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string", "maxLength": 100 },
+        "amount": { "type": "number" },
+        "paymentMethod": { "type": "string", "maxLength": 100 },
+        "expenseDate": { "type": "string", "maxLength": 100 },
+        "beneficiary": { "type": "string", "maxLength": 150 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "syncStatus": { "type": "string", "maxLength": 50 },
+        "agentId": { "type": "string", "maxLength": 128 },
+        "agentName": { "type": "string", "maxLength": 150 },
+        "agentRole": { "type": "string", "maxLength": 100 },
+        "agentAvatar": { "type": "string", "maxLength": 1000000 }
+      },
+      "required": ["id", "expenseNumber", "title", "category", "amount", "paymentMethod", "expenseDate", "agentId", "agentName", "agentRole"]
     }
   },
   "firestore": {
@@ -210,6 +255,14 @@
     "/alerts/{alertId}": {
       "schema": "PriorityAlert",
       "description": "Operational alerts and actionable notices"
+    },
+    "/salaryPayments/{salaryId}": {
+      "schema": "SalaryPayment",
+      "description": "Tutor salary payments"
+    },
+    "/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Manual expenses deducted from cash register"
     }
   }
 }

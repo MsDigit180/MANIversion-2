@@ -6,6 +6,7 @@ import { numberToFrenchWords } from './familyUtils';
 import { formatReceiptPaymentDate, formatSessionHours } from './dateUtils';
 import { calculateTutorWeeklySessions } from './tutorAssignmentValidation';
 import { extractTutoringGroups } from './groupUtils';
+import { ConsolidatedExpenseItem, TreasurySummary } from './financialUtils';
 
 /**
  * Cache pour le logo CAS-MANI en Base64 PNG pour une réutilisation instantanée
@@ -921,3 +922,134 @@ export const downloadGroupCardPDF = async (
   const filename = generateUniqueDocumentFileName('fiche_groupe', group.name);
   doc.save(filename);
 };
+
+// ============================================================================
+// 7. TÉLÉCHARGEMENT PDF : ÉTAT DE CAISSE & JOURNAL DES DÉPENSES
+// ============================================================================
+export const downloadTreasuryExpensesPDF = async (
+  items: ConsolidatedExpenseItem[],
+  summary: TreasurySummary,
+  periodLabel: string,
+  campusName?: string
+) => {
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const logoDataUrl = await getLogoDataUrl();
+  const dateStr = new Date().toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  const metaLine = `Période : ${periodLabel} · Édité le ${dateStr} · ${items.length} opération(s) de dépense${
+    campusName ? ` · Site : ${campusName}` : ''
+  }`;
+
+  drawOfficialHeader(
+    doc,
+    logoDataUrl,
+    'ÉTAT DE CAISSE & JOURNAL CONSOLIDÉ DES DÉPENSES',
+    metaLine,
+    { orientation: 'landscape' }
+  );
+
+  // Cartouche Synthèse Caisse = Recouvrement - Dépenses
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(14, 38, pageWidth - 28, 22, 2, 2, 'FD');
+
+  const formatNum = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} FCFA`;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(22, 163, 74);
+  doc.text(`TOTAL RECOUVREMENT (ENTRÉES) : ${formatNum(summary.totalRecovery)}`, 18, 45);
+
+  doc.setTextColor(217, 119, 6);
+  doc.text(`DÉPENSES MANUELLES : ${formatNum(summary.manualExpensesTotal)}`, 108, 45);
+
+  doc.setTextColor(79, 70, 229);
+  doc.text(`SALAIRES & RÉMUNÉRATIONS : ${formatNum(summary.salaryExpensesTotal)}`, 190, 45);
+
+  doc.setTextColor(220, 38, 38);
+  doc.text(`TOTAL DÉPENSES (SORTIES) : ${formatNum(summary.totalExpenses)}`, 18, 54);
+
+  doc.setTextColor(summary.netCashBalance >= 0 ? 15 : 185, summary.netCashBalance >= 0 ? 23 : 28, summary.netCashBalance >= 0 ? 42 : 28);
+  doc.setFontSize(9.5);
+  doc.text(
+    `SOLDE NET EN CAISSE (RECOUVREMENT - DÉPENSES) : ${formatNum(summary.netCashBalance)}`,
+    108,
+    54
+  );
+
+  const tableData = items.map((item, idx) => [
+    (idx + 1).toString(),
+    item.referenceNumber,
+    item.date,
+    item.source === 'salaire' ? 'Salaire Encadreur' : 'Saisie Manuelle',
+    item.title,
+    item.category,
+    item.paymentMethod,
+    `${item.amount.toLocaleString('fr-FR')} FCFA`,
+    item.agentName,
+  ]);
+
+  autoTable(doc, {
+    startY: 64,
+    head: [
+      [
+        'N°',
+        'Référence',
+        'Date',
+        'Origine',
+        'Libellé / Bénéficiaire',
+        'Catégorie / Période',
+        'Mode',
+        'Montant',
+        'Agent',
+      ],
+    ],
+    body: tableData,
+    theme: 'grid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.5,
+      cellPadding: 2.2,
+      textColor: [30, 41, 59],
+      lineColor: [203, 213, 225],
+      lineWidth: 0.1,
+    },
+    headStyles: {
+      fillColor: [30, 27, 75],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8,
+    },
+    columnStyles: {
+      0: { cellWidth: 9, halign: 'center' },
+      1: { cellWidth: 28, fontStyle: 'bold' },
+      2: { cellWidth: 28 },
+      3: { cellWidth: 28 },
+      4: { cellWidth: 62 },
+      5: { cellWidth: 40 },
+      6: { cellWidth: 24 },
+      7: { cellWidth: 28, halign: 'right', fontStyle: 'bold' },
+      8: { cellWidth: 22 },
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    margin: { left: 14, right: 14 },
+  });
+
+  applyPageFooters(doc);
+
+  const filename = generateUniqueDocumentFileName('etat_caisse_depenses', periodLabel);
+  doc.save(filename);
+};
+

@@ -13,12 +13,14 @@ import { OperationsFeed } from './components/dashboard/OperationsFeed';
 import { PriorityAlerts } from './components/dashboard/PriorityAlerts';
 import { InscriptionsTab } from './components/tabs/InscriptionsTab';
 import { PaiementsTab } from './components/tabs/PaiementsTab';
+import { DepensesCaisseTab } from './components/tabs/DepensesCaisseTab';
 import { ConcoursTab } from './components/tabs/ConcoursTab';
 import { EncadreursTab } from './components/tabs/EncadreursTab';
 import { BoutiqueTab } from './components/tabs/BoutiqueTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
 import { NewEnrollmentModal } from './components/modals/NewEnrollmentModal';
 import { NewPaymentModal } from './components/modals/NewPaymentModal';
+import { NewExpenseModal } from './components/modals/NewExpenseModal';
 import { NewSupplySaleModal } from './components/modals/NewSupplySaleModal';
 import { NewProductModal } from './components/modals/NewProductModal';
 import { RestockModal } from './components/modals/RestockModal';
@@ -42,6 +44,7 @@ import {
   ShieldCheck,
   Building,
   Settings,
+  Wallet,
 } from 'lucide-react';
 import { TabKey } from './types';
 
@@ -117,7 +120,7 @@ const DashboardContent: React.FC = () => {
     selectedTutorForSalary,
     setSelectedTutorForSalary,
   } = useApp();
-  const [embeddedTab, setEmbeddedTab] = useState<'inscriptions' | 'paiements' | 'concours' | 'boutique'>('inscriptions');
+  const [embeddedTab, setEmbeddedTab] = useState<'inscriptions' | 'paiements' | 'depenses' | 'concours' | 'boutique'>('inscriptions');
 
   // If not authenticated, render Login view
   if (!isAuthenticated) {
@@ -190,6 +193,7 @@ const DashboardContent: React.FC = () => {
                     {currentTab === 'dashboard' && 'Centre de Contrôle Administratif'}
                     {currentTab === 'inscriptions' && 'Inscriptions & Registre Scolaire'}
                     {currentTab === 'paiements' && 'Journal de Caisse & Règlements'}
+                    {currentTab === 'depenses' && 'Dépenses, Salaires & État de Caisse'}
                     {currentTab === 'concours' && 'Pôle Concours Fonction Publique'}
                     {currentTab === 'encadreurs' && 'Gestion Pédagogique des Encadreurs'}
                     {currentTab === 'boutique' && 'Fournitures & Magasin Central'}
@@ -200,6 +204,7 @@ const DashboardContent: React.FC = () => {
                   {currentTab === 'dashboard' && 'Tableau de Bord Back-Office'}
                   {currentTab === 'inscriptions' && 'Gestion des Élèves & Suivi Pédagogique'}
                   {currentTab === 'paiements' && 'Gestion de la Caisse, Reçus & Relances'}
+                  {currentTab === 'depenses' && 'Dépenses & Solde Net en Caisse'}
                   {currentTab === 'concours' && 'Inscriptions & Dossiers Concours Directs'}
                   {currentTab === 'encadreurs' && 'Annuaire des Encadreurs & Suivi des Séances'}
                   {currentTab === 'boutique' && 'Vente & Inventaire des Fournitures'}
@@ -278,6 +283,18 @@ const DashboardContent: React.FC = () => {
                       </button>
 
                       <button
+                        onClick={() => setEmbeddedTab('depenses')}
+                        className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium transition-colors cursor-pointer ${
+                          embeddedTab === 'depenses'
+                            ? 'bg-rose-600 text-white shadow-sm'
+                            : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <Wallet className="h-3.5 w-3.5" />
+                        <span>Dépenses & Caisse</span>
+                      </button>
+
+                      <button
                         onClick={() => setEmbeddedTab('concours')}
                         className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium transition-colors cursor-pointer ${
                           embeddedTab === 'concours'
@@ -307,6 +324,7 @@ const DashboardContent: React.FC = () => {
                   <div className="mt-4">
                     {embeddedTab === 'inscriptions' && <InscriptionsTab />}
                     {embeddedTab === 'paiements' && <PaiementsTab />}
+                    {embeddedTab === 'depenses' && <DepensesCaisseTab />}
                     {embeddedTab === 'concours' && <ConcoursTab />}
                     {embeddedTab === 'boutique' && <BoutiqueTab />}
                   </div>
@@ -317,6 +335,7 @@ const DashboardContent: React.FC = () => {
             {/* DIRECT FULL TABS */}
             {currentTab === 'inscriptions' && <InscriptionsTab />}
             {currentTab === 'paiements' && <PaiementsTab />}
+            {currentTab === 'depenses' && <DepensesCaisseTab />}
             {currentTab === 'concours' && <ConcoursTab />}
             {currentTab === 'encadreurs' && <EncadreursTab />}
             {currentTab === 'boutique' && <BoutiqueTab />}
@@ -328,6 +347,7 @@ const DashboardContent: React.FC = () => {
       {/* Global Interactive Modals & Drawers */}
       <NewEnrollmentModal />
       <NewPaymentModal />
+      <NewExpenseModal />
       <NewSupplySaleModal />
       <NewProductModal />
       <RestockModal />

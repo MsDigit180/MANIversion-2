@@ -45,6 +45,26 @@ service cloud.firestore {
       allow read, write: if isValidId(alertId);
     }
 
+    match /tutors/{tutorId} {
+      allow read, write: if isValidId(tutorId);
+    }
+
+    match /groups/{groupId} {
+      allow read, write: if isValidId(groupId);
+    }
+
+    match /salaryPayments/{salaryId} {
+      allow read, write: if isValidId(salaryId);
+    }
+
+    match /expenses/{expenseId} {
+      allow read, write: if isValidId(expenseId);
+    }
+
+    match /settings/{settingId} {
+      allow read, write: if isValidId(settingId);
+    }
+
     match /test/{testId} {
       allow read, write: if true;
     }

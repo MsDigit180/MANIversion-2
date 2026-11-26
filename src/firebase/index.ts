@@ -171,6 +171,7 @@ export const COLLECTIONS = {
   SETTINGS: 'settings',
   GROUPS: 'groups',
   SALARY_PAYMENTS: 'salaryPayments',
+  EXPENSES: 'expenses',
 } as const;
 
 export { doc, setDoc, getDocs, onSnapshot, deleteDoc, collection };

@@ -1,4 +1,4 @@
-import { FinancialAccount, Student, PaymentReceipt } from '../types';
+import { FinancialAccount, Student, PaymentReceipt, Expense, SalaryPayment } from '../types';
 
 /**
  * RÈGLE MÉTIER CRITIQUE : SÉPARATION DES FLUX FINANCIERS
@@ -151,3 +151,231 @@ export function getAccountStatusBadgeInfo(
     dotClass: 'bg-rose-500',
   };
 }
+
+// ============================================================================
+// TRÉSORERIE : DÉPENSES & CAISSE (Recouvrement - Dépenses)
+// ============================================================================
+
+const FRENCH_MONTHS_LIST: Record<string, string> = {
+  '01': 'janvier',
+  '02': 'février',
+  '03': 'mars',
+  '04': 'avril',
+  '05': 'mai',
+  '06': 'juin',
+  '07': 'juillet',
+  '08': 'août',
+  '09': 'septembre',
+  '10': 'octobre',
+  '11': 'novembre',
+  '12': 'décembre',
+};
+
+export function isCashPaymentMethod(method?: string | null): boolean {
+  if (!method) return false;
+  return method.toLowerCase().includes('espèces') || method.toLowerCase().includes('especes');
+}
+
+/**
+ * Vérifie si une date ou libellé correspond à un filtre mois YYYY-MM
+ */
+export function matchesTreasuryMonth(
+  dateStr?: string | null,
+  extraPeriodStr?: string | null,
+  monthFilter: string = 'all'
+): boolean {
+  if (!monthFilter || monthFilter === 'all') return true;
+  const [year, monthNum] = monthFilter.split('-');
+  if (!year || !monthNum) return true;
+
+  const frenchMonth = FRENCH_MONTHS_LIST[monthNum] || '';
+  const dateSafe = (dateStr || '').toLowerCase();
+  const extraSafe = (extraPeriodStr || '').toLowerCase();
+
+  return (
+    dateSafe.includes(monthFilter) ||
+    dateSafe.includes(`${monthNum}/${year}`) ||
+    (Boolean(frenchMonth) && dateSafe.includes(`${frenchMonth} ${year}`)) ||
+    extraSafe.includes(monthFilter.toLowerCase()) ||
+    extraSafe.includes(`${monthNum}/${year}`) ||
+    (Boolean(frenchMonth) && extraSafe.includes(`${frenchMonth} ${year}`))
+  );
+}
+
+export interface ConsolidatedExpenseItem {
+  id: string;
+  source: 'manual' | 'salaire';
+  referenceNumber: string;
+  title: string;
+  category: string;
+  amount: number;
+  paymentMethod: string;
+  date: string;
+  beneficiary?: string;
+  notes?: string;
+  syncStatus: 'synced' | 'pending';
+  agentName: string;
+  agentRole: string;
+  agentAvatar?: string;
+  rawManualExpense?: Expense;
+  rawSalaryPayment?: SalaryPayment;
+}
+
+export function buildConsolidatedExpenses(
+  expenses: Expense[],
+  salaryPayments: SalaryPayment[]
+): ConsolidatedExpenseItem[] {
+  const manualItems: ConsolidatedExpenseItem[] = (expenses || []).map((exp) => ({
+    id: exp.id,
+    source: 'manual',
+    referenceNumber: exp.expenseNumber,
+    title: exp.title,
+    category: exp.category,
+    amount: Number(exp.amount || 0),
+    paymentMethod: exp.paymentMethod || 'Espèces',
+    date: exp.expenseDate,
+    beneficiary: exp.beneficiary,
+    notes: exp.notes,
+    syncStatus: exp.syncStatus || 'synced',
+    agentName: exp.agentName,
+    agentRole: exp.agentRole,
+    agentAvatar: exp.agentAvatar,
+    rawManualExpense: exp,
+  }));
+
+  const salaryItems: ConsolidatedExpenseItem[] = (salaryPayments || []).map((sal) => ({
+    id: sal.id,
+    source: 'salaire',
+    referenceNumber: sal.paymentNumber,
+    title: `Salaire Encadreur · ${sal.tutorName}`,
+    category: `Salaires & Rémunérations (${sal.month})`,
+    amount: Number(sal.amount || 0),
+    paymentMethod: sal.paymentMethod || 'Espèces',
+    date: sal.paymentDate,
+    beneficiary: `${sal.tutorName} (${sal.tutorMatricule})`,
+    notes: sal.notes,
+    syncStatus: sal.syncStatus || 'synced',
+    agentName: sal.agentName,
+    agentRole: sal.agentRole,
+    agentAvatar: sal.agentAvatar,
+    rawSalaryPayment: sal,
+  }));
+
+  const extractTimestamp = (id: string): number => {
+    const match = id.match(/(\d{10,})/);
+    return match ? Number(match[1]) : 0;
+  };
+
+  return [...manualItems, ...salaryItems].sort((a, b) => extractTimestamp(b.id) - extractTimestamp(a.id));
+}
+
+export interface TreasurySummary {
+  totalRecovery: number;
+  recoveryEncadrement: number;
+  recoveryInscription: number;
+  recoveryOther: number;
+  recoveryCash: number;
+  recoveryDigital: number;
+  manualExpensesTotal: number;
+  salaryExpensesTotal: number;
+  totalExpenses: number;
+  expensesCash: number;
+  expensesDigital: number;
+  netCashBalance: number;
+  netPhysicalCash: number;
+  netDigitalBalance: number;
+  manualExpensesCount: number;
+  salaryExpensesCount: number;
+}
+
+export function calculateTreasurySummary(
+  payments: PaymentReceipt[],
+  expenses: Expense[],
+  salaryPayments: SalaryPayment[],
+  monthFilter: string = 'all'
+): TreasurySummary {
+  const validPayments = (payments || []).filter(
+    (p) => p && p.status !== 'Annulé' && matchesTreasuryMonth(p.paymentDate, p.notes, monthFilter)
+  );
+  const filteredExpenses = (expenses || []).filter(
+    (e) => e && matchesTreasuryMonth(e.expenseDate, e.notes, monthFilter)
+  );
+  const filteredSalaries = (salaryPayments || []).filter(
+    (s) => s && matchesTreasuryMonth(s.paymentDate, s.month, monthFilter)
+  );
+
+  let totalRecovery = 0;
+  let recoveryEncadrement = 0;
+  let recoveryInscription = 0;
+  let recoveryOther = 0;
+  let recoveryCash = 0;
+  let recoveryDigital = 0;
+
+  for (const p of validPayments) {
+    const amt = Number(p.amount || 0);
+    totalRecovery += amt;
+    if (isEncadrementCategory(p.category)) {
+      recoveryEncadrement += amt;
+    } else if (isInscriptionCategory(p.category)) {
+      recoveryInscription += amt;
+    } else {
+      recoveryOther += amt;
+    }
+
+    if (isCashPaymentMethod(p.paymentMethod)) {
+      recoveryCash += amt;
+    } else {
+      recoveryDigital += amt;
+    }
+  }
+
+  let manualExpensesTotal = 0;
+  let salaryExpensesTotal = 0;
+  let expensesCash = 0;
+  let expensesDigital = 0;
+
+  for (const e of filteredExpenses) {
+    const amt = Number(e.amount || 0);
+    manualExpensesTotal += amt;
+    if (isCashPaymentMethod(e.paymentMethod)) {
+      expensesCash += amt;
+    } else {
+      expensesDigital += amt;
+    }
+  }
+
+  for (const s of filteredSalaries) {
+    const amt = Number(s.amount || 0);
+    salaryExpensesTotal += amt;
+    if (isCashPaymentMethod(s.paymentMethod)) {
+      expensesCash += amt;
+    } else {
+      expensesDigital += amt;
+    }
+  }
+
+  const totalExpenses = manualExpensesTotal + salaryExpensesTotal;
+  const netCashBalance = totalRecovery - totalExpenses;
+  const netPhysicalCash = recoveryCash - expensesCash;
+  const netDigitalBalance = recoveryDigital - expensesDigital;
+
+  return {
+    totalRecovery,
+    recoveryEncadrement,
+    recoveryInscription,
+    recoveryOther,
+    recoveryCash,
+    recoveryDigital,
+    manualExpensesTotal,
+    salaryExpensesTotal,
+    totalExpenses,
+    expensesCash,
+    expensesDigital,
+    netCashBalance,
+    netPhysicalCash,
+    netDigitalBalance,
+    manualExpensesCount: filteredExpenses.length,
+    salaryExpensesCount: filteredSalaries.length,
+  };
+}
+

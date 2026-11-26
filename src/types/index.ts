@@ -2,7 +2,7 @@ export type NetworkStatus = 'online' | 'offline' | 'syncing';
 
 export type TimePeriod = 'today' | 'week' | 'month' | 'term' | 'year';
 
-export type TabKey = 'dashboard' | 'inscriptions' | 'paiements' | 'concours' | 'encadreurs' | 'boutique' | 'settings';
+export type TabKey = 'dashboard' | 'inscriptions' | 'paiements' | 'depenses' | 'concours' | 'encadreurs' | 'boutique' | 'settings';
 
 export type ThemeMode = 'dark' | 'light';
 
@@ -495,9 +495,55 @@ export interface SalaryPayment {
   agentAvatar?: string;
 }
 
+export type ExpenseCategory =
+  | 'Loyer & Locaux'
+  | 'Eau & Électricité'
+  | 'Fournitures de Bureau'
+  | 'Communication & Internet'
+  | 'Transport & Déplacements'
+  | 'Maintenance & Équipements'
+  | 'Frais Administratifs'
+  | 'Autres Dépenses';
+
+export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
+  'Loyer & Locaux',
+  'Eau & Électricité',
+  'Fournitures de Bureau',
+  'Communication & Internet',
+  'Transport & Déplacements',
+  'Maintenance & Équipements',
+  'Frais Administratifs',
+  'Autres Dépenses',
+];
+
+export interface Expense {
+  id: string;
+  expenseNumber: string; // e.g. "DEP-2026-0001"
+  title: string;
+  category: ExpenseCategory | string;
+  amount: number; // in FCFA
+  paymentMethod:
+    | 'Espèces'
+    | 'Airtel Money'
+    | 'Moov Flooz'
+    | 'Amana Transfert'
+    | "Nita Transfert d'argent"
+    | 'Virement Bancaire'
+    | 'Chèque'
+    | string;
+  expenseDate: string;
+  beneficiary?: string;
+  notes?: string;
+  syncStatus: SyncState;
+  agentId: string;
+  agentName: string;
+  agentRole: AgentRole;
+  agentAvatar?: string;
+}
+
 export interface OperationItem {
   id: string;
-  type: 'inscription' | 'paiement' | 'vente' | 'concours' | 'salaire';
+  type: 'inscription' | 'paiement' | 'vente' | 'concours' | 'salaire' | 'depense';
   title: string;
   subtitle: string;
   referenceId: string;
