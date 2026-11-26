@@ -610,3 +610,134 @@ export function calculateTreasurySummary(
   };
 }
 
+export interface MonthlyCollectionPoint {
+  monthKey: string; // YYYY-MM
+  shortLabel: string; // e.g. "Nov. 26"
+  axisLabel: string; // e.g. "Nov."
+  fullLabel: string; // e.g. "Novembre 2026"
+  total: number;
+  encadrement: number;
+  inscription: number;
+  other: number;
+  receiptCount: number;
+  changePercent: number | null;
+}
+
+const SHORT_FRENCH_MONTHS = [
+  'Janv.',
+  'Fév.',
+  'Mars',
+  'Avr.',
+  'Mai',
+  'Juin',
+  'Juil.',
+  'Août',
+  'Sept.',
+  'Oct.',
+  'Nov.',
+  'Déc.',
+];
+
+const FULL_FRENCH_MONTHS = [
+  'Janvier',
+  'Février',
+  'Mars',
+  'Avril',
+  'Mai',
+  'Juin',
+  'Juillet',
+  'Août',
+  'Septembre',
+  'Octobre',
+  'Novembre',
+  'Décembre',
+];
+
+export function getPaymentYearMonth(payment?: Partial<PaymentReceipt> | null): string | null {
+  if (!payment?.paymentDate) return null;
+  const parsed = parseFlexibleDate(payment.paymentDate);
+  if (parsed) {
+    return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  const isoMatch = payment.paymentDate.match(/(\d{4})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}`;
+
+  const frMatch = payment.paymentDate.match(/(\d{2})\/(\d{4})/);
+  if (frMatch) return `${frMatch[2]}-${frMatch[1]}`;
+
+  return null;
+}
+
+export function buildMonthlyCollectionsSeries(
+  payments: PaymentReceipt[],
+  monthsCount: number = 6,
+  referenceDate: Date = new Date()
+): MonthlyCollectionPoint[] {
+  const safeCount = Math.max(1, monthsCount);
+  const buckets: MonthlyCollectionPoint[] = [];
+  const bucketMap = new Map<string, MonthlyCollectionPoint>();
+
+  for (let offset = safeCount - 1; offset >= 0; offset--) {
+    const d = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - offset, 1);
+    const year = d.getFullYear();
+    const monthIndex = d.getMonth();
+    const monthKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+    const point: MonthlyCollectionPoint = {
+      monthKey,
+      axisLabel: SHORT_FRENCH_MONTHS[monthIndex],
+      shortLabel: `${SHORT_FRENCH_MONTHS[monthIndex]} ${String(year).slice(-2)}`,
+      fullLabel: `${FULL_FRENCH_MONTHS[monthIndex]} ${year}`,
+      total: 0,
+      encadrement: 0,
+      inscription: 0,
+      other: 0,
+      receiptCount: 0,
+      changePercent: null,
+    };
+    buckets.push(point);
+    bucketMap.set(monthKey, point);
+  }
+
+  for (const p of payments || []) {
+    if (!p || p.status === 'Annulé') continue;
+    const amt = Number(p.amount || 0);
+    if (amt <= 0) continue;
+
+    let key = getPaymentYearMonth(p);
+    if (!key || !bucketMap.has(key)) {
+      const matched = buckets.find((b) => matchesTreasuryMonth(p.paymentDate, p.notes, b.monthKey));
+      key = matched?.monthKey || null;
+    }
+
+    if (!key) continue;
+    const target = bucketMap.get(key);
+    if (!target) continue;
+
+    target.total += amt;
+    target.receiptCount += 1;
+
+    if (isEncadrementCategory(p.category)) {
+      target.encadrement += amt;
+    } else if (isInscriptionCategory(p.category)) {
+      target.inscription += amt;
+    } else {
+      target.other += amt;
+    }
+  }
+
+  for (let i = 1; i < buckets.length; i++) {
+    const prev = buckets[i - 1].total;
+    const curr = buckets[i].total;
+    if (prev > 0) {
+      buckets[i].changePercent = Math.round(((curr - prev) / prev) * 1000) / 10;
+    } else if (curr > 0) {
+      buckets[i].changePercent = 100;
+    } else {
+      buckets[i].changePercent = null;
+    }
+  }
+
+  return buckets;
+}
+

@@ -47,7 +47,9 @@ import {
 import {
   isInscriptionCategory,
   isEncadrementCategory,
+  getPaymentYearMonth,
 } from '../../utils/financialUtils';
+import { MonthlyCollectionsChart } from '../payments/MonthlyCollectionsChart';
 
 export const PaiementsTab: React.FC = () => {
   const {
@@ -109,7 +111,9 @@ export const PaiementsTab: React.FC = () => {
         monthFilter === 'all' || (() => {
           const frenchMonth = formatYYYYMMToFrench(monthFilter);
           const [year, monthNum] = monthFilter.split('-');
+          const parsedYearMonth = getPaymentYearMonth(pay);
           return (
+            parsedYearMonth === monthFilter ||
             dateSafe.includes(monthFilter) ||
             dateSafe.includes(`${monthNum}/${year}`) ||
             (pay.notes && (
@@ -425,6 +429,14 @@ export const PaiementsTab: React.FC = () => {
               </span>
             </div>
           </div>
+
+          {/* 6-Month Monthly Collections Line Chart */}
+          <MonthlyCollectionsChart
+            payments={safePayments}
+            selectedMonthFilter={monthFilter}
+            onSelectMonthFilter={setMonthFilter}
+            onAddPayment={() => setIsNewPaymentModalOpen(true)}
+          />
 
           {/* Action and Filter Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
