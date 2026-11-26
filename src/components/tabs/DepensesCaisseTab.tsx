@@ -10,7 +10,6 @@ import {
   Users,
   Edit,
   Trash2,
-  Printer,
   FileSpreadsheet,
   ArrowDownRight,
   ArrowUpRight,
@@ -19,6 +18,7 @@ import {
   CheckCircle2,
   Clock,
   Scale,
+  FileDown,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { EXPENSE_CATEGORIES } from '../../types';
@@ -71,8 +71,15 @@ export const DepensesCaisseTab: React.FC = () => {
     [safeExpenses, safeSalaries]
   );
 
-  const filteredExpenses = useMemo(() => {
+  const periodExpenses = useMemo(() => {
     return allConsolidatedExpenses.filter((item) => {
+      const extraPeriod = item.rawSalaryPayment?.month || item.notes || '';
+      return matchesTreasuryMonth(item.date, extraPeriod, monthFilter);
+    });
+  }, [allConsolidatedExpenses, monthFilter]);
+
+  const filteredExpenses = useMemo(() => {
+    return periodExpenses.filter((item) => {
       const q = search.trim().toLowerCase();
       const matchesSearch =
         !q ||
@@ -88,12 +95,10 @@ export const DepensesCaisseTab: React.FC = () => {
         (categoryFilter === 'salaire' ? item.source === 'salaire' : item.category === categoryFilter);
       const matchesMethod =
         methodFilter === 'all' || item.paymentMethod.toLowerCase().includes(methodFilter.toLowerCase());
-      const extraPeriod = item.rawSalaryPayment?.month || item.notes || '';
-      const matchesMonth = matchesTreasuryMonth(item.date, extraPeriod, monthFilter);
 
-      return matchesSearch && matchesSource && matchesCategory && matchesMethod && matchesMonth;
+      return matchesSearch && matchesSource && matchesCategory && matchesMethod;
     });
-  }, [allConsolidatedExpenses, search, sourceFilter, categoryFilter, methodFilter, monthFilter]);
+  }, [periodExpenses, search, sourceFilter, categoryFilter, methodFilter]);
 
   const filteredTotalAmount = useMemo(
     () => filteredExpenses.reduce((sum, item) => sum + item.amount, 0),
@@ -181,9 +186,9 @@ export const DepensesCaisseTab: React.FC = () => {
 
   const handleExportPDF = async () => {
     try {
-      showToast('Génération du rapport PDF Caisse & Dépenses...', 'info');
-      await downloadTreasuryExpensesPDF(filteredExpenses, summary, periodLabel, campus);
-      showToast('État de Caisse & Journal des Dépenses téléchargé en PDF.', 'success');
+      showToast(`Génération du rapport officiel de caisse (${periodLabel})...`, 'info');
+      await downloadTreasuryExpensesPDF(periodExpenses, summary, periodLabel, campus);
+      showToast(`Rapport officiel de caisse (${periodLabel}) exporté en PDF.`, 'success');
     } catch {
       showToast('Erreur lors de la génération du PDF.', 'warning');
     }
@@ -231,11 +236,11 @@ export const DepensesCaisseTab: React.FC = () => {
 
           <button
             onClick={handleExportPDF}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-colors cursor-pointer whitespace-nowrap"
-            title="Imprimer ou télécharger l'État de Caisse officiel en PDF"
+            className="flex items-center gap-1.5 rounded-xl border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 px-3.5 py-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shadow-sm transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            title="Exporter le rapport officiel de la caisse mensuelle en PDF (avec solde net)"
           >
-            <Printer className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-            <span>État PDF</span>
+            <FileDown className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>Exporter en PDF</span>
           </button>
 
           <button
@@ -476,15 +481,21 @@ export const DepensesCaisseTab: React.FC = () => {
             />
             {monthFilter !== 'all' ? (
               <button
+                type="button"
                 onClick={() => setMonthFilter('all')}
                 className="text-[10px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 ml-1 underline cursor-pointer"
               >
                 Global
               </button>
             ) : (
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                Cumul Global
-              </span>
+              <button
+                type="button"
+                onClick={() => setMonthFilter(new Date().toISOString().slice(0, 7))}
+                className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline ml-1 font-semibold cursor-pointer"
+                title="Filtrer sur le mois en cours pour le rapport mensuel"
+              >
+                Mois en cours
+              </button>
             )}
           </div>
         </div>

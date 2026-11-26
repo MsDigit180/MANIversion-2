@@ -14,6 +14,22 @@ import { ConsolidatedExpenseItem, TreasurySummary, formatPaymentCoveredMonthLabe
 let cachedLogoDataUrl: string | null = null;
 
 /**
+ * Formate un montant numérique avec un espace ASCII standard (U+0020) comme séparateur de milliers.
+ * Évite le caractère U+202F (espace fine insécable) généré par toLocaleString('fr-FR'),
+ * que jsPDF (police Helvetica) affiche incorrectement comme un slash ("/").
+ */
+export const formatPdfNumber = (value?: number | null): string => {
+  const num = Math.round(Number(value) || 0);
+  const sign = num < 0 ? '-' : '';
+  const absStr = Math.abs(num).toString();
+  return sign + absStr.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+};
+
+export const formatPdfFCFA = (value?: number | null): string => {
+  return `${formatPdfNumber(value)} FCFA`;
+};
+
+/**
  * Charge de manière fiable le logo CAS-MANI et le convertit en Base64 PNG
  * compatible avec doc.addImage(...) de jsPDF sans aucun problème de CORS.
  */
@@ -328,7 +344,7 @@ export const downloadPaymentListPDF = async (
   });
 
   const totalCollected = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
-  const metaLine = `Date : ${dateStr} · Nombre : ${payments.length} règlement(s) · Total encaissé : ${totalCollected.toLocaleString()} FCFA${
+  const metaLine = `Date : ${dateStr} · Nombre : ${payments.length} règlement(s) · Total encaissé : ${formatPdfFCFA(totalCollected)}${
     campusName ? ` · Centre : ${campusName}` : ''
   }`;
 
@@ -342,7 +358,7 @@ export const downloadPaymentListPDF = async (
       (p.studentName || '').toUpperCase(),
       `${p.category || 'Paiement'}\n(${formatPaymentCoveredMonthLabel(p)})`,
       p.paymentMethod || 'Espèces',
-      `${(p.amount || 0).toLocaleString()} FCFA`,
+      formatPdfFCFA(p.amount || 0),
     ];
   });
 
@@ -353,7 +369,7 @@ export const downloadPaymentListPDF = async (
     `${payments.length} règlement(s)`,
     '',
     '',
-    `${totalCollected.toLocaleString()} FCFA`,
+    formatPdfFCFA(totalCollected),
   ]);
 
   autoTable(doc, {
@@ -486,7 +502,7 @@ export const downloadReceiptPDF = async (
       receipt.category || "Frais d'encadrement",
       formatPaymentCoveredMonthLabel(receipt),
       receipt.paymentMethod || 'Espèces',
-      `${(receipt.amount || 0).toLocaleString()} FCFA`,
+      formatPdfFCFA(receipt.amount || 0),
     ],
   ];
 
@@ -654,9 +670,9 @@ export const downloadInvoicePDF = async (
     (it.studentName || studentName).toUpperCase(),
     `${it.level || 'Général'} · ${it.sessionsPerWeek || 3} séanc./sem.`,
     Array.isArray(it.subjects) ? it.subjects.join(', ') : 'Toutes matières',
-    `${(it.monthlyFee || netDue).toLocaleString()} FCFA`,
-    `${(it.paidAmount || 0).toLocaleString()} FCFA`,
-    `${(it.balanceRemaining ?? it.monthlyFee ?? netDue).toLocaleString()} FCFA`,
+    formatPdfFCFA(it.monthlyFee || netDue),
+    formatPdfFCFA(it.paidAmount || 0),
+    formatPdfFCFA(it.balanceRemaining ?? it.monthlyFee ?? netDue),
   ]);
 
   autoTable(doc, {
@@ -691,7 +707,7 @@ export const downloadInvoicePDF = async (
 
   doc.setFontSize(8.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(`${(netDue ?? 0).toLocaleString()} FCFA (${amountWords} FRANCS CFA)`, 18, finalY + 9.5);
+  doc.text(`${formatPdfFCFA(netDue ?? 0)} (${amountWords} FRANCS CFA)`, 18, finalY + 9.5);
 
   // Instructions locales Niger
   const notesY = finalY + 18;
@@ -939,12 +955,18 @@ export const downloadTreasuryExpensesPDF = async (
   });
 
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const logoDataUrl = await getLogoDataUrl();
   const dateStr = new Date().toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   });
+
+  const isGlobal = periodLabel.toLowerCase().includes('global');
+  const reportTitle = isGlobal
+    ? 'RAPPORT OFFICIEL DE CAISSE & JOURNAL DES DÉPENSES (CUMUL GLOBAL)'
+    : `RAPPORT OFFICIEL DE LA CAISSE MENSUELLE — ${periodLabel.toUpperCase()}`;
 
   const metaLine = `Période : ${periodLabel} · Édité le ${dateStr} · ${items.length} opération(s) de dépense${
     campusName ? ` · Site : ${campusName}` : ''
@@ -953,7 +975,7 @@ export const downloadTreasuryExpensesPDF = async (
   drawOfficialHeader(
     doc,
     logoDataUrl,
-    'ÉTAT DE CAISSE & JOURNAL CONSOLIDÉ DES DÉPENSES',
+    reportTitle,
     metaLine,
     { orientation: 'landscape' }
   );
@@ -961,30 +983,75 @@ export const downloadTreasuryExpensesPDF = async (
   // Cartouche Synthèse Caisse = Recouvrement - Dépenses
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, 38, pageWidth - 28, 22, 2, 2, 'FD');
+  doc.roundedRect(14, 38, pageWidth - 28, 30, 2, 2, 'FD');
 
-  const formatNum = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} FCFA`;
-
+  // Ligne 1 : Entrées & Sorties principales
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(22, 163, 74);
-  doc.text(`TOTAL RECOUVREMENT (ENTRÉES) : ${formatNum(summary.totalRecovery)}`, 18, 45);
+  doc.text(`RECOUVREMENT (ENTRÉES) : +${formatPdfFCFA(summary.totalRecovery)}`, 18, 44.5);
 
   doc.setTextColor(217, 119, 6);
-  doc.text(`DÉPENSES MANUELLES : ${formatNum(summary.manualExpensesTotal)}`, 108, 45);
+  doc.text(
+    `DÉPENSES MANUELLES (${summary.manualExpensesCount}) : -${formatPdfFCFA(summary.manualExpensesTotal)}`,
+    112,
+    44.5
+  );
 
   doc.setTextColor(79, 70, 229);
-  doc.text(`SALAIRES & RÉMUNÉRATIONS : ${formatNum(summary.salaryExpensesTotal)}`, 190, 45);
-
-  doc.setTextColor(220, 38, 38);
-  doc.text(`TOTAL DÉPENSES (SORTIES) : ${formatNum(summary.totalExpenses)}`, 18, 54);
-
-  doc.setTextColor(summary.netCashBalance >= 0 ? 15 : 185, summary.netCashBalance >= 0 ? 23 : 28, summary.netCashBalance >= 0 ? 42 : 28);
-  doc.setFontSize(9.5);
   doc.text(
-    `SOLDE NET EN CAISSE (RECOUVREMENT - DÉPENSES) : ${formatNum(summary.netCashBalance)}`,
-    108,
-    54
+    `SALAIRES (${summary.salaryExpensesCount}) : -${formatPdfFCFA(summary.salaryExpensesTotal)}`,
+    206,
+    44.5
+  );
+
+  // Ligne 2 : Détail par compte & canal
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(
+    `Encadr. : ${formatPdfFCFA(summary.recoveryEncadrement)} | Inscr. : ${formatPdfFCFA(summary.recoveryInscription)}`,
+    18,
+    50.5
+  );
+  doc.text(
+    `Caisse Physique (Espèces nette) : ${formatPdfFCFA(summary.netPhysicalCash)}`,
+    112,
+    50.5
+  );
+  doc.text(
+    `Mobile Money & Banque net : ${formatPdfFCFA(summary.netDigitalBalance)}`,
+    206,
+    50.5
+  );
+
+  // Séparateur interne
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(18, 54, pageWidth - 18, 54);
+
+  // Ligne 3 : Total Dépenses & Solde Net en Caisse
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(220, 38, 38);
+  doc.text(`TOTAL DÉPENSES DÉDUITES : -${formatPdfFCFA(summary.totalExpenses)}`, 18, 61.5);
+
+  const balanceStatus =
+    summary.netCashBalance > 0
+      ? 'EXCÉDENT'
+      : summary.netCashBalance === 0
+      ? 'ÉQUILIBRÉE'
+      : 'DÉFICITAIRE';
+  doc.setTextColor(
+    summary.netCashBalance >= 0 ? 5 : 185,
+    summary.netCashBalance >= 0 ? 122 : 28,
+    summary.netCashBalance >= 0 ? 85 : 28
+  );
+  doc.setFontSize(10);
+  doc.text(
+    `SOLDE NET EN CAISSE (RECOUVREMENT - DÉPENSES) : ${formatPdfFCFA(summary.netCashBalance)} [${balanceStatus}]`,
+    112,
+    61.5
   );
 
   const tableData = items.map((item, idx) => [
@@ -995,12 +1062,27 @@ export const downloadTreasuryExpensesPDF = async (
     item.title,
     item.category,
     item.paymentMethod,
-    `${item.amount.toLocaleString('fr-FR')} FCFA`,
+    `-${formatPdfFCFA(item.amount)}`,
     item.agentName,
   ]);
 
+  const totalListedExpenses = items.reduce((sum, item) => sum + (item.amount || 0), 0);
+  if (items.length > 0) {
+    tableData.push([
+      '',
+      'TOTAL',
+      periodLabel,
+      `${items.length} sortie(s)`,
+      'Total des dépenses et salaires déduits de la caisse',
+      '',
+      '',
+      `-${formatPdfFCFA(totalListedExpenses)}`,
+      '',
+    ]);
+  }
+
   autoTable(doc, {
-    startY: 64,
+    startY: 72,
     head: [
       [
         'N°',
@@ -1044,12 +1126,38 @@ export const downloadTreasuryExpensesPDF = async (
     alternateRowStyles: {
       fillColor: [248, 250, 252],
     },
-    margin: { left: 14, right: 14 },
+    didParseCell: (hookData) => {
+      if (items.length > 0 && hookData.row.index === tableData.length - 1 && hookData.section === 'body') {
+        hookData.cell.styles.fillColor = [241, 245, 249];
+        hookData.cell.styles.fontStyle = 'bold';
+        hookData.cell.styles.textColor = [15, 23, 42];
+      }
+    },
+    margin: { left: 14, right: 14, bottom: 16 },
   });
+
+  // Signatures & Visa Direction
+  let sigY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : 120;
+  if (sigY + 22 > pageHeight - 12) {
+    doc.addPage();
+    sigY = 24;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(51, 65, 85);
+  doc.text('Le Gestionnaire / Agent de Caisse :', 18, sigY);
+  doc.text('La Direction CAS-MANI (Visa & Cachet) :', pageWidth - 95, sigY);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Nom & Signature : ________________________', 18, sigY + 12);
+  doc.text('Signature & Cachet : ________________________', pageWidth - 95, sigY + 12);
 
   applyPageFooters(doc);
 
-  const filename = generateUniqueDocumentFileName('etat_caisse_depenses', periodLabel);
+  const filename = generateUniqueDocumentFileName('rapport_caisse_mensuelle', periodLabel);
   doc.save(filename);
 };
 
