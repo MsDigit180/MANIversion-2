@@ -47,6 +47,7 @@ import {
   getEncadrementAccount,
   isInscriptionCategory,
   isEncadrementCategory,
+  computeStudentPaymentStatus,
 } from '../utils/financialUtils';
 
 const DEFAULT_ADMIN_USER: Agent = {
@@ -465,15 +466,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const sData = docSnap.data() as Student;
               const insc = getInscriptionAccount(sData);
               const encad = getEncadrementAccount(sData);
-              list.push({
+              const normalizedStudent: Student = {
                 ...sData,
                 sessionsPerWeek: sData.sessionsPerWeek || 3,
                 inscription: insc,
                 encadrement: encad,
                 monthlyFee: encad.due,
                 paidAmount: encad.paid,
-                paymentStatus: encad.status === 'PAID' ? 'A jour' : encad.status === 'PENDING' ? 'Partiel' : 'En retard',
-              });
+                paymentStatus: computeStudentPaymentStatus({
+                  ...sData,
+                  inscription: insc,
+                  encadrement: encad,
+                  monthlyFee: encad.due,
+                  paidAmount: encad.paid,
+                }),
+              };
+              list.push(normalizedStudent);
             });
             setStudents(list);
             setLastCloudSync(new Date().toLocaleTimeString('fr-FR'));
@@ -798,8 +806,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateStudent = async (id: string, data: Partial<Student>) => {
-    setStudents((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s)));
-    await safeFirestoreWrite(setDoc(doc(db, COLLECTIONS.STUDENTS, id), sanitizeForFirestore(data), { merge: true }), 1200);
+    const existing = students.find((s) => s.id === id);
+    const merged: Partial<Student> = existing ? { ...existing, ...data } : data;
+    const recomputedStatus = computeStudentPaymentStatus(merged);
+    const finalPayload: Partial<Student> = {
+      ...data,
+      paymentStatus: recomputedStatus,
+    };
+    setStudents((prev) => prev.map((s) => (s.id === id ? { ...s, ...finalPayload } : s)));
+    await safeFirestoreWrite(setDoc(doc(db, COLLECTIONS.STUDENTS, id), sanitizeForFirestore(finalPayload), { merge: true }), 1200);
   };
 
   const deleteStudent = async (id: string) => {
@@ -1995,26 +2010,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const encadrementStatus = calculateAccountStatus(initialEncadrementDue, initialEncadrementPaid);
 
     const newStudentId = `stu-${Date.now()}`;
+    const resolvedServiceStartDate =
+      studentData.serviceStartDate || studentData.enrollmentDate || getCurrentFrenchDate();
+    const encadrementAccount = {
+      due: initialEncadrementDue,
+      paid: initialEncadrementPaid,
+      status: encadrementStatus,
+    };
+    const computedPaymentStatus = computeStudentPaymentStatus({
+      ...studentData,
+      serviceStartDate: resolvedServiceStartDate,
+      monthlyFee: initialEncadrementDue,
+      paidAmount: initialEncadrementPaid,
+      encadrement: encadrementAccount,
+    });
+
     const newStudent: Student = {
       ...studentData,
+      serviceStartDate: resolvedServiceStartDate,
       sessionsPerWeek: Number(studentData.sessionsPerWeek) || 3,
       avatar: optimizedAvatar,
       id: newStudentId,
       matricule,
       monthlyFee: initialEncadrementDue,
       paidAmount: initialEncadrementPaid,
-      paymentStatus: encadrementStatus === 'PAID' ? 'A jour' : encadrementStatus === 'PENDING' ? 'Partiel' : 'En retard',
+      paymentStatus: computedPaymentStatus,
       // Cloisonnement strict des flux financiers
       inscription: {
         due: initialInscriptionDue,
         paid: initialInscriptionPaid,
         status: inscriptionStatus,
       },
-      encadrement: {
-        due: initialEncadrementDue,
-        paid: initialEncadrementPaid,
-        status: encadrementStatus,
-      },
+      encadrement: encadrementAccount,
       tutoringStatus: studentData.tutoringStatus || 'Actif',
       syncStatus: 'synced',
       agentId,
@@ -2257,7 +2284,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 status: newStatus,
               };
               updatedPaidAmount = newPaid;
-              updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+              updatedPaymentStatus = computeStudentPaymentStatus({
+                ...s,
+                paidAmount: newPaid,
+                encadrement: updatedEncadrement,
+              });
             }
 
             return {
@@ -2303,7 +2334,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             status: newStatus,
           };
           updatedPaidAmount = newPaid;
-          updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+          updatedPaymentStatus = computeStudentPaymentStatus({
+            ...student,
+            paidAmount: newPaid,
+            encadrement: updatedEncadrement,
+          });
         }
 
         writes.push(
@@ -2427,7 +2462,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               status: newStatus,
             };
             updatedPaidAmount = newPaid;
-            updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+            updatedPaymentStatus = computeStudentPaymentStatus({
+              ...s,
+              paidAmount: newPaid,
+              encadrement: updatedEncadrement,
+            });
           }
 
           const shouldReactivate = data.autoReactivate && s.tutoringStatus !== 'Actif';
@@ -2479,7 +2518,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             status: newStatus,
           };
           updatedPaidAmount = newPaid;
-          updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+          updatedPaymentStatus = computeStudentPaymentStatus({
+            ...student,
+            paidAmount: newPaid,
+            encadrement: updatedEncadrement,
+          });
         }
 
         const shouldReactivate = data.autoReactivate && student.tutoringStatus !== 'Actif';
@@ -2569,7 +2612,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 status: newStatus,
               };
               updatedPaidAmount = newPaid;
-              updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+              updatedPaymentStatus = computeStudentPaymentStatus({
+                ...s,
+                paidAmount: newPaid,
+                encadrement: updatedEncadrement,
+              });
             }
 
             return {
@@ -2612,7 +2659,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               status: newStatus,
             };
             updatedPaidAmount = newPaid;
-            updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+            updatedPaymentStatus = computeStudentPaymentStatus({
+              ...student,
+              paidAmount: newPaid,
+              encadrement: updatedEncadrement,
+            });
           }
 
           writes.push(
@@ -2655,7 +2706,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 status: newStatus,
               };
               updatedPaidAmount = newPaid;
-              updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+              updatedPaymentStatus = computeStudentPaymentStatus({
+                ...s,
+                paidAmount: newPaid,
+                encadrement: updatedEncadrement,
+              });
             }
 
             return {
@@ -2694,7 +2749,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             status: newStatus,
           };
           updatedPaidAmount = newPaid;
-          updatedPaymentStatus = newStatus === 'PAID' ? 'A jour' : newStatus === 'PENDING' ? 'Partiel' : 'En retard';
+          updatedPaymentStatus = computeStudentPaymentStatus({
+            ...student,
+            paidAmount: newPaid,
+            encadrement: updatedEncadrement,
+          });
         }
 
         writes.push(

@@ -52,6 +52,7 @@ import {
   getInscriptionAccount,
   getEncadrementAccount,
   getAccountStatusBadgeInfo,
+  getStudentPaymentSchedule,
 } from '../../utils/financialUtils';
 
 export const InscriptionsTab: React.FC = () => {
@@ -146,7 +147,8 @@ export const InscriptionsTab: React.FC = () => {
       promotionFilter === 'all' ||
       studentPromo === promotionFilter;
 
-    const matchesPaymentStatus = statusFilter === 'all' || stu.paymentStatus === statusFilter;
+    const paymentSchedule = getStudentPaymentSchedule(stu);
+    const matchesPaymentStatus = statusFilter === 'all' || paymentSchedule.paymentStatus === statusFilter;
 
     let matchesTutoring = true;
     if (tutoringFilter === 'active') {
@@ -272,6 +274,13 @@ export const InscriptionsTab: React.FC = () => {
           <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
             <CheckCircle2 className="h-3 w-3" />
             <span>À jour</span>
+          </span>
+        );
+      case 'En attente':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 dark:bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-500/20">
+            <Clock className="h-3 w-3" />
+            <span>En attente</span>
           </span>
         );
       case 'Partiel':
@@ -572,8 +581,9 @@ export const InscriptionsTab: React.FC = () => {
             >
               <option value="all">Tous paiements</option>
               <option value="A jour">À jour uniquement</option>
+              <option value="En attente">En attente (Dans les délais)</option>
               <option value="Partiel">Partiel</option>
-              <option value="En retard">En retard (Impayé)</option>
+              <option value="En retard">En retard (Impayé &gt; 30j + 2 sem.)</option>
             </select>
           </div>
 
@@ -700,7 +710,7 @@ export const InscriptionsTab: React.FC = () => {
                   </div>
                 </th>
 
-                <th className="py-3 px-4">Date d'Inscription</th>
+                <th className="py-3 px-4">Inscription & Début Prestation</th>
                 <th className="py-3 px-4">Tuteur Légal (Niamey)</th>
                 <th className="py-3 px-4 text-center">Encadrement</th>
                 <th className="py-3 px-4">Comptes Cloisonnés (FCFA)</th>
@@ -746,8 +756,9 @@ export const InscriptionsTab: React.FC = () => {
                   const weeklySessions = stu.sessionsPerWeek || 3;
                   const inscAcc = getInscriptionAccount(stu);
                   const encadAcc = getEncadrementAccount(stu);
+                  const paymentSchedule = getStudentPaymentSchedule(stu);
                   const inscBadge = getAccountStatusBadgeInfo(inscAcc.status, 'inscription');
-                  const encadBadge = getAccountStatusBadgeInfo(encadAcc.status, 'encadrement');
+                  const encadBadge = getAccountStatusBadgeInfo(encadAcc.status, 'encadrement', stu);
                   const inscRemaining = Math.max(0, (inscAcc?.due ?? 10000) - (inscAcc?.paid ?? 0));
                   const encadRemaining = Math.max(0, (encadAcc?.due ?? stu.monthlyFee) - (encadAcc?.paid ?? 0));
 
@@ -864,14 +875,21 @@ export const InscriptionsTab: React.FC = () => {
                         )}
                       </td>
 
-                      {/* Date d'Inscription */}
+                      {/* Date d'Inscription & Début de Prestation */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-1.5 font-mono text-xs text-slate-800 dark:text-slate-200 font-medium">
                           <Clock className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
                           <span>{stu.enrollmentDate}</span>
                         </div>
-                        <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                          Enregistré au cabinet
+                        <div className="text-[10.5px] font-mono text-indigo-700 dark:text-indigo-300 font-semibold mt-0.5">
+                          Début prest. : {paymentSchedule.serviceStartDate}
+                        </div>
+                        <div className="text-[9.5px] text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
+                          {paymentSchedule.paymentStatus === 'A jour'
+                            ? 'Échéance soldée'
+                            : paymentSchedule.isOverdue
+                            ? `Limite ${paymentSchedule.overdueDate} dépassée`
+                            : `Limite : ${paymentSchedule.overdueDate}`}
                         </div>
                       </td>
 
@@ -947,7 +965,10 @@ export const InscriptionsTab: React.FC = () => {
                               {(encadAcc?.paid ?? 0).toLocaleString()} / {(encadAcc?.due ?? stu.monthlyFee).toLocaleString()}
                             </span>
                           </div>
-                          <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded border ${encadBadge.badgeClass}`}>
+                          <span
+                            title={paymentSchedule.statusDetailLabel}
+                            className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded border whitespace-nowrap ${encadBadge.badgeClass}`}
+                          >
                             {encadBadge.label}
                           </span>
                         </div>

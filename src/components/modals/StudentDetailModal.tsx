@@ -46,6 +46,7 @@ import {
   isInscriptionCategory,
   isEncadrementCategory,
   getFinancialStatusBadge,
+  getStudentPaymentSchedule,
 } from '../../utils/financialUtils';
 
 interface StudentDetailModalProps {
@@ -96,10 +97,11 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
   const inscriptionAccount = getInscriptionAccount(student);
   const encadrementAccount = getEncadrementAccount(student);
+  const encadrementSchedule = getStudentPaymentSchedule(student);
   const inscriptionRemaining = getInscriptionBalance(student);
   const encadrementRemaining = getEncadrementBalance(student);
   const inscriptionBadge = getFinancialStatusBadge(inscriptionAccount?.status);
-  const encadrementBadge = getFinancialStatusBadge(encadrementAccount?.status);
+  const encadrementBadge = getFinancialStatusBadge(encadrementAccount?.status, student, 'encadrement');
 
   // Séparation stricte des paiements par compte
   const inscriptionPayments = studentPayments.filter((p) => isInscriptionCategory(p.category));
@@ -283,7 +285,13 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               </div>
               <div className="text-[10px] mt-1">
                 {encadrementRemaining > 0 ? (
-                  <span className="text-rose-600 dark:text-rose-400 font-semibold font-mono">
+                  <span
+                    className={`font-semibold font-mono ${
+                      encadrementSchedule.isOverdue
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : 'text-amber-700 dark:text-amber-300'
+                    }`}
+                  >
                     Reste dû : {encadrementRemaining.toLocaleString()} FCFA
                   </span>
                 ) : (
@@ -292,8 +300,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   </span>
                 )}
               </div>
-              <div className="text-[9px] text-emerald-600/80 dark:text-emerald-400/70 mt-0.5 italic">
-                Frais de scolarité périodiques
+              <div className="text-[9px] text-emerald-700/90 dark:text-emerald-400/80 mt-0.5">
+                Début prest. : <strong className="font-mono">{encadrementSchedule.serviceStartDate}</strong> · Limite : <strong className="font-mono">{encadrementSchedule.overdueDate}</strong>
               </div>
             </div>
 
@@ -810,7 +818,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                         {totalEncadrementPaid.toLocaleString()} / {(encadrementAccount?.due ?? student.monthlyFee).toLocaleString()} FCFA
                       </div>
                       <div className="text-[9.5px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Reste dû : {encadrementRemaining.toLocaleString()} FCFA · <span className="italic">Scolarité</span>
+                        Reste dû : {encadrementRemaining.toLocaleString()} FCFA · <span className="font-mono">{encadrementSchedule.statusDetailLabel}</span>
                       </div>
                     </div>
                   </div>

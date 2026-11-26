@@ -1,4 +1,5 @@
 import { FinancialAccount, Student, PaymentReceipt, Expense, SalaryPayment } from '../types';
+import { addDaysToDate, formatDateToFrench, parseFlexibleDate } from './dateUtils';
 
 /**
  * RÈGLE MÉTIER CRITIQUE : SÉPARATION DES FLUX FINANCIERS
@@ -7,6 +8,155 @@ import { FinancialAccount, Student, PaymentReceipt, Expense, SalaryPayment } fro
  * 
  * Les deux comptes sont strictement cloisonnés : aucun report ni compensation mutuelle.
  */
+
+export const SERVICE_PERIOD_DAYS = 30;
+export const PAYMENT_GRACE_DAYS = 14; // 2 semaines de délai après les 30 jours de prestation
+export const TOTAL_PAYMENT_DEADLINE_DAYS = SERVICE_PERIOD_DAYS + PAYMENT_GRACE_DAYS; // 44 jours
+
+export interface StudentPaymentSchedule {
+  serviceStartDate: string;
+  dueDate: string; // serviceStartDate + 30 jours
+  overdueDate: string; // serviceStartDate + 30 jours + 14 jours (2 semaines)
+  daysElapsed: number;
+  daysUntilDue: number;
+  daysRemainingInGrace: number;
+  daysOverdue: number;
+  phase: 'paid' | 'in_service' | 'grace_period' | 'overdue';
+  paymentStatus: 'A jour' | 'En attente' | 'Partiel' | 'En retard';
+  isOverdue: boolean;
+  remainingAmount: number;
+  statusDetailLabel: string;
+}
+
+/**
+ * RÈGLE DE RETARD DE PAIEMENT :
+ * Un élève est considéré "En retard" SI ET SEULEMENT SI :
+ * - Un solde d'encadrement reste dû (due - paid > 0), ET
+ * - 30 jours se sont écoulés depuis sa date de début de prestation (`serviceStartDate`), ET
+ * - Le délai de grâce de 2 semaines (14 jours) pour payer est dépassé (> 44 jours au total).
+ */
+export function getStudentPaymentSchedule(
+  student?: Partial<Student> | null,
+  referenceDate: Date = new Date()
+): StudentPaymentSchedule {
+  const due = Number(student?.encadrement?.due ?? student?.monthlyFee ?? 0);
+  const paid = Number(student?.encadrement?.paid ?? student?.paidAmount ?? 0);
+  const remainingAmount = Math.max(0, due - paid);
+
+  const todayMidnight = new Date(
+    referenceDate.getFullYear(),
+    referenceDate.getMonth(),
+    referenceDate.getDate()
+  );
+
+  const parsedStart =
+    parseFlexibleDate(student?.serviceStartDate) ||
+    parseFlexibleDate(student?.enrollmentDate) ||
+    todayMidnight;
+
+  const startMidnight = new Date(
+    parsedStart.getFullYear(),
+    parsedStart.getMonth(),
+    parsedStart.getDate()
+  );
+
+  const dueDateObj = addDaysToDate(startMidnight, SERVICE_PERIOD_DAYS);
+  const overdueDateObj = addDaysToDate(startMidnight, TOTAL_PAYMENT_DEADLINE_DAYS);
+
+  const serviceStartDate = formatDateToFrench(startMidnight);
+  const dueDate = formatDateToFrench(dueDateObj);
+  const overdueDate = formatDateToFrench(overdueDateObj);
+
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const daysElapsed = Math.floor((todayMidnight.getTime() - startMidnight.getTime()) / msPerDay);
+
+  if (remainingAmount <= 0 && (due > 0 || paid > 0 || due === 0)) {
+    return {
+      serviceStartDate,
+      dueDate,
+      overdueDate,
+      daysElapsed,
+      daysUntilDue: 0,
+      daysRemainingInGrace: 0,
+      daysOverdue: 0,
+      phase: 'paid',
+      paymentStatus: 'A jour',
+      isOverdue: false,
+      remainingAmount: 0,
+      statusDetailLabel: 'Soldé / À jour',
+    };
+  }
+
+  // En retard uniquement si 30 jours de prestation + 2 semaines (14 jours) sont dépassés
+  if (daysElapsed > TOTAL_PAYMENT_DEADLINE_DAYS) {
+    const daysOverdue = daysElapsed - TOTAL_PAYMENT_DEADLINE_DAYS;
+    return {
+      serviceStartDate,
+      dueDate,
+      overdueDate,
+      daysElapsed,
+      daysUntilDue: 0,
+      daysRemainingInGrace: 0,
+      daysOverdue,
+      phase: 'overdue',
+      paymentStatus: 'En retard',
+      isOverdue: true,
+      remainingAmount,
+      statusDetailLabel: `Retard de ${daysOverdue}j (limite ${overdueDate})`,
+    };
+  }
+
+  // Fenêtre des 2 semaines (entre J+30 et J+44 inclus)
+  if (daysElapsed >= SERVICE_PERIOD_DAYS) {
+    const daysRemainingInGrace = TOTAL_PAYMENT_DEADLINE_DAYS - daysElapsed;
+    const status: 'Partiel' | 'En attente' = paid > 0 ? 'Partiel' : 'En attente';
+    return {
+      serviceStartDate,
+      dueDate,
+      overdueDate,
+      daysElapsed,
+      daysUntilDue: 0,
+      daysRemainingInGrace,
+      daysOverdue: 0,
+      phase: 'grace_period',
+      paymentStatus: status,
+      isOverdue: false,
+      remainingAmount,
+      statusDetailLabel:
+        daysRemainingInGrace === 0
+          ? `Dernier jour de délai (${overdueDate})`
+          : `Délai paiement : ${daysRemainingInGrace}j restant(s)`,
+    };
+  }
+
+  // Période de prestation en cours (< 30 jours depuis le début de prestation)
+  const daysUntilDue = SERVICE_PERIOD_DAYS - Math.max(0, daysElapsed);
+  const status: 'Partiel' | 'En attente' = paid > 0 ? 'Partiel' : 'En attente';
+  return {
+    serviceStartDate,
+    dueDate,
+    overdueDate,
+    daysElapsed,
+    daysUntilDue,
+    daysRemainingInGrace: PAYMENT_GRACE_DAYS,
+    daysOverdue: 0,
+    phase: 'in_service',
+    paymentStatus: status,
+    isOverdue: false,
+    remainingAmount,
+    statusDetailLabel:
+      daysElapsed < 0
+        ? `Débute le ${serviceStartDate}`
+        : `Prestation en cours (J${daysElapsed}/30 · échéance ${dueDate})`,
+  };
+}
+
+export function computeStudentPaymentStatus(
+  student?: Partial<Student> | null,
+  referenceDate?: Date
+): 'A jour' | 'En attente' | 'Partiel' | 'En retard' {
+  return getStudentPaymentSchedule(student, referenceDate).paymentStatus;
+}
 
 /**
  * Calcule le statut financier autonome d'un compte (PAID, PENDING, UNPAID)
@@ -86,11 +236,45 @@ export function getEncadrementBalance(student?: Partial<Student> | null): number
 /**
  * Badge visuel pour l'affichage de l'état d'un compte
  */
-export function getFinancialStatusBadge(status?: string): {
+export function getFinancialStatusBadge(
+  status?: string,
+  student?: Partial<Student> | null,
+  accountType?: 'inscription' | 'encadrement'
+): {
   label: string;
   badgeClass: string;
   dotClass: string;
 } {
+  if (accountType === 'encadrement' && student) {
+    const schedule = getStudentPaymentSchedule(student);
+    if (schedule.paymentStatus === 'A jour') {
+      return {
+        label: 'Soldé (Payé)',
+        badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/60',
+        dotClass: 'bg-emerald-500',
+      };
+    }
+    if (schedule.paymentStatus === 'En retard') {
+      return {
+        label: `En retard (+${schedule.daysOverdue}j)`,
+        badgeClass: 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300 dark:border-rose-700/60',
+        dotClass: 'bg-rose-500',
+      };
+    }
+    if (schedule.paymentStatus === 'Partiel') {
+      return {
+        label: 'Paiement Partiel',
+        badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700/60',
+        dotClass: 'bg-amber-500',
+      };
+    }
+    return {
+      label: schedule.phase === 'grace_period' ? 'Délai 2 sem. en cours' : 'En attente (30j)',
+      badgeClass: 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-300 dark:border-sky-700/60',
+      dotClass: 'bg-sky-500',
+    };
+  }
+
   const normalized = (status || 'UNPAID').toUpperCase();
 
   if (normalized === 'PAID' || normalized === 'A JOUR') {
@@ -98,6 +282,14 @@ export function getFinancialStatusBadge(status?: string): {
       label: 'Soldé (Payé)',
       badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/60',
       dotClass: 'bg-emerald-500',
+    };
+  }
+
+  if (normalized === 'EN ATTENTE') {
+    return {
+      label: 'En attente (Dans les délais)',
+      badgeClass: 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-300 dark:border-sky-700/60',
+      dotClass: 'bg-sky-500',
     };
   }
 
@@ -121,12 +313,43 @@ export function getFinancialStatusBadge(status?: string): {
  */
 export function getAccountStatusBadgeInfo(
   status?: string,
-  accountType?: 'inscription' | 'encadrement'
+  accountType?: 'inscription' | 'encadrement',
+  student?: Partial<Student> | null
 ): {
   label: string;
   badgeClass: string;
   dotClass: string;
 } {
+  if (accountType === 'encadrement' && student) {
+    const schedule = getStudentPaymentSchedule(student);
+    if (schedule.paymentStatus === 'A jour') {
+      return {
+        label: 'À jour',
+        badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/60',
+        dotClass: 'bg-emerald-500',
+      };
+    }
+    if (schedule.paymentStatus === 'En retard') {
+      return {
+        label: 'En retard',
+        badgeClass: 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300 dark:border-rose-700/60',
+        dotClass: 'bg-rose-500',
+      };
+    }
+    if (schedule.paymentStatus === 'Partiel') {
+      return {
+        label: 'Partiel',
+        badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700/60',
+        dotClass: 'bg-amber-500',
+      };
+    }
+    return {
+      label: schedule.phase === 'grace_period' ? 'Délai paiement' : 'En attente',
+      badgeClass: 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-300 dark:border-sky-700/60',
+      dotClass: 'bg-sky-500',
+    };
+  }
+
   const normalized = (status || 'UNPAID').toUpperCase();
 
   if (normalized === 'PAID' || normalized === 'A JOUR') {
@@ -134,6 +357,14 @@ export function getAccountStatusBadgeInfo(
       label: accountType === 'inscription' ? 'Soldé' : 'À jour',
       badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/60',
       dotClass: 'bg-emerald-500',
+    };
+  }
+
+  if (normalized === 'EN ATTENTE') {
+    return {
+      label: 'En attente',
+      badgeClass: 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-300 dark:border-sky-700/60',
+      dotClass: 'bg-sky-500',
     };
   }
 

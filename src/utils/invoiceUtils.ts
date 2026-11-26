@@ -1,6 +1,7 @@
 import { Student, MonthlyInvoice, InvoiceStudentItem } from '../types';
 import { formatYYYYMMToFrench } from './dateUtils';
 import { getAllFamilies, normalizePhoneForMatching, normalizeGuardianName } from './familyUtils';
+import { getStudentPaymentSchedule } from './financialUtils';
 
 /**
  * Génère l'ensemble des factures / avis d'échéance mensuels pour un mois donné (ex: "2026-10").
@@ -57,13 +58,15 @@ export function generateMonthlyInvoices(
       const totalPaid = studentItems.reduce((acc, it) => acc + it.paidAmount, 0);
       const netDue = Math.max(0, totalMonthlyFee - totalPaid);
 
+      const hasOverdueStudent = fam.students.some((st) => getStudentPaymentSchedule(st).isOverdue);
+
       let status: MonthlyInvoice['status'] = 'En attente';
       if (totalPaid >= totalMonthlyFee && totalMonthlyFee > 0) {
         status = 'Payée';
+      } else if (isPastDue && hasOverdueStudent && netDue > 0) {
+        status = 'En retard';
       } else if (totalPaid > 0) {
         status = 'Partielle';
-      } else if (isPastDue) {
-        status = 'En retard';
       }
 
       const invoiceNum = `FAC-${yearStr}-${monthStr}-${String(invoiceCounter).padStart(4, '0')}`;
@@ -117,13 +120,15 @@ export function generateMonthlyInvoices(
       const totalPaid = feePaid;
       const netDue = remaining;
 
+      const studentSchedule = getStudentPaymentSchedule(st);
+
       let status: MonthlyInvoice['status'] = 'En attente';
       if (totalPaid >= totalMonthlyFee && totalMonthlyFee > 0) {
         status = 'Payée';
+      } else if (isPastDue && studentSchedule.isOverdue && netDue > 0) {
+        status = 'En retard';
       } else if (totalPaid > 0) {
         status = 'Partielle';
-      } else if (isPastDue) {
-        status = 'En retard';
       }
 
       const invoiceNum = `FAC-${yearStr}-${monthStr}-${String(idx + 1).padStart(4, '0')}`;

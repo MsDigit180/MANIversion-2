@@ -50,7 +50,7 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
   const inscAcc = student ? getInscriptionAccount(student) : null;
   const encadAcc = student ? getEncadrementAccount(student) : null;
   const inscBadge = inscAcc ? getAccountStatusBadgeInfo(inscAcc.status, 'inscription') : null;
-  const encadBadge = encadAcc ? getAccountStatusBadgeInfo(encadAcc.status, 'encadrement') : null;
+  const encadBadge = encadAcc ? getAccountStatusBadgeInfo(encadAcc.status, 'encadrement', student) : null;
   const isInscriptionPay = isInscriptionCategory(receipt.category);
   const isEncadrementPay = isEncadrementCategory(receipt.category);
 

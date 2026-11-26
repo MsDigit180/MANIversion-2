@@ -7,6 +7,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { getStudentPaymentSchedule } from '../../utils/financialUtils';
 
 export const StopTutoringModal: React.FC = () => {
   const {
@@ -28,10 +29,10 @@ export const StopTutoringModal: React.FC = () => {
 
   React.useEffect(() => {
     if (selectedStudentForStop) {
+      const schedule = getStudentPaymentSchedule(selectedStudentForStop);
       const isUnpaid =
         selectedStudentForStop.tutoringStatus === 'Arrêté (Défaut de paiement)' ||
-        selectedStudentForStop.paymentStatus === 'En retard' ||
-        selectedStudentForStop.paidAmount < selectedStudentForStop.monthlyFee;
+        schedule.isOverdue;
 
       setStopType(isUnpaid ? 'unpaid' : 'demand');
       setReasonCategory(

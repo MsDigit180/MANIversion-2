@@ -4,12 +4,14 @@ import { useApp } from '../../context/AppContext';
 import { compressImage } from '../../utils/imageOptimizer';
 import {
   getCurrentFrenchDate,
+  formatISODateToFrench,
+  formatDateToISO,
   formatSessionHours,
   calculateWeeklyHours,
   calculateMonthlyHours,
 } from '../../utils/dateUtils';
 import { DEFAULT_PROMOTION, PRESET_PROMOTIONS } from '../../utils/promotionUtils';
-import { calculateAccountStatus } from '../../utils/financialUtils';
+import { calculateAccountStatus, getStudentPaymentSchedule } from '../../utils/financialUtils';
 
 export const NewEnrollmentModal: React.FC = () => {
   const {
@@ -44,6 +46,7 @@ export const NewEnrollmentModal: React.FC = () => {
   const [includeRegistration, setIncludeRegistration] = useState<boolean>(true);
   const [notes, setNotes] = useState('');
   const [schoolAttended, setSchoolAttended] = useState('');
+  const [serviceStartDate, setServiceStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -68,6 +71,7 @@ export const NewEnrollmentModal: React.FC = () => {
       setIncludeRegistration(true);
       setNotes(editingStudent.notes || '');
       setSchoolAttended(editingStudent.schoolAttended || editingStudent.etablissementFrequente || '');
+      setServiceStartDate(formatDateToISO(editingStudent.serviceStartDate || editingStudent.enrollmentDate));
     } else {
       setStream('Primaire');
       setLevel('CM2 (CFEPD & Entrée en 6ème)');
@@ -89,6 +93,7 @@ export const NewEnrollmentModal: React.FC = () => {
       setIncludeRegistration(true);
       setNotes('');
       setSchoolAttended('');
+      setServiceStartDate(new Date().toISOString().slice(0, 10));
     }
   }, [editingStudent, isNewStudentModalOpen]);
 
@@ -161,6 +166,17 @@ export const NewEnrollmentModal: React.FC = () => {
       const encDue = Number(monthlyFee || 0);
       const encPaid = Number(initialTuition || 0);
       const encStatus = calculateAccountStatus(encDue, encPaid);
+      const formattedServiceStartDate = formatISODateToFrench(serviceStartDate);
+      const paymentSchedule = getStudentPaymentSchedule({
+        serviceStartDate: formattedServiceStartDate,
+        monthlyFee: encDue,
+        paidAmount: encPaid,
+        encadrement: {
+          due: encDue,
+          paid: encPaid,
+          status: encStatus,
+        },
+      });
 
       if (editingStudent) {
         await updateStudent(editingStudent.id, {
@@ -177,9 +193,10 @@ export const NewEnrollmentModal: React.FC = () => {
           groupId: groupId.trim() || undefined,
           groupName: groupName.trim() || undefined,
           timeSlot: timeSlot.trim() || undefined,
+          serviceStartDate: formattedServiceStartDate,
           monthlyFee: encDue,
           paidAmount: encPaid,
-          paymentStatus: encStatus === 'PAID' ? 'A jour' : encStatus === 'PENDING' ? 'Partiel' : 'En retard',
+          paymentStatus: paymentSchedule.paymentStatus,
           inscription: {
             due: regDue,
             paid: regPaid,
@@ -210,9 +227,10 @@ export const NewEnrollmentModal: React.FC = () => {
           groupId: groupId.trim() || undefined,
           groupName: groupName.trim() || undefined,
           timeSlot: timeSlot.trim() || undefined,
+          serviceStartDate: formattedServiceStartDate,
           monthlyFee: encDue,
           paidAmount: encPaid,
-          paymentStatus: encStatus === 'PAID' ? 'A jour' : encStatus === 'PENDING' ? 'Partiel' : 'En retard',
+          paymentStatus: paymentSchedule.paymentStatus,
           inscription: {
             due: regDue,
             paid: regPaid,
@@ -570,6 +588,57 @@ export const NewEnrollmentModal: React.FC = () => {
             </div>
           </div>
 
+          {/* DATE DE DÉBUT DE PRESTATION & CALCUL AUTOMATIQUE DES DÉLAIS (30J + 2 SEMAINES) */}
+          {(() => {
+            const previewSchedule = getStudentPaymentSchedule({
+              serviceStartDate: formatISODateToFrench(serviceStartDate),
+              monthlyFee,
+              paidAmount: initialTuition,
+              encadrement: {
+                due: monthlyFee,
+                paid: initialTuition,
+                status: calculateAccountStatus(monthlyFee, initialTuition),
+              },
+            });
+            return (
+              <div className="p-3.5 rounded-xl bg-slate-800/70 border border-slate-700 space-y-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                  <div>
+                    <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-200 mb-1">
+                      <Calendar className="h-3.5 w-3.5 text-indigo-400" />
+                      <span>Date de début de prestation *</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={serviceStartDate}
+                      onChange={(e) => setServiceStartDate(e.target.value)}
+                      className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-xs font-mono font-semibold text-white focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="rounded-lg bg-slate-900/80 border border-slate-700/80 p-2.5 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Fin période (30 jours) :</span>
+                      <span className="font-mono font-bold text-indigo-300 tabular-nums">
+                        {previewSchedule.dueDate}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Délai max (+2 sem.) :</span>
+                      <span className="font-mono font-bold text-amber-300 tabular-nums">
+                        {previewSchedule.overdueDate}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10.5px] text-slate-400 leading-relaxed">
+                  Un élève devient <strong className="text-rose-400">En retard</strong> uniquement si les <strong>30 jours</strong> de prestation et le délai de paiement de <strong>2 semaines (14 jours)</strong> sont dépassés sans règlement complet.
+                </p>
+              </div>
+            );
+          })()}
+
           {/* BANDEAU RÈGLE MÉTIER : CLOISONNEMENT STRICT DES COMPTES */}
           <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/30 p-3 flex items-start gap-2.5 text-xs text-indigo-300">
             <Sparkles className="h-4 w-4 shrink-0 text-indigo-400 mt-0.5" />
@@ -697,21 +766,37 @@ export const NewEnrollmentModal: React.FC = () => {
                   <span className="text-slate-400">
                     Reste dû : {Math.max(0, monthlyFee - initialTuition).toLocaleString()} FCFA
                   </span>
-                  <span
-                    className={`font-bold px-1.5 py-0.2 rounded text-[9px] ${
-                      initialTuition >= monthlyFee && monthlyFee > 0
+                  {(() => {
+                    const liveSched = getStudentPaymentSchedule({
+                      serviceStartDate: formatISODateToFrench(serviceStartDate),
+                      monthlyFee,
+                      paidAmount: initialTuition,
+                      encadrement: {
+                        due: monthlyFee,
+                        paid: initialTuition,
+                        status: calculateAccountStatus(monthlyFee, initialTuition),
+                      },
+                    });
+                    const pillClass =
+                      liveSched.paymentStatus === 'A jour'
                         ? 'bg-emerald-500/20 text-emerald-300'
-                        : initialTuition > 0
+                        : liveSched.paymentStatus === 'En retard'
+                        ? 'bg-rose-500/20 text-rose-300'
+                        : liveSched.paymentStatus === 'Partiel'
                         ? 'bg-amber-500/20 text-amber-300'
-                        : 'bg-rose-500/20 text-rose-300'
-                    }`}
-                  >
-                    {initialTuition >= monthlyFee && monthlyFee > 0
-                      ? 'PAID (Soldé)'
-                      : initialTuition > 0
-                      ? 'PENDING (Partiel)'
-                      : 'UNPAID (Non réglé)'}
-                  </span>
+                        : 'bg-sky-500/20 text-sky-300';
+                    return (
+                      <span className={`font-bold px-1.5 py-0.2 rounded text-[9px] ${pillClass}`}>
+                        {liveSched.paymentStatus === 'A jour'
+                          ? 'À jour (Soldé)'
+                          : liveSched.paymentStatus === 'En retard'
+                          ? `En retard (+${liveSched.daysOverdue}j)`
+                          : liveSched.paymentStatus === 'Partiel'
+                          ? 'Partiel (Dans les délais)'
+                          : 'En attente (Dans les délais)'}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

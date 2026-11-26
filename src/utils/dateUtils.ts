@@ -23,14 +23,106 @@ export function getCurrentFrenchDateTime(): string {
 export function formatISODateToFrench(isoDateStr: string): string {
   if (!isoDateStr) return getCurrentFrenchDate();
   try {
-    const [year, month, day] = isoDateStr.split('-');
-    if (year && month && day) {
-      return `${day}/${month}/${year}`;
+    const clean = isoDateStr.split('T')[0];
+    const [year, month, day] = clean.split('-');
+    if (year && month && day && year.length === 4) {
+      return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
     }
   } catch {
     // fallback
   }
   return isoDateStr;
+}
+
+export function formatDateToFrench(date: Date): string {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+export function addDaysToDate(date: Date, days: number): Date {
+  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+const FRENCH_MONTH_NAME_TO_INDEX: Record<string, number> = {
+  janv: 0, janvier: 0,
+  fev: 1, févr: 1, fevrier: 1, février: 1,
+  mars: 2,
+  avr: 3, avril: 3,
+  mai: 4,
+  juin: 5,
+  juil: 6, juillet: 6,
+  aout: 7, août: 7,
+  sept: 8, septembre: 8,
+  oct: 9, octobre: 9,
+  nov: 10, novembre: 10,
+  dec: 11, déc: 11, decembre: 11, décembre: 11,
+};
+
+/**
+ * Parse une date au format DD/MM/YYYY, YYYY-MM-DD ou texte français vers minuit local.
+ */
+export function parseFlexibleDate(dateStr?: string | null): Date | null {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const clean = dateStr.split(' à ')[0].trim();
+  if (!clean) return null;
+
+  // Format DD/MM/YYYY
+  const frMatch = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (frMatch) {
+    const day = Number(frMatch[1]);
+    const month = Number(frMatch[2]) - 1;
+    const year = Number(frMatch[3]);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime()) && d.getFullYear() === year && d.getMonth() === month && d.getDate() === day) {
+      return d;
+    }
+  }
+
+  // Format YYYY-MM-DD
+  const isoMatch = clean.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]) - 1;
+    const day = Number(isoMatch[3]);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime()) && d.getFullYear() === year && d.getMonth() === month && d.getDate() === day) {
+      return d;
+    }
+  }
+
+  // Format texte français ex: "29 Sept. 2026" ou "29 Septembre 2026"
+  const textMatch = clean.toLowerCase().match(/^(\d{1,2})\s+([a-zàâäéèêëîïôöùûüç]+)\.?\s+(\d{4})$/i);
+  if (textMatch) {
+    const day = Number(textMatch[1]);
+    const monthKey = textMatch[2].replace('.', '').toLowerCase();
+    const monthIdx = FRENCH_MONTH_NAME_TO_INDEX[monthKey];
+    const year = Number(textMatch[3]);
+    if (monthIdx !== undefined) {
+      const d = new Date(year, monthIdx, day);
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+
+  const parsed = Date.parse(clean);
+  if (!isNaN(parsed)) {
+    const d = new Date(parsed);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  return null;
+}
+
+export function formatDateToISO(dateStr?: string | null): string {
+  const parsed = parseFlexibleDate(dateStr);
+  const d = parsed || new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**

@@ -92,6 +92,7 @@ export const getStudentListDocumentTitle = (filters: StudentListFilterOptions = 
   // Terme de statut financier
   let paymentTerm = '';
   if (statusFilter === 'A jour') paymentTerm = 'À JOUR DE PAIEMENT';
+  else if (statusFilter === 'En attente') paymentTerm = 'EN ATTENTE DE PAIEMENT (DANS LES DÉLAIS)';
   else if (statusFilter === 'Partiel') paymentTerm = 'EN PAIEMENT PARTIEL';
   else if (statusFilter === 'En retard') paymentTerm = 'EN RETARD DE PAIEMENT';
 
