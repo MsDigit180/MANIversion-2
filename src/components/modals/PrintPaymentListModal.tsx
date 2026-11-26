@@ -11,7 +11,11 @@ import {
 import { PaymentReceipt } from '../../types';
 import { CAB_APPUIS_LOGO } from '../../assets/logo';
 import { formatReceiptPaymentDate, formatYYYYMMToFrench } from '../../utils/dateUtils';
-import { isInscriptionCategory, isEncadrementCategory } from '../../utils/financialUtils';
+import {
+  isInscriptionCategory,
+  isEncadrementCategory,
+  formatPaymentCoveredMonthLabel,
+} from '../../utils/financialUtils';
 import { downloadPaymentListPDF } from '../../utils/pdfExportUtils';
 
 export { downloadPaymentListPDF };
@@ -133,6 +137,7 @@ export const exportPaymentsToCSV = (
     'Élève / Payeur',
     'Type d\'Encaissement',
     'Prestation / Catégorie',
+    'Mois Réglé',
     'Mode de Règlement',
     'Montant Encaissé (FCFA)',
     'Nom du Parent',
@@ -161,6 +166,7 @@ export const exportPaymentsToCSV = (
       escapeCsv(pay.studentName),
       escapeCsv(typeLabel),
       escapeCsv(pay.category),
+      escapeCsv(formatPaymentCoveredMonthLabel(pay)),
       escapeCsv(pay.paymentMethod),
       escapeCsv(pay.amount || 0),
       escapeCsv(pay.guardianName || '-'),
@@ -508,11 +514,11 @@ export const PrintPaymentListModal: React.FC<PrintPaymentListModalProps> = ({
                 <th style={{ width: '12%' }} className="py-2 px-2 text-left border-r border-slate-300">
                   Date
                 </th>
-                <th style={{ width: '27%' }} className="py-2 px-2 text-left border-r border-slate-300">
+                <th style={{ width: '24%' }} className="py-2 px-2 text-left border-r border-slate-300">
                   Élève / Bénéficiaire
                 </th>
-                <th style={{ width: '16%' }} className="py-2 px-2 text-left border-r border-slate-300">
-                  Prestation
+                <th style={{ width: '19%' }} className="py-2 px-2 text-left border-r border-slate-300">
+                  Prestation / Mois Réglé
                 </th>
                 <th style={{ width: '13%' }} className="py-2 px-2 text-left border-r border-slate-300">
                   Mode
@@ -573,9 +579,12 @@ export const PrintPaymentListModal: React.FC<PrintPaymentListModalProps> = ({
                         )}
                       </td>
 
-                      {/* PRESTATION */}
+                      {/* PRESTATION & MOIS RÉGLÉ */}
                       <td className="py-1.5 px-2 text-slate-800 border-r border-slate-200">
-                        <span className="font-medium">{pay.category}</span>
+                        <span className="font-medium block">{pay.category}</span>
+                        <span className="text-[8.5px] font-bold text-indigo-800">
+                          {formatPaymentCoveredMonthLabel(pay)}
+                        </span>
                       </td>
 
                       {/* MODE DE RÈGLEMENT */}

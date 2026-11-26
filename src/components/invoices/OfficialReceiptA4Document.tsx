@@ -23,6 +23,8 @@ import {
   getAccountStatusBadgeInfo,
   isInscriptionCategory,
   isEncadrementCategory,
+  getPaymentCoveredMonthKey,
+  formatPaymentCoveredMonthLabel,
 } from '../../utils/financialUtils';
 
 export interface OfficialReceiptA4DocumentProps {
@@ -53,6 +55,8 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
   const encadBadge = encadAcc ? getAccountStatusBadgeInfo(encadAcc.status, 'encadrement', student) : null;
   const isInscriptionPay = isInscriptionCategory(receipt.category);
   const isEncadrementPay = isEncadrementCategory(receipt.category);
+  const coveredMonthKey = getPaymentCoveredMonthKey(receipt);
+  const coveredMonthLabel = formatPaymentCoveredMonthLabel(receipt);
 
   return (
     <div
@@ -144,6 +148,14 @@ export const OfficialReceiptA4Document: React.FC<OfficialReceiptA4DocumentProps>
 
           <div className="mt-0.5 text-[8.5px] text-slate-600 space-y-0.2">
             <div>Mode : <strong className="text-slate-900 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">{receipt.paymentMethod}</strong></div>
+            {coveredMonthKey && (
+              <div>
+                Mois réglé :{' '}
+                <strong className="text-indigo-900 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200">
+                  {coveredMonthLabel}
+                </strong>
+              </div>
+            )}
             <div className="text-[8px] text-slate-500 font-mono">
               Site : Niamey 2000 · Année 2026/2027
             </div>

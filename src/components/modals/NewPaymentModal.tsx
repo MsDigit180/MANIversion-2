@@ -56,7 +56,7 @@ export const NewPaymentModal: React.FC = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [customName, setCustomName] = useState<string>('');
   const [category, setCategory] = useState<PaymentReceipt['category']>('Scolarité Mensuelle');
-  const [targetMonth, setTargetMonth] = useState<string>('2026-09');
+  const [targetMonth, setTargetMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
   const [amount, setAmount] = useState<number>(35000);
   const [paymentMethod, setPaymentMethod] = useState<PaymentReceipt['paymentMethod']>('Airtel Money');
   const [cashierName, setCashierName] = useState<string>('');
@@ -93,7 +93,7 @@ export const NewPaymentModal: React.FC = () => {
     setSelectedStudentId('');
     setCustomName('');
     setCategory('Scolarité Mensuelle');
-    setTargetMonth('2026-09');
+    setTargetMonth(new Date().toISOString().slice(0, 7));
     setAmount(35000);
     setPaymentMethod('Airtel Money');
     setCashierName('');
@@ -304,6 +304,9 @@ export const NewPaymentModal: React.FC = () => {
           return;
         }
 
+        const monthHuman = formatYYYYMMToFrench(targetMonth);
+        const hasMonthlyItem = includedFamilyItems.some((item) => item.itemCategory === 'Scolarité Mensuelle');
+
         const breakdown: MultiStudentReceiptItem[] = includedFamilyItems.map((item) => {
           const prevPaid = item.paidAmount;
           const newPaid = prevPaid + item.amountToPay;
@@ -319,17 +322,25 @@ export const NewPaymentModal: React.FC = () => {
             previousPaid: prevPaid,
             newPaid: newPaid,
             balanceRemaining: newBal,
+            coveredMonth: item.itemCategory === 'Scolarité Mensuelle' ? targetMonth : undefined,
             notes: item.itemNotes,
           };
         });
+
+        const baseFamilyNote = notes.trim() || `Règlement global fratrie (${includedFamilyItems.length} enfants)`;
+        const finalFamilyNotes =
+          hasMonthlyItem && !baseFamilyNote.toLowerCase().includes(monthHuman.toLowerCase())
+            ? `Mois de ${monthHuman} - ${baseFamilyNote}`
+            : baseFamilyNote;
 
         const createdPayment = await addFamilyPayment({
           guardianName: familyGuardianName.trim() || 'Tuteur Légal',
           guardianPhone: familyGuardianPhone.trim() || undefined,
           paymentMethod,
           paymentDate: fullPaymentDate,
+          coveredMonth: hasMonthlyItem ? targetMonth : undefined,
           cashierName: cashierName.trim() || 'Guichet Caisse CAS MANI',
-          notes: notes.trim() || `Règlement global fratrie (${includedFamilyItems.length} enfants)`,
+          notes: finalFamilyNotes,
           studentBreakdown: breakdown,
           autoReactivate,
         });
@@ -343,8 +354,13 @@ export const NewPaymentModal: React.FC = () => {
         // Single payment
         const finalName = customName.trim() || 'Client Comptoir';
         const monthHuman = formatYYYYMMToFrench(targetMonth);
+        const trimmedNotes = notes.trim();
         const finalNotes =
-          category === 'Scolarité Mensuelle' ? `Mois de ${monthHuman} - ${notes}` : notes;
+          category === 'Scolarité Mensuelle'
+            ? trimmedNotes.toLowerCase().includes(monthHuman.toLowerCase())
+              ? trimmedNotes
+              : `Mois de ${monthHuman} - ${trimmedNotes}`
+            : trimmedNotes;
 
         const createdPayment = await addPayment({
           studentId: selectedStudentId || undefined,
@@ -353,6 +369,7 @@ export const NewPaymentModal: React.FC = () => {
           amount,
           paymentMethod,
           paymentDate: fullPaymentDate,
+          coveredMonth: category === 'Scolarité Mensuelle' ? targetMonth : undefined,
           cashierName: cashierName.trim() || 'Guichet Caisse CAS MANI',
           status: 'Validé',
           notes: finalNotes,
@@ -643,9 +660,14 @@ export const NewPaymentModal: React.FC = () => {
 
                 {category === 'Scolarité Mensuelle' ? (
                   <div>
-                    <label className="block text-xs font-semibold text-emerald-400 mb-1 flex items-center gap-1">
-                      <Calendar className="h-3 w-3 text-emerald-400" />
-                      <span>Mois de scolarité concerné *</span>
+                    <label className="block text-xs font-semibold text-emerald-400 mb-1 flex items-center justify-between gap-1">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3 text-emerald-400" />
+                        <span>Mois réglé (Mois concerné) *</span>
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-300">
+                        {formatYYYYMMToFrench(targetMonth)}
+                      </span>
                     </label>
                     <input
                       type="month"
@@ -762,6 +784,21 @@ export const NewPaymentModal: React.FC = () => {
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white font-mono focus:border-purple-500 focus:outline-none"
                   />
                 </div>
+              </div>
+
+              {/* Mois réglé pour la fratrie */}
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span>Mois réglé pour la scolarité mensuelle :</span>
+                  <span className="font-bold text-white">{formatYYYYMMToFrench(targetMonth)}</span>
+                </label>
+                <input
+                  type="month"
+                  value={targetMonth}
+                  onChange={(e) => setTargetMonth(e.target.value)}
+                  className="rounded-lg border border-emerald-500/40 bg-slate-800 px-3 py-1.5 text-xs text-emerald-300 font-bold focus:border-emerald-500 focus:outline-none cursor-pointer"
+                />
               </div>
 
               {/* Children Breakdown Table */}

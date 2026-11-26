@@ -328,6 +328,7 @@ export interface MultiStudentReceiptItem {
   previousPaid?: number;
   newPaid?: number;
   balanceRemaining?: number;
+  coveredMonth?: string; // Mois réglé (YYYY-MM)
   notes?: string;
 }
 
@@ -387,6 +388,7 @@ export interface PaymentReceipt {
     | 'Virement Bancaire'
     | string;
   paymentDate: string;
+  coveredMonth?: string; // Mois réglé par l'élève (YYYY-MM, ex: "2026-11")
   cashierName: string;
   status: 'Validé' | 'En attente' | 'Annulé';
   syncStatus: SyncState;

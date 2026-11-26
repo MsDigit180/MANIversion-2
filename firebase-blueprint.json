@@ -66,6 +66,7 @@
         "amount": { "type": "number" },
         "paymentMethod": { "type": "string", "maxLength": 100 },
         "paymentDate": { "type": "string", "maxLength": 100 },
+        "coveredMonth": { "type": "string", "maxLength": 20, "description": "Mois réglé / période couverte (YYYY-MM)" },
         "cashierName": { "type": "string", "maxLength": 150 },
         "status": { "type": "string", "maxLength": 50 },
         "syncStatus": { "type": "string", "maxLength": 50 },

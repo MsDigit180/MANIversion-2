@@ -47,6 +47,8 @@ import {
   isEncadrementCategory,
   getFinancialStatusBadge,
   getStudentPaymentSchedule,
+  getPaymentCoveredMonthKey,
+  formatPaymentCoveredMonthLabel,
 } from '../../utils/financialUtils';
 
 interface StudentDetailModalProps {
@@ -831,6 +833,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     studentPayments.map((p) => {
                       const isInsc = isInscriptionCategory(p.category);
                       const isEncad = isEncadrementCategory(p.category);
+                      const coveredKey = getPaymentCoveredMonthKey(p);
+                      const coveredLabel = formatPaymentCoveredMonthLabel(p);
 
                       return (
                         <div
@@ -838,7 +842,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                           className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 hover:border-emerald-500/30 transition-colors"
                         >
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <span className="font-bold text-xs text-slate-900 dark:text-white">
                                 {p.receiptNumber}
                               </span>
@@ -857,6 +861,12 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                                   ? 'Frais d\'Encadrement'
                                   : p.category}
                               </span>
+                              {coveredKey && (
+                                <span className="inline-flex items-center gap-1 text-[9.5px] px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/70 font-bold">
+                                  <Calendar className="h-2.5 w-2.5 shrink-0" />
+                                  <span>Mois réglé : {coveredLabel}</span>
+                                </span>
+                              )}
                               <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono">
                                 {p.paymentMethod}
                               </span>

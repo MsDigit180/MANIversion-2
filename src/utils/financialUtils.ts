@@ -1,5 +1,5 @@
 import { FinancialAccount, Student, PaymentReceipt, Expense, SalaryPayment } from '../types';
-import { addDaysToDate, formatDateToFrench, parseFlexibleDate } from './dateUtils';
+import { addDaysToDate, formatDateToFrench, formatYYYYMMToFrench, parseFlexibleDate } from './dateUtils';
 
 /**
  * RÈGLE MÉTIER CRITIQUE : SÉPARATION DES FLUX FINANCIERS
@@ -740,4 +740,106 @@ export function buildMonthlyCollectionsSeries(
 
   return buckets;
 }
+
+const FRENCH_MONTH_LOOKUP: Array<{ pattern: RegExp; month: string }> = [
+  { pattern: /\bjanv(?:ier)?\.?\b/i, month: '01' },
+  { pattern: /\bf[eé]vr?(?:ier)?\.?\b/i, month: '02' },
+  { pattern: /\bmars\b/i, month: '03' },
+  { pattern: /\bavr(?:il)?\.?\b/i, month: '04' },
+  { pattern: /\bmai\b/i, month: '05' },
+  { pattern: /\bjuin\b/i, month: '06' },
+  { pattern: /\bjuil(?:let)?\.?\b/i, month: '07' },
+  { pattern: /\bao[uû]t\b/i, month: '08' },
+  { pattern: /\bsept(?:embre)?\.?\b/i, month: '09' },
+  { pattern: /\boct(?:obre)?\.?\b/i, month: '10' },
+  { pattern: /\bnov(?:embre)?\.?\b/i, month: '11' },
+  { pattern: /\bd[eé]c(?:embre)?\.?\b/i, month: '12' },
+];
+
+export function normalizeYearMonthString(raw?: string | null): string | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  // Format YYYY-MM
+  const isoMatch = trimmed.match(/\b(\d{4})-(0[1-9]|1[0-2])\b/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}`;
+  }
+
+  // Format MM/YYYY
+  const slashMatch = trimmed.match(/\b(0[1-9]|1[0-2])\/(\d{4})\b/);
+  if (slashMatch) {
+    return `${slashMatch[2]}-${slashMatch[1]}`;
+  }
+
+  // Format texte français: "Mois de Novembre 2026" ou "Octobre 2026"
+  const yearMatch = trimmed.match(/\b(20\d{2})\b/);
+  if (yearMatch) {
+    for (const entry of FRENCH_MONTH_LOOKUP) {
+      if (entry.pattern.test(trimmed)) {
+        return `${yearMatch[1]}-${entry.month}`;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Détermine le mois réglé (YYYY-MM) pour un reçu de paiement.
+ * Priorité : champ explicite `coveredMonth` > legacy `monthCovered`/`month` > notes ("Mois de ...")
+ * > items fratrie > repli sur la date de paiement pour les règlements mensuels d'encadrement.
+ */
+export function getPaymentCoveredMonthKey(
+  payment?: Partial<PaymentReceipt> | null
+): string | null {
+  if (!payment) return null;
+
+  const explicit =
+    normalizeYearMonthString(payment.coveredMonth) ||
+    normalizeYearMonthString((payment as any).monthCovered) ||
+    normalizeYearMonthString((payment as any).month);
+  if (explicit) return explicit;
+
+  const fromNotes = normalizeYearMonthString(payment.notes);
+  if (fromNotes) return fromNotes;
+
+  if (Array.isArray(payment.studentBreakdown)) {
+    for (const item of payment.studentBreakdown) {
+      const fromItem =
+        normalizeYearMonthString(item?.coveredMonth) ||
+        normalizeYearMonthString(item?.notes);
+      if (fromItem) return fromItem;
+    }
+  }
+
+  const catLower = (payment.category || '').toLowerCase();
+  const isMonthly =
+    isEncadrementCategory(payment.category) ||
+    catLower.includes('mensuel') ||
+    catLower.includes('scolarit');
+
+  if (isMonthly) {
+    return getPaymentYearMonth(payment);
+  }
+
+  return null;
+}
+
+export function getPaymentCoveredMonthSortKey(
+  payment?: Partial<PaymentReceipt> | null
+): string {
+  return getPaymentCoveredMonthKey(payment) || getPaymentYearMonth(payment) || '';
+}
+
+export function formatPaymentCoveredMonthLabel(
+  payment?: Partial<PaymentReceipt> | null
+): string {
+  const key = getPaymentCoveredMonthKey(payment);
+  if (key) return formatYYYYMMToFrench(key);
+  if (isInscriptionCategory(payment?.category)) return 'Admission unique';
+  return 'Ponctuel';
+}
+
 

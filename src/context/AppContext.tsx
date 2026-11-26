@@ -142,6 +142,7 @@ interface AppContextType {
     guardianPhone?: string;
     paymentMethod: string;
     paymentDate?: string;
+    coveredMonth?: string;
     cashierName?: string;
     notes?: string;
     studentBreakdown: MultiStudentReceiptItem[];
@@ -2367,6 +2368,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     guardianPhone?: string;
     paymentMethod: string;
     paymentDate?: string;
+    coveredMonth?: string;
     cashierName?: string;
     notes?: string;
     studentBreakdown: MultiStudentReceiptItem[];
@@ -2400,6 +2402,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       amount: totalAmount,
       paymentMethod: data.paymentMethod,
       paymentDate: finalPaymentDate,
+      coveredMonth: data.coveredMonth,
       cashierName: data.cashierName || `${agentName} (${agentRole})`,
       status: 'Validé',
       syncStatus: 'synced',

@@ -24,10 +24,13 @@ import {
   ChevronRight,
   ShieldCheck,
   Trash2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PaymentReceipt, MonthlyInvoice, Student } from '../../types';
-import { formatReceiptPaymentDate, formatYYYYMMToFrench } from '../../utils/dateUtils';
+import { formatReceiptPaymentDate, formatYYYYMMToFrench, parseFlexibleDate } from '../../utils/dateUtils';
 import {
   generateMonthlyInvoices,
   generateWhatsAppInvoiceMessage,
@@ -48,8 +51,21 @@ import {
   isInscriptionCategory,
   isEncadrementCategory,
   getPaymentYearMonth,
+  getPaymentCoveredMonthKey,
+  getPaymentCoveredMonthSortKey,
+  formatPaymentCoveredMonthLabel,
 } from '../../utils/financialUtils';
 import { MonthlyCollectionsChart } from '../payments/MonthlyCollectionsChart';
+
+type PaymentSortKey =
+  | 'paymentDate_desc'
+  | 'paymentDate_asc'
+  | 'coveredMonth_desc'
+  | 'coveredMonth_asc'
+  | 'amount_desc'
+  | 'amount_asc'
+  | 'student_asc'
+  | 'student_desc';
 
 export const PaiementsTab: React.FC = () => {
   const {
@@ -73,6 +89,8 @@ export const PaiementsTab: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [methodFilter, setMethodFilter] = useState<string>('all');
   const [monthFilter, setMonthFilter] = useState<string>('all');
+  const [coveredMonthFilter, setCoveredMonthFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<PaymentSortKey>('paymentDate_desc');
   const [search, setSearch] = useState<string>('');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
 
@@ -95,18 +113,36 @@ export const PaiementsTab: React.FC = () => {
   const safePayments = payments || [];
   const safeStudents = students || [];
 
-  // Filtered Payments (Journal de Caisse)
+  // Distinct covered months present across all payments for quick filtering
+  const availableCoveredMonths = useMemo(() => {
+    const keys = new Set<string>();
+    safePayments.forEach((pay) => {
+      const k = getPaymentCoveredMonthKey(pay);
+      if (k) keys.add(k);
+    });
+    return Array.from(keys).sort((a, b) => b.localeCompare(a));
+  }, [safePayments]);
+
+  // Filtered & Sorted Payments (Journal de Caisse)
   const filteredPayments = useMemo(() => {
-    return safePayments.filter((pay) => {
+    const matches = safePayments.filter((pay) => {
       const searchLower = (search || '').toLowerCase();
       const receiptSafe = (pay.receiptNumber || '').toLowerCase();
       const studentSafe = (pay.studentName || '').toLowerCase();
       const methodSafe = pay.paymentMethod || '';
       const dateSafe = pay.paymentDate || '';
+      const coveredKey = getPaymentCoveredMonthKey(pay);
+      const coveredLabel = formatPaymentCoveredMonthLabel(pay).toLowerCase();
 
-      const matchesSearch = receiptSafe.includes(searchLower) || studentSafe.includes(searchLower);
+      const matchesSearch =
+        receiptSafe.includes(searchLower) ||
+        studentSafe.includes(searchLower) ||
+        coveredLabel.includes(searchLower);
       const matchesCategory = categoryFilter === 'all' || pay.category === categoryFilter;
       const matchesMethod = methodFilter === 'all' || methodSafe.includes(methodFilter);
+      const matchesCoveredMonth =
+        coveredMonthFilter === 'all' ||
+        (coveredMonthFilter === '__none__' ? !coveredKey : coveredKey === coveredMonthFilter);
       const matchesMonth =
         monthFilter === 'all' || (() => {
           const frenchMonth = formatYYYYMMToFrench(monthFilter);
@@ -124,9 +160,59 @@ export const PaiementsTab: React.FC = () => {
           );
         })();
 
-      return matchesSearch && matchesCategory && matchesMethod && matchesMonth;
+      return matchesSearch && matchesCategory && matchesMethod && matchesCoveredMonth && matchesMonth;
     });
-  }, [safePayments, search, categoryFilter, methodFilter, monthFilter]);
+
+    const getDateMs = (p: PaymentReceipt): number => {
+      const parsed = parseFlexibleDate(p.paymentDate);
+      return parsed ? parsed.getTime() : 0;
+    };
+
+    return [...matches].sort((a, b) => {
+      switch (sortBy) {
+        case 'coveredMonth_desc': {
+          const ka = getPaymentCoveredMonthSortKey(a);
+          const kb = getPaymentCoveredMonthSortKey(b);
+          const cmp = kb.localeCompare(ka);
+          return cmp !== 0 ? cmp : getDateMs(b) - getDateMs(a);
+        }
+        case 'coveredMonth_asc': {
+          const ka = getPaymentCoveredMonthSortKey(a) || '9999-99';
+          const kb = getPaymentCoveredMonthSortKey(b) || '9999-99';
+          const cmp = ka.localeCompare(kb);
+          return cmp !== 0 ? cmp : getDateMs(a) - getDateMs(b);
+        }
+        case 'paymentDate_asc':
+          return getDateMs(a) - getDateMs(b);
+        case 'amount_desc':
+          return (b.amount || 0) - (a.amount || 0);
+        case 'amount_asc':
+          return (a.amount || 0) - (b.amount || 0);
+        case 'student_asc':
+          return (a.studentName || '').localeCompare(b.studentName || '', 'fr', { sensitivity: 'base' });
+        case 'student_desc':
+          return (b.studentName || '').localeCompare(a.studentName || '', 'fr', { sensitivity: 'base' });
+        case 'paymentDate_desc':
+        default:
+          return getDateMs(b) - getDateMs(a);
+      }
+    });
+  }, [safePayments, search, categoryFilter, methodFilter, coveredMonthFilter, monthFilter, sortBy]);
+
+  const toggleSortColumn = (field: 'paymentDate' | 'coveredMonth' | 'amount' | 'student') => {
+    setSortBy((prev) => {
+      if (field === 'coveredMonth') {
+        return prev === 'coveredMonth_desc' ? 'coveredMonth_asc' : 'coveredMonth_desc';
+      }
+      if (field === 'paymentDate') {
+        return prev === 'paymentDate_desc' ? 'paymentDate_asc' : 'paymentDate_desc';
+      }
+      if (field === 'amount') {
+        return prev === 'amount_desc' ? 'amount_asc' : 'amount_desc';
+      }
+      return prev === 'student_asc' ? 'student_desc' : 'student_asc';
+    });
+  };
 
   const totalCollected = filteredPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
 
@@ -477,15 +563,49 @@ export const PaiementsTab: React.FC = () => {
                 <option value="Nita">Nita Transfert d'argent</option>
               </select>
 
+              <select
+                value={coveredMonthFilter}
+                onChange={(e) => setCoveredMonthFilter(e.target.value)}
+                className="rounded-xl border border-emerald-300 dark:border-emerald-700/70 bg-emerald-50/60 dark:bg-emerald-950/30 px-3 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 focus:outline-none cursor-pointer"
+                title="Filtrer selon le mois réglé par l'élève"
+              >
+                <option value="all">Tous les mois réglés</option>
+                {availableCoveredMonths.map((mKey) => (
+                  <option key={mKey} value={mKey}>
+                    Mois réglé : {formatYYYYMMToFrench(mKey)}
+                  </option>
+                ))}
+                <option value="__none__">Frais ponctuels / Admission</option>
+              </select>
+
+              <div className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-3 py-1.5">
+                <ArrowUpDown className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Trier :</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as PaymentSortKey)}
+                  className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+                  title="Trier les paiements"
+                >
+                  <option value="paymentDate_desc">Date d'encaissement (Récent → Ancien)</option>
+                  <option value="paymentDate_asc">Date d'encaissement (Ancien → Récent)</option>
+                  <option value="coveredMonth_desc">Mois réglé (Récent → Ancien)</option>
+                  <option value="coveredMonth_asc">Mois réglé (Ancien → Récent)</option>
+                  <option value="amount_desc">Montant (Décroissant)</option>
+                  <option value="amount_asc">Montant (Croissant)</option>
+                  <option value="student_asc">Élève (A → Z)</option>
+                </select>
+              </div>
+
               <div className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-3 py-1.5">
                 <Calendar className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Mois :</span>
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Encaissé en :</span>
                 <input
                   type="month"
                   value={monthFilter === 'all' ? '' : monthFilter}
                   onChange={(e) => setMonthFilter(e.target.value ? e.target.value : 'all')}
                   className="bg-transparent text-xs text-indigo-700 dark:text-indigo-300 font-bold focus:outline-none cursor-pointer"
-                  title="Filtrer par mois (Calendrier)"
+                  title="Filtrer par mois d'encaissement"
                 />
                 {monthFilter !== 'all' && (
                   <button
@@ -533,11 +653,73 @@ export const PaiementsTab: React.FC = () => {
               <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
                 <thead className="bg-slate-100 dark:bg-slate-750 text-slate-700 dark:text-slate-200 uppercase tracking-wider text-[10px] font-semibold border-b border-slate-200 dark:border-slate-700">
                   <tr>
-                    <th className="py-3 px-4">N° Reçu & Date</th>
-                    <th className="py-3 px-4">Élève / Payeur</th>
+                    <th className="py-3 px-4">
+                      <button
+                        type="button"
+                        onClick={() => toggleSortColumn('paymentDate')}
+                        className="inline-flex items-center gap-1 hover:text-slate-950 dark:hover:text-white cursor-pointer uppercase"
+                      >
+                        <span>N° Reçu & Date</span>
+                        {sortBy === 'paymentDate_asc' ? (
+                          <ArrowUp className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                        ) : sortBy === 'paymentDate_desc' ? (
+                          <ArrowDown className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3 opacity-45" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="py-3 px-4">
+                      <button
+                        type="button"
+                        onClick={() => toggleSortColumn('student')}
+                        className="inline-flex items-center gap-1 hover:text-slate-950 dark:hover:text-white cursor-pointer uppercase"
+                      >
+                        <span>Élève / Payeur</span>
+                        {sortBy === 'student_asc' ? (
+                          <ArrowUp className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                        ) : sortBy === 'student_desc' ? (
+                          <ArrowDown className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3 opacity-45" />
+                        )}
+                      </button>
+                    </th>
                     <th className="py-3 px-4">Prestation</th>
+                    <th className="py-3 px-4">
+                      <button
+                        type="button"
+                        onClick={() => toggleSortColumn('coveredMonth')}
+                        className="inline-flex items-center gap-1 hover:text-slate-950 dark:hover:text-white cursor-pointer uppercase"
+                        title="Trier par mois réglé"
+                      >
+                        <span>Mois Réglé</span>
+                        {sortBy === 'coveredMonth_asc' ? (
+                          <ArrowUp className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                        ) : sortBy === 'coveredMonth_desc' ? (
+                          <ArrowDown className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3 opacity-45" />
+                        )}
+                      </button>
+                    </th>
                     <th className="py-3 px-4">Mode de Règlement</th>
-                    <th className="py-3 px-4 text-right">Montant (FCFA)</th>
+                    <th className="py-3 px-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => toggleSortColumn('amount')}
+                        className="inline-flex items-center justify-end gap-1 hover:text-slate-950 dark:hover:text-white cursor-pointer uppercase ml-auto"
+                      >
+                        <span>Montant (FCFA)</span>
+                        {sortBy === 'amount_asc' ? (
+                          <ArrowUp className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                        ) : sortBy === 'amount_desc' ? (
+                          <ArrowDown className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3 opacity-45" />
+                        )}
+                      </button>
+                    </th>
                     <th className="py-3 px-4">Agent Encaissseur</th>
                     <th className="py-3 px-4 text-center">Sync</th>
                     <th className="py-3 px-4 text-right">Action</th>
@@ -546,7 +728,7 @@ export const PaiementsTab: React.FC = () => {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
                   {safePayments.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-16 text-center text-slate-400">
+                      <td colSpan={9} className="py-16 text-center text-slate-400">
                         <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
                           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                             <CreditCard className="h-6 w-6" />
@@ -569,13 +751,16 @@ export const PaiementsTab: React.FC = () => {
                     </tr>
                   ) : filteredPayments.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                      <td colSpan={9} className="py-12 text-center text-slate-400">
                         <CreditCard className="h-8 w-8 mx-auto mb-2 opacity-50" />
                         <p className="font-medium text-slate-700 dark:text-slate-300">Aucun encaissement ne correspond à ces critères.</p>
                       </td>
                     </tr>
                   ) : (
-                    filteredPayments.map((pay) => (
+                    filteredPayments.map((pay) => {
+                      const coveredKey = getPaymentCoveredMonthKey(pay);
+                      const coveredLabel = formatPaymentCoveredMonthLabel(pay);
+                      return (
                       <tr key={pay.id} className="hover:bg-slate-50 dark:hover:bg-slate-750/50 transition-colors">
                         <td className="py-3.5 px-4">
                           <div className="font-mono font-bold text-slate-900 dark:text-white">
@@ -612,12 +797,35 @@ export const PaiementsTab: React.FC = () => {
                             </span>
                           )}
                         </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          {coveredKey ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCoveredMonthFilter(coveredMonthFilter === coveredKey ? 'all' : coveredKey)
+                              }
+                              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-bold border transition-colors cursor-pointer ${
+                                coveredMonthFilter === coveredKey
+                                  ? 'bg-indigo-600 text-white border-indigo-600'
+                                  : 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/80 hover:bg-indigo-100 dark:hover:bg-indigo-900/50'
+                              }`}
+                              title="Cliquer pour filtrer par ce mois réglé"
+                            >
+                              <Calendar className="h-3 w-3 shrink-0" />
+                              <span>{coveredLabel}</span>
+                            </button>
+                          ) : (
+                            <span className="inline-flex items-center rounded-lg bg-slate-100 dark:bg-slate-700/70 px-2.5 py-1 text-[10.5px] font-medium text-slate-500 dark:text-slate-400">
+                              {coveredLabel}
+                            </span>
+                          )}
+                        </td>
                         <td className="py-3.5 px-4">
                           <span className="font-medium text-slate-700 dark:text-slate-300">
                             {pay.paymentMethod}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-white">
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-white tabular-nums">
                           +{(pay?.amount ?? 0).toLocaleString()}
                         </td>
                         <td className="py-3.5 px-4">
@@ -669,7 +877,8 @@ export const PaiementsTab: React.FC = () => {
                           </div>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>

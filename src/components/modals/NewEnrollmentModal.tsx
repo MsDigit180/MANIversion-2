@@ -6,6 +6,7 @@ import {
   getCurrentFrenchDate,
   formatISODateToFrench,
   formatDateToISO,
+  formatYYYYMMToFrench,
   formatSessionHours,
   calculateWeeklyHours,
   calculateMonthlyHours,
@@ -265,6 +266,7 @@ export const NewEnrollmentModal: React.FC = () => {
 
         // 2. Émission du reçu autonome pour les Frais d'Encadrement si acompte versé
         if (encPaid > 0 && newStu) {
+          const initialCoveredMonth = (serviceStartDate || new Date().toISOString().slice(0, 10)).slice(0, 7);
           await addPayment({
             studentId: newStu.id,
             studentName: fullName.trim(),
@@ -272,9 +274,10 @@ export const NewEnrollmentModal: React.FC = () => {
             amount: encPaid,
             paymentMethod: 'Espèces',
             paymentDate: `${getCurrentFrenchDate()} à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
+            coveredMonth: initialCoveredMonth,
             cashierName: 'Guichet Inscription CAS MANI',
             status: 'Validé',
-            notes: `Acompte frais d'encadrement périodiques (Compte Encadrement Cloisonné) pour ${fullName.trim()}`,
+            notes: `Mois de ${formatYYYYMMToFrench(initialCoveredMonth)} - Acompte frais d'encadrement périodiques pour ${fullName.trim()}`,
           });
         }
 

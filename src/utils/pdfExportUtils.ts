@@ -6,7 +6,7 @@ import { numberToFrenchWords } from './familyUtils';
 import { formatReceiptPaymentDate, formatSessionHours } from './dateUtils';
 import { calculateTutorWeeklySessions } from './tutorAssignmentValidation';
 import { extractTutoringGroups } from './groupUtils';
-import { ConsolidatedExpenseItem, TreasurySummary } from './financialUtils';
+import { ConsolidatedExpenseItem, TreasurySummary, formatPaymentCoveredMonthLabel } from './financialUtils';
 
 /**
  * Cache pour le logo CAS-MANI en Base64 PNG pour une réutilisation instantanée
@@ -340,7 +340,7 @@ export const downloadPaymentListPDF = async (
       (index + 1).toString(),
       `${p.receiptNumber}\n${formattedDate}`,
       (p.studentName || '').toUpperCase(),
-      `${p.category || 'Paiement'}\n(${((p as any).monthCovered || (p as any).month || 'En cours')})`,
+      `${p.category || 'Paiement'}\n(${formatPaymentCoveredMonthLabel(p)})`,
       p.paymentMethod || 'Espèces',
       `${(p.amount || 0).toLocaleString()} FCFA`,
     ];
@@ -484,7 +484,7 @@ export const downloadReceiptPDF = async (
   const receiptRows = [
     [
       receipt.category || "Frais d'encadrement",
-      (receipt as any).monthCovered || (receipt as any).month || formattedPaymentDate,
+      formatPaymentCoveredMonthLabel(receipt),
       receipt.paymentMethod || 'Espèces',
       `${(receipt.amount || 0).toLocaleString()} FCFA`,
     ],
