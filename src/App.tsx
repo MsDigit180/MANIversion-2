@@ -45,8 +45,10 @@ import {
   Building,
   Settings,
   Wallet,
+  FileText,
 } from 'lucide-react';
 import { TabKey } from './types';
+import { downloadDailyDashboardReportPDF } from './utils/pdfExportUtils';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -119,8 +121,36 @@ const DashboardContent: React.FC = () => {
     setIsPaySalaryModalOpen,
     selectedTutorForSalary,
     setSelectedTutorForSalary,
+    students,
+    payments,
+    expenses,
+    salaryPayments,
+    currentUser,
+    showToast,
   } = useApp();
   const [embeddedTab, setEmbeddedTab] = useState<'inscriptions' | 'paiements' | 'depenses' | 'concours' | 'boutique'>('inscriptions');
+  const [isGeneratingDailyPdf, setIsGeneratingDailyPdf] = useState(false);
+
+  const handleDownloadDailyPdf = async () => {
+    if (isGeneratingDailyPdf) return;
+    setIsGeneratingDailyPdf(true);
+    try {
+      await downloadDailyDashboardReportPDF({
+        students: students || [],
+        payments: payments || [],
+        expenses: expenses || [],
+        salaryPayments: salaryPayments || [],
+        campusName: campus,
+        agentName: currentUser?.fullName,
+      });
+      showToast('Rapport récapitulatif journalier PDF téléchargé avec succès.', 'success');
+    } catch (error) {
+      console.error('Erreur génération rapport journalier PDF:', error);
+      showToast('Erreur lors de la génération du rapport PDF.', 'warning');
+    } finally {
+      setIsGeneratingDailyPdf(false);
+    }
+  };
 
   // If not authenticated, render Login view
   if (!isAuthenticated) {
@@ -212,8 +242,20 @@ const DashboardContent: React.FC = () => {
                 </h1>
               </div>
 
-              {/* Status indicator tag */}
-              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              {/* Status indicator tag & Daily PDF Report */}
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                {currentTab === 'dashboard' && (
+                  <button
+                    type="button"
+                    onClick={handleDownloadDailyPdf}
+                    disabled={isGeneratingDailyPdf}
+                    title="Télécharger le rapport récapitulatif PDF de la journée (inscriptions & paiements)"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>{isGeneratingDailyPdf ? 'Génération...' : 'Rapport Journalier PDF'}</span>
+                  </button>
+                )}
                 <span className="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1 font-mono text-[11px] text-slate-700 dark:text-slate-300 shadow-sm">
                   {getPeriodLabel()}
                 </span>

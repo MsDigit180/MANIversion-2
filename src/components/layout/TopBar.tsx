@@ -20,6 +20,8 @@ import {
   Settings,
   Shield,
   BadgeCheck,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { LiveClock } from '../common/LiveClock';
@@ -44,6 +46,9 @@ export const TopBar: React.FC = () => {
     setIsSearchOpen,
     theme,
     toggleTheme,
+    isSidebarCollapsed,
+    toggleSidebar,
+    showToast,
     currentUser,
     logout,
     setCurrentTab,
@@ -51,9 +56,67 @@ export const TopBar: React.FC = () => {
 
   const [isOperationsDropdownOpen, setIsOperationsDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(() => Boolean(document.fullscreenElement));
+  const [isMaximizedFallback, setIsMaximizedFallback] = useState<boolean>(false);
 
   const opsDropdownRef = useRef<HTMLDivElement>(null);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
+  const collapsedByFullscreenRef = useRef<boolean>(false);
+
+  // Sync fullscreen state when user exits via Esc key or browser controls
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const active = Boolean(document.fullscreenElement);
+      setIsFullscreen(active);
+      if (!active && collapsedByFullscreenRef.current) {
+        collapsedByFullscreenRef.current = false;
+        if (isSidebarCollapsed) {
+          toggleSidebar();
+        }
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, [isSidebarCollapsed, toggleSidebar]);
+
+  const isMaximized = isFullscreen || isMaximizedFallback;
+
+  const handleToggleFullscreen = async () => {
+    if (!isMaximized) {
+      if (!isSidebarCollapsed) {
+        collapsedByFullscreenRef.current = true;
+        toggleSidebar();
+      }
+      try {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+          setIsFullscreen(true);
+          setIsMaximizedFallback(false);
+          return;
+        }
+      } catch {
+        // Fullscreen API can be restricted inside embedded iframes; fall back cleanly
+      }
+      setIsMaximizedFallback(true);
+      showToast('Espace de travail maximisé pour la concentration.', 'info');
+    } else {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        try {
+          await document.exitFullscreen();
+        } catch {
+          // Ignore exit errors
+        }
+      }
+      setIsFullscreen(false);
+      setIsMaximizedFallback(false);
+      if (collapsedByFullscreenRef.current) {
+        collapsedByFullscreenRef.current = false;
+        if (isSidebarCollapsed) {
+          toggleSidebar();
+        }
+      }
+    }
+  };
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -161,65 +224,78 @@ export const TopBar: React.FC = () => {
           </kbd>
         </button>
 
-        {/* Network & Offline-First Status Pill with simulator trigger */}
-        <div className="flex items-center">
-          {networkStatus === 'online' && pendingCount === 0 && (
-            <button
-              onClick={toggleNetworkSimulation}
-              title="Cliquez pour basculer en mode hors-ligne (simulateur)"
-              className="group flex items-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all cursor-pointer"
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="hidden sm:inline">En ligne</span>
-              <span className="text-[10px] text-emerald-600 dark:text-emerald-400/80 group-hover:text-emerald-500">· Sync OK</span>
-            </button>
-          )}
+        {/* Offline / Syncing Status Indicator (when applicable) */}
+        {(networkStatus === 'offline' || (networkStatus === 'online' && pendingCount > 0) || isSyncing) && (
+          <div className="flex items-center">
+            {networkStatus === 'offline' && (
+              <button
+                onClick={toggleNetworkSimulation}
+                title="Mode hors-ligne actif. Cliquez pour rétablir la connexion"
+                className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/15 px-2.5 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-500/25 transition-all cursor-pointer"
+              >
+                <WifiOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                <span className="font-semibold">Hors-ligne</span>
+                {pendingCount > 0 && (
+                  <span className="rounded bg-amber-400/20 px-1 text-[11px] font-mono text-amber-800 dark:text-amber-200">
+                    {pendingCount} en attente
+                  </span>
+                )}
+              </button>
+            )}
 
-          {networkStatus === 'offline' && (
-            <button
-              onClick={toggleNetworkSimulation}
-              title="Mode hors-ligne actif. Cliquez pour rétablir la connexion"
-              className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/15 px-2.5 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-500/25 transition-all cursor-pointer"
-            >
-              <WifiOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-              <span className="font-semibold">Hors-ligne</span>
-              {pendingCount > 0 && (
-                <span className="rounded bg-amber-400/20 px-1 text-[11px] font-mono text-amber-800 dark:text-amber-200">
-                  {pendingCount} en attente
+            {networkStatus === 'online' && pendingCount > 0 && (
+              <button
+                onClick={() => setIsSyncDrawerOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition-all cursor-pointer"
+              >
+                <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                <span className="hidden md:inline">Sync en attente</span>
+                <span className="rounded bg-amber-500/30 px-1.5 py-0.2 text-[11px] font-mono font-bold text-amber-800 dark:text-amber-200">
+                  {pendingCount}
                 </span>
-              )}
-            </button>
-          )}
+              </button>
+            )}
 
-          {networkStatus === 'online' && pendingCount > 0 && (
-            <button
-              onClick={() => setIsSyncDrawerOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition-all cursor-pointer"
-            >
-              <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-              <span className="hidden md:inline">Sync en attente</span>
-              <span className="rounded bg-amber-500/30 px-1.5 py-0.2 text-[11px] font-mono font-bold text-amber-800 dark:text-amber-200">
-                {pendingCount}
-              </span>
-            </button>
-          )}
-
-          {isSyncing && (
-            <div className="flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-300">
-              <RefreshCw className="h-3.5 w-3.5 animate-spin text-indigo-500" />
-              <span>Synchronisation...</span>
-            </div>
-          )}
-        </div>
+            {isSyncing && (
+              <div className="flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin text-indigo-500" />
+                <span>Synchronisation...</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Zone 3: Actions, Theme Switcher & User Profile */}
       <div className="flex items-center gap-2 sm:gap-2.5">
         {/* PWA In-App Install Trigger */}
         <PWAInstallButton />
+
+        {/* Mode Plein-Écran Button */}
+        <button
+          type="button"
+          onClick={handleToggleFullscreen}
+          aria-pressed={isMaximized}
+          aria-label={isMaximized ? 'Quitter le Mode Plein-Écran' : 'Activer le Mode Plein-Écran'}
+          title={isMaximized ? 'Quitter le Mode Plein-Écran (Échap)' : 'Mode Plein-Écran — Maximiser l’espace de travail'}
+          className={`flex h-9 items-center gap-1.5 rounded-xl border px-2.5 sm:px-3 text-xs font-semibold shadow-sm transition-all cursor-pointer ${
+            isMaximized
+              ? 'border-indigo-500/40 bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-500/25'
+              : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 text-slate-700 dark:text-slate-200 hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400'
+          }`}
+        >
+          {isMaximized ? (
+            <>
+              <Minimize2 className="h-4 w-4 shrink-0" />
+              <span className="hidden xl:inline font-medium">Quitter Plein-Écran</span>
+            </>
+          ) : (
+            <>
+              <Maximize2 className="h-4 w-4 shrink-0" />
+              <span className="hidden xl:inline font-medium">Mode Plein-Écran</span>
+            </>
+          )}
+        </button>
 
         {/* DYNAMIC THEME TOGGLE BUTTON (MANDATORY FIX) */}
         <button

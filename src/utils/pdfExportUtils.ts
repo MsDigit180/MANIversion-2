@@ -1,12 +1,19 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { CAB_APPUIS_LOGO, CAB_APPUIS_INFO } from '../assets/logo';
-import { Student, Tutor, PaymentReceipt, MonthlyInvoice, TutoringGroup, GroupRecord } from '../types';
+import { Student, Tutor, PaymentReceipt, MonthlyInvoice, TutoringGroup, GroupRecord, Expense, SalaryPayment } from '../types';
 import { numberToFrenchWords } from './familyUtils';
-import { formatReceiptPaymentDate, formatSessionHours } from './dateUtils';
+import { formatReceiptPaymentDate, formatSessionHours, parseFlexibleDate } from './dateUtils';
 import { calculateTutorWeeklySessions } from './tutorAssignmentValidation';
 import { extractTutoringGroups } from './groupUtils';
-import { ConsolidatedExpenseItem, TreasurySummary, formatPaymentCoveredMonthLabel } from './financialUtils';
+import {
+  ConsolidatedExpenseItem,
+  TreasurySummary,
+  formatPaymentCoveredMonthLabel,
+  isInscriptionCategory,
+  isEncadrementCategory,
+  calculateTreasurySummary,
+} from './financialUtils';
 
 /**
  * Cache pour le logo CAS-MANI en Base64 PNG pour une réutilisation instantanée
@@ -1158,6 +1165,387 @@ export const downloadTreasuryExpensesPDF = async (
   applyPageFooters(doc);
 
   const filename = generateUniqueDocumentFileName('rapport_caisse_mensuelle', periodLabel);
+  doc.save(filename);
+};
+
+// ============================================================================
+// 8. TÉLÉCHARGEMENT PDF : RAPPORT RÉCAPITULATIF JOURNALIER DU TABLEAU DE BORD
+// ============================================================================
+export interface DailyDashboardReportParams {
+  students: Student[];
+  payments: PaymentReceipt[];
+  expenses: Expense[];
+  salaryPayments: SalaryPayment[];
+  campusName?: string;
+  agentName?: string;
+}
+
+export const downloadDailyDashboardReportPDF = async ({
+  students,
+  payments,
+  expenses,
+  salaryPayments,
+  campusName,
+  agentName,
+}: DailyDashboardReportParams) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const logoDataUrl = await getLogoDataUrl();
+
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+  const todayStr = now.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  const isToday = (rawDate?: string) => {
+    const parsed = parseFlexibleDate(rawDate);
+    if (!parsed) return false;
+    return (
+      parsed.getFullYear() === todayMidnight.getFullYear() &&
+      parsed.getMonth() === todayMidnight.getMonth() &&
+      parsed.getDate() === todayMidnight.getDate()
+    );
+  };
+
+  const safeStudents = students || [];
+  const safePayments = (payments || []).filter((p) => p.status !== 'Annulé');
+  const safeExpenses = expenses || [];
+  const safeSalaries = salaryPayments || [];
+
+  // 1. Statistiques Inscriptions
+  const todayStudents = safeStudents.filter((s) => isToday(s.enrollmentDate));
+  const last7DaysStudents = safeStudents.filter((s) => {
+    const d = parseFlexibleDate(s.enrollmentDate);
+    return d !== null && d >= sevenDaysAgo && d <= todayMidnight;
+  });
+  const activeCount = safeStudents.filter((s) => s.tutoringStatus === 'Actif').length;
+  const stoppedDemandCount = safeStudents.filter((s) => s.tutoringStatus === 'Arrêté (À la demande)').length;
+  const stoppedUnpaidCount = safeStudents.filter((s) => s.tutoringStatus === 'Arrêté (Défaut de paiement)').length;
+
+  // 2. Statistiques Paiements & Trésorerie
+  const todayPayments = safePayments.filter((p) => isToday(p.paymentDate));
+  const todayPaymentsTotal = todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const todayEncadrementTotal = todayPayments
+    .filter((p) => isEncadrementCategory(p.category))
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+  const todayInscriptionTotal = todayPayments
+    .filter((p) => isInscriptionCategory(p.category))
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+  const todayOtherPaymentsTotal = Math.max(0, todayPaymentsTotal - todayEncadrementTotal - todayInscriptionTotal);
+  const todayCashPayments = todayPayments
+    .filter((p) => (p.paymentMethod || '').toLowerCase().includes('esp'))
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+  const todayDigitalPayments = Math.max(0, todayPaymentsTotal - todayCashPayments);
+
+  const todayExpensesTotal =
+    safeExpenses.filter((e) => isToday(e.expenseDate)).reduce((sum, e) => sum + (e.amount || 0), 0) +
+    safeSalaries.filter((s) => isToday(s.paymentDate)).reduce((sum, s) => sum + (s.amount || 0), 0);
+  const todayNetFlow = todayPaymentsTotal - todayExpensesTotal;
+
+  const globalTreasury = calculateTreasurySummary(safePayments, safeExpenses, safeSalaries, 'all');
+  const encadrementCollected = safePayments
+    .filter((p) => isEncadrementCategory(p.category))
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+  const encadrementDue = safeStudents.reduce(
+    (sum, s) => sum + (s?.encadrement?.due ?? s?.monthlyFee ?? 0),
+    0
+  );
+  const encadrementRate = encadrementDue > 0 ? Math.round((encadrementCollected / encadrementDue) * 100) : 100;
+
+  const inscriptionCollected = safePayments
+    .filter((p) => isInscriptionCategory(p.category))
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+  const inscriptionDue = safeStudents.reduce(
+    (sum, s) => sum + (s?.inscription?.due ?? 10000),
+    0
+  );
+  const inscriptionRate = inscriptionDue > 0 ? Math.round((inscriptionCollected / inscriptionDue) * 100) : 100;
+
+  const metaLine = `Journée du ${todayStr} · Édité à ${timeStr}${campusName ? ` · Site : ${campusName}` : ''}${
+    agentName ? ` · Agent : ${agentName}` : ''
+  }`;
+
+  drawOfficialHeader(
+    doc,
+    logoDataUrl,
+    'RAPPORT RÉCAPITULATIF JOURNALIER — TABLEAU DE BORD',
+    metaLine
+  );
+
+  // Cartouche Synthèse KPI Journée
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(14, 38, pageWidth - 28, 30, 2, 2, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(30, 27, 75);
+  doc.text(`SYNTHÈSE DE LA JOURNÉE DU ${todayStr}`, 18, 44);
+
+  doc.setFontSize(8);
+  doc.setTextColor(67, 56, 202);
+  doc.text(`Inscriptions du jour : ${todayStudents.length} élève(s)`, 18, 50.5);
+  doc.setTextColor(5, 150, 105);
+  doc.text(`Encaissements du jour : ${formatPdfFCFA(todayPaymentsTotal)} (${todayPayments.length} reçu(s))`, 104, 50.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(
+    `7 derniers jours : ${last7DaysStudents.length} | Actifs : ${activeCount} / ${safeStudents.length} inscrits`,
+    18,
+    56.5
+  );
+  doc.text(
+    `Espèces : ${formatPdfFCFA(todayCashPayments)} | Mobile/Banque : ${formatPdfFCFA(todayDigitalPayments)}`,
+    104,
+    56.5
+  );
+
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(18, 59.5, pageWidth - 18, 59.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(220, 38, 38);
+  doc.text(`Dépenses & Salaires du jour : -${formatPdfFCFA(todayExpensesTotal)}`, 18, 64.5);
+
+  doc.setTextColor(todayNetFlow >= 0 ? 5 : 185, todayNetFlow >= 0 ? 122 : 28, todayNetFlow >= 0 ? 85 : 28);
+  doc.text(`Solde Net du jour : ${formatPdfFCFA(todayNetFlow)}`, 104, 64.5);
+
+  // Section 1 : Statistiques clés Inscriptions & Paiements
+  let currentY = 74;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(30, 27, 75);
+  doc.text('1. INDICATEURS CLÉS DES INSCRIPTIONS ET DES PAIEMENTS', 14, currentY);
+
+  autoTable(doc, {
+    startY: currentY + 3,
+    head: [['Pôle / Indicateur', 'Journée du ' + todayStr, 'Cumul Global / Situation']],
+    body: [
+      [
+        'Nouvelles inscriptions',
+        `${todayStudents.length} élève(s)`,
+        `${safeStudents.length} inscrits au total (${last7DaysStudents.length} sur 7 jours)`,
+      ],
+      [
+        'Statut pédagogique des élèves',
+        `${activeCount} actifs aux cours`,
+        `${stoppedDemandCount} arrêt(s) demande · ${stoppedUnpaidCount} arrêt(s) impayés`,
+      ],
+      [
+        "Frais d'Encadrement (Scolarité)",
+        `${formatPdfFCFA(todayEncadrementTotal)}`,
+        `${formatPdfFCFA(encadrementCollected)} recouvrés (${encadrementRate}%)`,
+      ],
+      [
+        "Frais d'Inscription (Admission)",
+        `${formatPdfFCFA(todayInscriptionTotal)}`,
+        `${formatPdfFCFA(inscriptionCollected)} recouvrés (${inscriptionRate}%)`,
+      ],
+      [
+        'Autres encaissements (Concours / Boutique)',
+        `${formatPdfFCFA(todayOtherPaymentsTotal)}`,
+        `Total journée : ${formatPdfFCFA(todayPaymentsTotal)}`,
+      ],
+      [
+        'Trésorerie & Solde Net en Caisse',
+        `${formatPdfFCFA(todayNetFlow)} (flux du jour)`,
+        `${formatPdfFCFA(globalTreasury.netCashBalance)} (net global)`,
+      ],
+    ],
+    theme: 'grid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 8,
+      cellPadding: 2.4,
+      textColor: [30, 41, 59],
+      lineColor: [203, 213, 225],
+      lineWidth: 0.1,
+    },
+    headStyles: {
+      fillColor: [30, 27, 75],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8.5,
+    },
+    columnStyles: {
+      0: { cellWidth: 66, fontStyle: 'bold' },
+      1: { cellWidth: 52 },
+      2: { cellWidth: 64 },
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    margin: { left: 14, right: 14 },
+  });
+
+  // Section 2 : Détail des inscriptions du jour
+  currentY = ((doc as any).lastAutoTable?.finalY || currentY + 50) + 8;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(30, 27, 75);
+  doc.text(`2. INSCRIPTIONS ENREGISTRÉES CE JOUR (${todayStudents.length})`, 14, currentY);
+
+  const studentRows =
+    todayStudents.length > 0
+      ? todayStudents.map((stu, idx) => [
+          (idx + 1).toString(),
+          stu.matricule || '-',
+          (stu.fullName || '').toUpperCase(),
+          stu.level || stu.stream || '-',
+          [stu.guardianName, stu.guardianPhone].filter(Boolean).join(' / ') || '-',
+          formatPdfFCFA(stu.monthlyFee || 0),
+        ])
+      : [['-', '-', 'Aucune nouvelle inscription enregistrée ce jour', '-', '-', '-']];
+
+  autoTable(doc, {
+    startY: currentY + 3,
+    head: [['N°', 'Matricule', 'Élève', 'Niveau', 'Tuteur / Tél', 'Mensualité']],
+    body: studentRows,
+    theme: 'grid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.5,
+      cellPadding: 2.1,
+      textColor: [30, 41, 59],
+      lineColor: [203, 213, 225],
+      lineWidth: 0.1,
+    },
+    headStyles: {
+      fillColor: [79, 70, 229],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8,
+    },
+    columnStyles: {
+      0: { cellWidth: 9, halign: 'center' },
+      1: { cellWidth: 26 },
+      2: { cellWidth: 46, fontStyle: 'bold' },
+      3: { cellWidth: 28 },
+      4: { cellWidth: 47 },
+      5: { cellWidth: 26, halign: 'right' },
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    margin: { left: 14, right: 14 },
+  });
+
+  // Section 3 : Détail des paiements encaissés ce jour
+  currentY = ((doc as any).lastAutoTable?.finalY || currentY + 35) + 8;
+  if (currentY + 30 > pageHeight - 16) {
+    doc.addPage();
+    currentY = 18;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(30, 27, 75);
+  doc.text(`3. PAIEMENTS ENCAISSÉS CE JOUR (${todayPayments.length})`, 14, currentY);
+
+  const paymentRows =
+    todayPayments.length > 0
+      ? [
+          ...todayPayments.map((p, idx) => [
+            (idx + 1).toString(),
+            p.receiptNumber || '-',
+            (p.studentName || '').toUpperCase(),
+            `${p.category || 'Paiement'} (${formatPaymentCoveredMonthLabel(p)})`,
+            p.paymentMethod || 'Espèces',
+            formatPdfFCFA(p.amount || 0),
+          ]),
+          [
+            '',
+            'TOTAL JOUR',
+            `${todayPayments.length} règlement(s)`,
+            '',
+            '',
+            formatPdfFCFA(todayPaymentsTotal),
+          ],
+        ]
+      : [['-', '-', 'Aucun règlement encaissé ce jour', '-', '-', formatPdfFCFA(0)]];
+
+  autoTable(doc, {
+    startY: currentY + 3,
+    head: [['N°', 'N° Reçu', 'Élève', 'Catégorie / Mois', 'Mode', 'Montant']],
+    body: paymentRows,
+    theme: 'grid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.5,
+      cellPadding: 2.1,
+      textColor: [30, 41, 59],
+      lineColor: [203, 213, 225],
+      lineWidth: 0.1,
+    },
+    headStyles: {
+      fillColor: [5, 150, 105],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8,
+    },
+    columnStyles: {
+      0: { cellWidth: 9, halign: 'center' },
+      1: { cellWidth: 28, fontStyle: 'bold' },
+      2: { cellWidth: 45, fontStyle: 'bold' },
+      3: { cellWidth: 46 },
+      4: { cellWidth: 26 },
+      5: { cellWidth: 28, halign: 'right', fontStyle: 'bold' },
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    didParseCell: (hookData) => {
+      if (
+        todayPayments.length > 0 &&
+        hookData.row.index === paymentRows.length - 1 &&
+        hookData.section === 'body'
+      ) {
+        hookData.cell.styles.fillColor = [241, 245, 249];
+        hookData.cell.styles.fontStyle = 'bold';
+        hookData.cell.styles.textColor = [15, 23, 42];
+      }
+    },
+    margin: { left: 14, right: 14, bottom: 18 },
+  });
+
+  // Signatures
+  let sigY = ((doc as any).lastAutoTable?.finalY || currentY + 30) + 10;
+  if (sigY + 20 > pageHeight - 12) {
+    doc.addPage();
+    sigY = 22;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(51, 65, 85);
+  doc.text('Le Secrétariat / Agent de Caisse :', 18, sigY);
+  doc.text('La Direction CAS-MANI (Visa & Cachet) :', pageWidth - 88, sigY);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Nom & Signature : ____________________', 18, sigY + 10);
+  doc.text('Signature & Cachet : ____________________', pageWidth - 88, sigY + 10);
+
+  applyPageFooters(doc);
+
+  const filename = generateUniqueDocumentFileName('rapport_journalier', todayIso);
   doc.save(filename);
 };
 
