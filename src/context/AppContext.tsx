@@ -23,6 +23,8 @@ import {
   MultiStudentReceiptItem,
   AdminMemo,
   MemoCategory,
+  CashLoan,
+  LoanRepayment,
 } from '../types';
 import { calculateMonthlyHours } from '../utils/dateUtils';
 import { validateTutorAssignment, isPrimaryStudent, calculateTutorWeeklySessions } from '../utils/tutorAssignmentValidation';
@@ -193,6 +195,32 @@ interface AppContextType {
   setIsNewExpenseModalOpen: (open: boolean) => void;
   editingExpense: Expense | null;
   setEditingExpense: (expense: Expense | null) => void;
+  cashLoans: CashLoan[];
+  takeCashLoan: (data: {
+    borrowerName: string;
+    borrowerPhone?: string;
+    borrowerRole?: string;
+    principalAmount: number;
+    paymentMethod: string;
+    loanDate?: string;
+    dueDate?: string;
+    reason: string;
+    notes?: string;
+  }) => Promise<CashLoan>;
+  repayCashLoan: (
+    loanId: string,
+    data: {
+      amount: number;
+      paymentMethod: string;
+      repaymentDate?: string;
+      notes?: string;
+    }
+  ) => Promise<CashLoan>;
+  deleteCashLoan: (loanId: string) => Promise<void>;
+  isCashLoanModalOpen: boolean;
+  setIsCashLoanModalOpen: (open: boolean) => void;
+  selectedLoanForRepay: CashLoan | null;
+  setSelectedLoanForRepay: (loan: CashLoan | null) => void;
   isPaySalaryModalOpen: boolean;
   setIsPaySalaryModalOpen: (open: boolean) => void;
   selectedTutorForSalary: Tutor | null;
@@ -389,6 +417,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [customGroups, setCustomGroups] = useState<GroupRecord[]>([]);
   const [salaryPayments, setSalaryPayments] = useState<SalaryPayment[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [cashLoans, setCashLoans] = useState<CashLoan[]>([]);
   const [adminMemos, setAdminMemos] = useState<AdminMemo[]>([]);
 
   // Navigation & Filters
@@ -427,6 +456,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedTutorForSalary, setSelectedTutorForSalary] = useState<Tutor | null>(null);
   const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [isCashLoanModalOpen, setIsCashLoanModalOpen] = useState(false);
+  const [selectedLoanForRepay, setSelectedLoanForRepay] = useState<CashLoan | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Toast
@@ -662,6 +693,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.ADMIN_MEMOS)
         );
         unsubscribes.push(unsubAdminMemos);
+
+        // 13. Cash Loans Listener (Prêts & Remises de Caisse)
+        const unsubCashLoans = onSnapshot(
+          collection(db, COLLECTIONS.CASH_LOANS),
+          (snapshot) => {
+            const list: CashLoan[] = [];
+            snapshot.forEach((docSnap) => {
+              const raw = docSnap.data() as CashLoan;
+              if (raw) {
+                list.push({
+                  ...raw,
+                  repayments: Array.isArray(raw.repayments) ? raw.repayments : [],
+                });
+              }
+            });
+            setCashLoans(list);
+          },
+          (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.CASH_LOANS)
+        );
+        unsubscribes.push(unsubCashLoans);
         setIsLoading(false);
       } catch (e) {
         console.warn('Firestore realtime notice:', e);
@@ -1122,6 +1173,227 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     await safeFirestoreWrite(Promise.all(writes), 1200);
     showToast(`Dépense ${target.expenseNumber} supprimée. Solde de caisse réajusté.`, 'info');
+  };
+
+  const takeCashLoan = async (data: {
+    borrowerName: string;
+    borrowerPhone?: string;
+    borrowerRole?: string;
+    principalAmount: number;
+    paymentMethod: string;
+    loanDate?: string;
+    dueDate?: string;
+    reason: string;
+    notes?: string;
+  }): Promise<CashLoan> => {
+    const cleanBorrower = (data.borrowerName || '').trim().slice(0, 150);
+    const cleanReason = (data.reason || '').trim().slice(0, 500);
+    const amount = Number(data.principalAmount || 0);
+
+    if (!cleanBorrower || !cleanReason || !Number.isFinite(amount) || amount <= 0) {
+      showToast('Veuillez saisir le bénéficiaire, le motif et un montant valide.', 'warning');
+      throw new Error('Données de prêt invalides.');
+    }
+
+    const loanNumber = `PRET-2026-${String(cashLoans.length + 1).padStart(4, '0')}`;
+    const agentId = currentUser.id;
+    const agentName = currentUser.fullName;
+    const agentRole = currentUser.role;
+    const agentAvatar = currentUser.avatar;
+    const finalDate = formatReceiptPaymentDate(data.loanDate || getCurrentFrenchDateTime());
+    const nowTs = Date.now();
+
+    const newLoan: CashLoan = {
+      id: `loan-${nowTs}-${Math.floor(Math.random() * 1000)}`,
+      loanNumber,
+      borrowerName: cleanBorrower,
+      ...(data.borrowerPhone?.trim() ? { borrowerPhone: data.borrowerPhone.trim().slice(0, 50) } : {}),
+      ...(data.borrowerRole?.trim() ? { borrowerRole: data.borrowerRole.trim().slice(0, 100) } : {}),
+      principalAmount: amount,
+      repaidAmount: 0,
+      remainingAmount: amount,
+      paymentMethod: data.paymentMethod || 'Espèces',
+      loanDate: finalDate,
+      ...(data.dueDate?.trim() ? { dueDate: data.dueDate.trim().slice(0, 50) } : {}),
+      reason: cleanReason,
+      status: 'En cours',
+      repayments: [],
+      ...(data.notes?.trim() ? { notes: data.notes.trim().slice(0, 500) } : {}),
+      syncStatus: 'synced',
+      agentId,
+      agentName,
+      agentRole,
+      agentAvatar,
+    };
+
+    const newOp: OperationItem = {
+      id: `op-loan-${nowTs}`,
+      type: 'pret',
+      title: `Prêt de Caisse · ${cleanBorrower}`,
+      subtitle: `${cleanReason} · Réf ${loanNumber}`,
+      referenceId: loanNumber,
+      amount,
+      timestamp: getCurrentFrenchDateTime(),
+      syncStatus: 'synced',
+      metaBadge: newLoan.paymentMethod,
+      agentId,
+      agentName,
+      agentRole,
+      agentAvatar,
+    };
+
+    setCashLoans((prev) => [newLoan, ...prev]);
+    setOperations((prev) => [newOp, ...prev]);
+
+    await safeFirestoreWrite(
+      Promise.all([
+        setDoc(doc(db, COLLECTIONS.CASH_LOANS, newLoan.id), sanitizeForFirestore(newLoan), { merge: true }),
+        setDoc(doc(db, COLLECTIONS.OPERATIONS, newOp.id), sanitizeForFirestore(newOp), { merge: true }),
+      ]),
+      1200
+    );
+
+    showToast(
+      `Prêt ${loanNumber} de ${amount.toLocaleString()} FCFA accordé à ${cleanBorrower} et déduit de la caisse.`,
+      'success'
+    );
+    return newLoan;
+  };
+
+  const repayCashLoan = async (
+    loanId: string,
+    data: {
+      amount: number;
+      paymentMethod: string;
+      repaymentDate?: string;
+      notes?: string;
+    }
+  ): Promise<CashLoan> => {
+    const target = cashLoans.find((l) => l.id === loanId);
+    if (!target) {
+      showToast('Prêt introuvable.', 'warning');
+      throw new Error('Prêt introuvable.');
+    }
+
+    const repayAmount = Number(data.amount || 0);
+    const currentRemaining = Number(target.remainingAmount ?? target.principalAmount - (target.repaidAmount || 0));
+
+    if (!Number.isFinite(repayAmount) || repayAmount <= 0) {
+      showToast('Veuillez saisir un montant de remise valide.', 'warning');
+      throw new Error('Montant de remise invalide.');
+    }
+
+    if (repayAmount > currentRemaining) {
+      showToast(
+        `Le montant remis (${repayAmount.toLocaleString()} FCFA) dépasse le reste dû (${currentRemaining.toLocaleString()} FCFA).`,
+        'warning'
+      );
+      throw new Error('Montant supérieur au solde du prêt.');
+    }
+
+    const nowTs = Date.now();
+    const existingRepayments = Array.isArray(target.repayments) ? target.repayments : [];
+    const totalExistingRepaymentsCount = cashLoans.reduce(
+      (sum, l) => sum + (Array.isArray(l.repayments) ? l.repayments.length : 0),
+      0
+    );
+    const repaymentNumber = `REMB-2026-${String(totalExistingRepaymentsCount + 1).padStart(4, '0')}`;
+    const finalDate = formatReceiptPaymentDate(data.repaymentDate || getCurrentFrenchDateTime());
+
+    const newRepayment: LoanRepayment = {
+      id: `remb-${nowTs}-${Math.floor(Math.random() * 1000)}`,
+      repaymentNumber,
+      amount: repayAmount,
+      paymentMethod: data.paymentMethod || 'Espèces',
+      repaymentDate: finalDate,
+      ...(data.notes?.trim() ? { notes: data.notes.trim().slice(0, 300) } : {}),
+      agentId: currentUser.id,
+      agentName: currentUser.fullName,
+      agentRole: currentUser.role,
+    };
+
+    const nextRepaid = Number(target.repaidAmount || 0) + repayAmount;
+    const nextRemaining = Math.max(0, Number(target.principalAmount) - nextRepaid);
+    const nextStatus: CashLoan['status'] =
+      nextRemaining === 0 ? 'Remboursé' : 'Partiellement remboursé';
+
+    const updatedLoan: CashLoan = {
+      ...target,
+      repaidAmount: nextRepaid,
+      remainingAmount: nextRemaining,
+      status: nextStatus,
+      repayments: [...existingRepayments, newRepayment],
+    };
+
+    const newOp: OperationItem = {
+      id: `op-remb-${nowTs}`,
+      type: 'remboursement',
+      title: `Remise Prêt · ${target.borrowerName}`,
+      subtitle: `${
+        nextRemaining === 0 ? 'Remboursement intégral' : `Remboursement partiel (reste ${nextRemaining.toLocaleString()} FCFA)`
+      } · ${target.loanNumber}`,
+      referenceId: repaymentNumber,
+      amount: repayAmount,
+      timestamp: getCurrentFrenchDateTime(),
+      syncStatus: 'synced',
+      metaBadge: newRepayment.paymentMethod,
+      agentId: currentUser.id,
+      agentName: currentUser.fullName,
+      agentRole: currentUser.role,
+      agentAvatar: currentUser.avatar,
+    };
+
+    setCashLoans((prev) => prev.map((l) => (l.id === loanId ? updatedLoan : l)));
+    setOperations((prev) => [newOp, ...prev]);
+
+    await safeFirestoreWrite(
+      Promise.all([
+        setDoc(doc(db, COLLECTIONS.CASH_LOANS, loanId), sanitizeForFirestore(updatedLoan), { merge: true }),
+        setDoc(doc(db, COLLECTIONS.OPERATIONS, newOp.id), sanitizeForFirestore(newOp), { merge: true }),
+      ]),
+      1200
+    );
+
+    showToast(
+      nextRemaining === 0
+        ? `Prêt ${target.loanNumber} intégralement remis (+${repayAmount.toLocaleString()} FCFA en caisse).`
+        : `Remise de ${repayAmount.toLocaleString()} FCFA enregistrée (${nextRemaining.toLocaleString()} FCFA restant).`,
+      'success'
+    );
+    return updatedLoan;
+  };
+
+  const deleteCashLoan = async (loanId: string): Promise<void> => {
+    const target = cashLoans.find((l) => l.id === loanId);
+    if (!target) {
+      showToast('Prêt introuvable.', 'warning');
+      return;
+    }
+
+    const repNumbers = new Set((target.repayments || []).map((r) => r.repaymentNumber));
+
+    setCashLoans((prev) => prev.filter((l) => l.id !== loanId));
+    setOperations((prev) =>
+      prev.filter(
+        (op) =>
+          op.referenceId !== target.loanNumber &&
+          !repNumbers.has(op.referenceId) &&
+          op.id !== target.id
+      )
+    );
+
+    const writes: Promise<any>[] = [
+      deleteDoc(doc(db, COLLECTIONS.CASH_LOANS, loanId)),
+    ];
+
+    operations
+      .filter((op) => op.referenceId === target.loanNumber || repNumbers.has(op.referenceId))
+      .forEach((op) => {
+        writes.push(deleteDoc(doc(db, COLLECTIONS.OPERATIONS, op.id)));
+      });
+
+    await safeFirestoreWrite(Promise.all(writes), 1200);
+    showToast(`Prêt ${target.loanNumber} supprimé et solde de caisse réajusté.`, 'info');
   };
 
   const assignTutorToStudent = async (
@@ -3287,6 +3559,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsNewExpenseModalOpen,
         editingExpense,
         setEditingExpense,
+        cashLoans,
+        takeCashLoan,
+        repayCashLoan,
+        deleteCashLoan,
+        isCashLoanModalOpen,
+        setIsCashLoanModalOpen,
+        selectedLoanForRepay,
+        setSelectedLoanForRepay,
         isPaySalaryModalOpen,
         setIsPaySalaryModalOpen,
         selectedTutorForSalary,

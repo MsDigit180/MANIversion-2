@@ -23,6 +23,7 @@ import { SettingsTab } from './components/tabs/SettingsTab';
 import { NewEnrollmentModal } from './components/modals/NewEnrollmentModal';
 import { NewPaymentModal } from './components/modals/NewPaymentModal';
 import { NewExpenseModal } from './components/modals/NewExpenseModal';
+import { CashLoanModal } from './components/modals/CashLoanModal';
 import { NewSupplySaleModal } from './components/modals/NewSupplySaleModal';
 import { NewProductModal } from './components/modals/NewProductModal';
 import { RestockModal } from './components/modals/RestockModal';
@@ -128,6 +129,7 @@ const DashboardContent: React.FC = () => {
     payments,
     expenses,
     salaryPayments,
+    cashLoans,
     currentUser,
     showToast,
   } = useApp();
@@ -144,6 +146,7 @@ const DashboardContent: React.FC = () => {
         payments: payments || [],
         expenses: expenses || [],
         salaryPayments: salaryPayments || [],
+        cashLoans: cashLoans || [],
         campusName: campus,
         agentName: currentUser?.fullName,
       });
@@ -423,6 +426,7 @@ const DashboardContent: React.FC = () => {
       <NewEnrollmentModal />
       <NewPaymentModal />
       <NewExpenseModal />
+      <CashLoanModal />
       <NewSupplySaleModal />
       <NewProductModal />
       <RestockModal />
@@ -457,6 +461,7 @@ const DashboardContent: React.FC = () => {
         payments={payments || []}
         expenses={expenses || []}
         salaryPayments={salaryPayments || []}
+        cashLoans={cashLoans || []}
         campusName={campus}
         agentName={currentUser?.fullName}
       />

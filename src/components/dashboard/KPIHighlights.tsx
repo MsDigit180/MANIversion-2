@@ -463,6 +463,7 @@ export const KPIHighlights: React.FC = () => {
     payments,
     expenses,
     salaryPayments,
+    cashLoans,
     exams,
     inventory,
     setCurrentTab,
@@ -476,6 +477,7 @@ export const KPIHighlights: React.FC = () => {
   const safePayments = payments || [];
   const safeExpenses = expenses || [];
   const safeSalaries = salaryPayments || [];
+  const safeCashLoans = cashLoans || [];
   const safeExams = exams || [];
   const safeInventory = inventory || [];
   const isDark = theme === 'dark';
@@ -557,7 +559,7 @@ export const KPIHighlights: React.FC = () => {
     }
   };
 
-  const treasury = calculateTreasurySummary(safePayments, safeExpenses, safeSalaries, 'all');
+  const treasury = calculateTreasurySummary(safePayments, safeExpenses, safeSalaries, 'all', safeCashLoans);
 
   // 1. Inscriptions metrics
   const activeCount = safeStudents.filter((s) => s.tutoringStatus === 'Actif').length;

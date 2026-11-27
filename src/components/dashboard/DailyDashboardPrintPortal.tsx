@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Student, PaymentReceipt, Expense, SalaryPayment } from '../../types';
+import { Student, PaymentReceipt, Expense, SalaryPayment, CashLoan } from '../../types';
 import { CAB_APPUIS_LOGO, CAB_APPUIS_INFO } from '../../assets/logo';
 import { parseFlexibleDate } from '../../utils/dateUtils';
 import {
@@ -16,6 +16,7 @@ interface DailyDashboardPrintPortalProps {
   payments: PaymentReceipt[];
   expenses: Expense[];
   salaryPayments: SalaryPayment[];
+  cashLoans?: CashLoan[];
   campusName?: string;
   agentName?: string;
 }
@@ -26,6 +27,7 @@ export const DailyDashboardPrintPortal: React.FC<DailyDashboardPrintPortalProps>
   payments,
   expenses,
   salaryPayments,
+  cashLoans,
   campusName,
   agentName,
 }) => {
@@ -95,7 +97,13 @@ export const DailyDashboardPrintPortal: React.FC<DailyDashboardPrintPortalProps>
       .reduce((sum, s) => sum + (s.amount || 0), 0);
   const todayNetFlow = todayPaymentsTotal - todayExpensesTotal;
 
-  const globalTreasury = calculateTreasurySummary(safePayments, safeExpenses, safeSalaries, 'all');
+  const globalTreasury = calculateTreasurySummary(
+    safePayments,
+    safeExpenses,
+    safeSalaries,
+    'all',
+    cashLoans || []
+  );
   const encadrementCollected = safePayments
     .filter((p) => isEncadrementCategory(p.category))
     .reduce((sum, p) => sum + (p.amount || 0), 0);

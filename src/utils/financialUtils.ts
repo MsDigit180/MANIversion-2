@@ -1,4 +1,4 @@
-import { FinancialAccount, Student, PaymentReceipt, Expense, SalaryPayment } from '../types';
+import { FinancialAccount, Student, PaymentReceipt, Expense, SalaryPayment, CashLoan } from '../types';
 import { addDaysToDate, formatDateToFrench, formatYYYYMMToFrench, parseFlexibleDate } from './dateUtils';
 
 /**
@@ -512,6 +512,14 @@ export interface TreasurySummary {
   totalExpenses: number;
   expensesCash: number;
   expensesDigital: number;
+  loansGrantedTotal: number;
+  loansRepaidTotal: number;
+  outstandingLoansTotal: number;
+  loansCashOut: number;
+  loansDigitalOut: number;
+  loansCashIn: number;
+  loansDigitalIn: number;
+  activeLoansCount: number;
   netCashBalance: number;
   netPhysicalCash: number;
   netDigitalBalance: number;
@@ -523,7 +531,8 @@ export function calculateTreasurySummary(
   payments: PaymentReceipt[],
   expenses: Expense[],
   salaryPayments: SalaryPayment[],
-  monthFilter: string = 'all'
+  monthFilter: string = 'all',
+  cashLoans: CashLoan[] = []
 ): TreasurySummary {
   const validPayments = (payments || []).filter(
     (p) => p && p.status !== 'Annulé' && matchesTreasuryMonth(p.paymentDate, p.notes, monthFilter)
@@ -585,10 +594,49 @@ export function calculateTreasurySummary(
     }
   }
 
+  let loansGrantedTotal = 0;
+  let loansRepaidTotal = 0;
+  let loansCashOut = 0;
+  let loansDigitalOut = 0;
+  let loansCashIn = 0;
+  let loansDigitalIn = 0;
+  let activeLoansCount = 0;
+
+  for (const loan of cashLoans || []) {
+    if (!loan) continue;
+    if (loan.status !== 'Remboursé' && Number(loan.remainingAmount || 0) > 0) {
+      activeLoansCount += 1;
+    }
+
+    if (matchesTreasuryMonth(loan.loanDate, loan.notes, monthFilter)) {
+      const amt = Number(loan.principalAmount || 0);
+      loansGrantedTotal += amt;
+      if (isCashPaymentMethod(loan.paymentMethod)) {
+        loansCashOut += amt;
+      } else {
+        loansDigitalOut += amt;
+      }
+    }
+
+    for (const rep of loan.repayments || []) {
+      if (!rep) continue;
+      if (matchesTreasuryMonth(rep.repaymentDate, rep.notes, monthFilter)) {
+        const repAmt = Number(rep.amount || 0);
+        loansRepaidTotal += repAmt;
+        if (isCashPaymentMethod(rep.paymentMethod)) {
+          loansCashIn += repAmt;
+        } else {
+          loansDigitalIn += repAmt;
+        }
+      }
+    }
+  }
+
   const totalExpenses = manualExpensesTotal + salaryExpensesTotal;
-  const netCashBalance = totalRecovery - totalExpenses;
-  const netPhysicalCash = recoveryCash - expensesCash;
-  const netDigitalBalance = recoveryDigital - expensesDigital;
+  const outstandingLoansTotal = Math.max(0, loansGrantedTotal - loansRepaidTotal);
+  const netCashBalance = totalRecovery - totalExpenses - loansGrantedTotal + loansRepaidTotal;
+  const netPhysicalCash = recoveryCash - expensesCash - loansCashOut + loansCashIn;
+  const netDigitalBalance = recoveryDigital - expensesDigital - loansDigitalOut + loansDigitalIn;
 
   return {
     totalRecovery,
@@ -602,6 +650,14 @@ export function calculateTreasurySummary(
     totalExpenses,
     expensesCash,
     expensesDigital,
+    loansGrantedTotal,
+    loansRepaidTotal,
+    outstandingLoansTotal,
+    loansCashOut,
+    loansDigitalOut,
+    loansCashIn,
+    loansDigitalIn,
+    activeLoansCount,
     netCashBalance,
     netPhysicalCash,
     netDigitalBalance,

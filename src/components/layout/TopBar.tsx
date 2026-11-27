@@ -17,6 +17,7 @@ import {
   LogOut,
   Settings,
   BadgeCheck,
+  HandCoins,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { LiveClock } from '../common/LiveClock';
@@ -38,6 +39,8 @@ export const TopBar: React.FC = () => {
     setIsNewSupplySaleModalOpen,
     setIsNewProductModalOpen,
     setIsNewExamModalOpen,
+    setIsCashLoanModalOpen,
+    setSelectedLoanForRepay,
     setIsSyncDrawerOpen,
     setIsSearchOpen,
     theme,
@@ -333,6 +336,21 @@ export const TopBar: React.FC = () => {
                   <GraduationCap className="h-3.5 w-3.5" />
                 </div>
                 <span>Candidature Concours</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOperationsDropdownOpen(false);
+                  setSelectedLoanForRepay(null);
+                  setIsCashLoanModalOpen(true);
+                }}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                  <HandCoins className="h-3.5 w-3.5" />
+                </div>
+                <span>Prendre un Prêt Caisse</span>
               </button>
             </div>
           )}

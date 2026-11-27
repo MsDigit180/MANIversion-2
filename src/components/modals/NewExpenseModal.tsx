@@ -26,6 +26,7 @@ export const NewExpenseModal: React.FC = () => {
     payments,
     expenses,
     salaryPayments,
+    cashLoans,
     showToast,
   } = useApp();
 
@@ -66,7 +67,7 @@ export const NewExpenseModal: React.FC = () => {
 
   if (!isNewExpenseModalOpen) return null;
 
-  const treasurySummary = calculateTreasurySummary(payments, expenses, salaryPayments, 'all');
+  const treasurySummary = calculateTreasurySummary(payments, expenses, salaryPayments, 'all', cashLoans);
   const parsedAmount = parseFloat(amount) || 0;
   const currentBalanceBeforeEdit = editingExpense
     ? treasurySummary.netCashBalance + Number(editingExpense.amount || 0)

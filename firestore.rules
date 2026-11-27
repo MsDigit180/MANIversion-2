@@ -69,6 +69,10 @@ service cloud.firestore {
       allow read, write: if isValidId(memoId);
     }
 
+    match /cashLoans/{loanId} {
+      allow read, write: if isValidId(loanId);
+    }
+
     match /test/{testId} {
       allow read, write: if true;
     }

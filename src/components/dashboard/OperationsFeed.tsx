@@ -12,6 +12,8 @@ import {
   Wallet,
   CalendarDays,
   Download,
+  HandCoins,
+  RotateCcw,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { OperationItem } from '../../types';
@@ -67,7 +69,8 @@ export const OperationsFeed: React.FC = () => {
 
   const filteredOperations = enrichedOperations.filter(({ op }) => {
     if (filterType === 'all') return true;
-    if (filterType === 'depense') return op.type === 'depense' || op.type === 'salaire';
+    if (filterType === 'depense') return op.type === 'depense' || op.type === 'salaire' || op.type === 'pret';
+    if (filterType === 'paiement') return op.type === 'paiement' || op.type === 'remboursement';
     return op.type === filterType;
   });
 
@@ -85,6 +88,10 @@ export const OperationsFeed: React.FC = () => {
         return <Wallet className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />;
       case 'depense':
         return <Receipt className="h-4 w-4 text-rose-500 dark:text-rose-400" />;
+      case 'pret':
+        return <HandCoins className="h-4 w-4 text-amber-500 dark:text-amber-400" />;
+      case 'remboursement':
+        return <RotateCcw className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />;
     }
   };
 
@@ -109,6 +116,10 @@ export const OperationsFeed: React.FC = () => {
         return 'Salaire';
       case 'depense':
         return 'Dépense';
+      case 'pret':
+        return 'Prêt Caisse';
+      case 'remboursement':
+        return 'Remise Prêt';
     }
   };
 
@@ -140,7 +151,7 @@ export const OperationsFeed: React.FC = () => {
     const rows = enrichedOperations.map(({ op, resolved }) => {
       const hasAmount = typeof op.amount === 'number' && !isNaN(op.amount);
       const signedAmount = hasAmount
-        ? op.type === 'depense' || op.type === 'salaire'
+        ? op.type === 'depense' || op.type === 'salaire' || op.type === 'pret'
           ? -Math.abs(op.amount!)
           : op.amount!
         : '';
@@ -290,11 +301,13 @@ export const OperationsFeed: React.FC = () => {
                   className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
                     op.type === 'inscription'
                       ? 'bg-indigo-50 dark:bg-indigo-500/10'
-                      : op.type === 'paiement'
+                      : op.type === 'paiement' || op.type === 'remboursement'
                       ? 'bg-emerald-50 dark:bg-emerald-500/10'
                       : op.type === 'vente'
                       ? 'bg-amber-50 dark:bg-amber-500/10'
-                      : op.type === 'depense'
+                      : op.type === 'pret'
+                      ? 'bg-amber-50 dark:bg-amber-500/10'
+                      : op.type === 'depense' || op.type === 'salaire'
                       ? 'bg-rose-50 dark:bg-rose-500/10'
                       : 'bg-purple-50 dark:bg-purple-500/10'
                   }`}
@@ -344,10 +357,14 @@ export const OperationsFeed: React.FC = () => {
                     className={`font-mono text-xs font-bold tabular-nums ${
                       op.type === 'depense' || op.type === 'salaire'
                         ? 'text-rose-600 dark:text-rose-400'
+                        : op.type === 'pret'
+                        ? 'text-amber-700 dark:text-amber-400'
+                        : op.type === 'remboursement'
+                        ? 'text-emerald-600 dark:text-emerald-400'
                         : 'text-slate-900 dark:text-slate-100'
                     }`}
                   >
-                    {op.type === 'depense' || op.type === 'salaire' ? '-' : '+'}
+                    {op.type === 'depense' || op.type === 'salaire' || op.type === 'pret' ? '-' : '+'}
                     {(op.amount ?? 0).toLocaleString()} FCFA
                   </span>
                 )}
@@ -359,8 +376,10 @@ export const OperationsFeed: React.FC = () => {
                         ? 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30'
                         : op.metaBadge === 'Demande'
                         ? 'bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/30'
-                        : op.metaBadge === 'Réactivé'
+                        : op.metaBadge === 'Réactivé' || op.metaBadge === 'Prêt soldé'
                         ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30'
+                        : op.metaBadge === 'Prêt en cours' || op.metaBadge === 'Partiel'
+                        ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30'
                         : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600'
                     }`}
                   >

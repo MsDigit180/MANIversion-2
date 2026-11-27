@@ -546,7 +546,7 @@ export interface Expense {
 
 export interface OperationItem {
   id: string;
-  type: 'inscription' | 'paiement' | 'vente' | 'concours' | 'salaire' | 'depense';
+  type: 'inscription' | 'paiement' | 'vente' | 'concours' | 'salaire' | 'depense' | 'pret' | 'remboursement';
   title: string;
   subtitle: string;
   referenceId: string;
@@ -589,5 +589,42 @@ export interface AdminMemo {
   authorName: string;
   authorRole: AgentRole;
   authorAvatar?: string;
+}
+
+export type CashLoanStatus = 'En cours' | 'Partiellement remboursé' | 'Remboursé';
+
+export interface LoanRepayment {
+  id: string;
+  repaymentNumber: string; // e.g. "REMB-2026-0001"
+  amount: number;
+  paymentMethod: string;
+  repaymentDate: string;
+  notes?: string;
+  agentId: string;
+  agentName: string;
+  agentRole: AgentRole;
+}
+
+export interface CashLoan {
+  id: string;
+  loanNumber: string; // e.g. "PRET-2026-0001"
+  borrowerName: string;
+  borrowerPhone?: string;
+  borrowerRole?: string;
+  principalAmount: number;
+  repaidAmount: number;
+  remainingAmount: number;
+  paymentMethod: string;
+  loanDate: string;
+  dueDate?: string;
+  reason: string;
+  status: CashLoanStatus;
+  repayments: LoanRepayment[];
+  notes?: string;
+  syncStatus: SyncState;
+  agentId: string;
+  agentName: string;
+  agentRole: AgentRole;
+  agentAvatar?: string;
 }
 

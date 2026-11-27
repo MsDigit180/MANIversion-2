@@ -244,6 +244,34 @@
         "authorAvatar": { "type": "string", "maxLength": 1000000 }
       },
       "required": ["id", "title", "content", "category", "pinned", "completed", "createdAt", "updatedAt", "authorId", "authorName", "authorRole"]
+    },
+    "CashLoan": {
+      "title": "CashLoan",
+      "description": "Cash register loan granted from treasury and tracked with partial or full repayments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "loanNumber": { "type": "string", "maxLength": 100 },
+        "borrowerName": { "type": "string", "maxLength": 150 },
+        "borrowerPhone": { "type": "string", "maxLength": 50 },
+        "borrowerRole": { "type": "string", "maxLength": 100 },
+        "principalAmount": { "type": "number" },
+        "repaidAmount": { "type": "number" },
+        "remainingAmount": { "type": "number" },
+        "paymentMethod": { "type": "string", "maxLength": 100 },
+        "loanDate": { "type": "string", "maxLength": 100 },
+        "dueDate": { "type": "string", "maxLength": 50 },
+        "reason": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["En cours", "Partiellement remboursé", "Remboursé"] },
+        "repayments": { "type": "array" },
+        "notes": { "type": "string", "maxLength": 500 },
+        "syncStatus": { "type": "string", "maxLength": 50 },
+        "agentId": { "type": "string", "maxLength": 128 },
+        "agentName": { "type": "string", "maxLength": 150 },
+        "agentRole": { "type": "string", "maxLength": 100 },
+        "agentAvatar": { "type": "string", "maxLength": 1000000 }
+      },
+      "required": ["id", "loanNumber", "borrowerName", "principalAmount", "repaidAmount", "remainingAmount", "paymentMethod", "loanDate", "reason", "status", "repayments", "agentId", "agentName", "agentRole"]
     }
   },
   "firestore": {
@@ -290,6 +318,10 @@
     "/adminMemos/{memoId}": {
       "schema": "AdminMemo",
       "description": "Administrative quick notes and daily reminders"
+    },
+    "/cashLoans/{loanId}": {
+      "schema": "CashLoan",
+      "description": "Cash register loans granted and repayments returned to treasury"
     }
   }
 }

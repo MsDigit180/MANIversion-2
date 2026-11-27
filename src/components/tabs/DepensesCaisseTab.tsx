@@ -19,52 +19,215 @@ import {
   Clock,
   Scale,
   FileDown,
+  HandCoins,
+  RotateCcw,
+  AlertTriangle,
+  BellRing,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { EXPENSE_CATEGORIES } from '../../types';
+import { EXPENSE_CATEGORIES, CashLoan } from '../../types';
 import {
   buildConsolidatedExpenses,
   calculateTreasurySummary,
   ConsolidatedExpenseItem,
   matchesTreasuryMonth,
 } from '../../utils/financialUtils';
-import { formatYYYYMMToFrench } from '../../utils/dateUtils';
+import {
+  formatYYYYMMToFrench,
+  parseFlexibleDate,
+  formatDateToFrench,
+} from '../../utils/dateUtils';
 import { downloadTreasuryExpensesPDF } from '../../utils/pdfExportUtils';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
+
+type LoanDeadlineLevel = 'overdue' | 'today' | 'soon' | 'normal' | 'none';
+
+interface LoanDeadlineAlert {
+  level: LoanDeadlineLevel;
+  label: string;
+  formattedDueDate: string | null;
+  diffDays: number | null;
+}
+
+const getLoanDeadlineAlert = (loan: CashLoan): LoanDeadlineAlert => {
+  const principal = Number(loan.principalAmount || 0);
+  const repaid = Number(loan.repaidAmount || 0);
+  const remaining = Math.max(0, Number(loan.remainingAmount ?? principal - repaid));
+  const isRepaid = remaining === 0 || loan.status === 'Remboursé';
+
+  if (isRepaid || !loan.dueDate) {
+    return { level: 'none', label: '', formattedDueDate: null, diffDays: null };
+  }
+
+  const parsedDue = parseFlexibleDate(loan.dueDate);
+  if (!parsedDue) {
+    return {
+      level: 'normal',
+      label: `Échéance : ${loan.dueDate}`,
+      formattedDueDate: loan.dueDate,
+      diffDays: null,
+    };
+  }
+
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dueMidnight = new Date(parsedDue.getFullYear(), parsedDue.getMonth(), parsedDue.getDate());
+  const diffDays = Math.round((dueMidnight.getTime() - todayMidnight.getTime()) / 86400000);
+  const formattedDueDate = formatDateToFrench(dueMidnight);
+
+  if (diffDays < 0) {
+    const daysLate = Math.abs(diffDays);
+    return {
+      level: 'overdue',
+      label: `Dépassée de ${daysLate} j`,
+      formattedDueDate,
+      diffDays,
+    };
+  }
+  if (diffDays === 0) {
+    return {
+      level: 'today',
+      label: "Échéance aujourd'hui",
+      formattedDueDate,
+      diffDays: 0,
+    };
+  }
+  if (diffDays <= 3) {
+    return {
+      level: 'soon',
+      label: `Dans ${diffDays} j`,
+      formattedDueDate,
+      diffDays,
+    };
+  }
+  return {
+    level: 'normal',
+    label: `Échéance : ${formattedDueDate}`,
+    formattedDueDate,
+    diffDays,
+  };
+};
 
 export const DepensesCaisseTab: React.FC = () => {
   const {
     payments,
     expenses,
     salaryPayments,
+    cashLoans,
     deleteExpense,
     deleteSalaryPayment,
+    deleteCashLoan,
     setIsNewExpenseModalOpen,
     setEditingExpense,
+    setIsCashLoanModalOpen,
+    setSelectedLoanForRepay,
     setIsPaySalaryModalOpen,
     setSelectedTutorForSalary,
     showToast,
     campus,
   } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState<'ledger' | 'reconciliation'>('ledger');
+  const [activeSubTab, setActiveSubTab] = useState<'ledger' | 'loans' | 'reconciliation'>('ledger');
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'manual' | 'salaire'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [methodFilter, setMethodFilter] = useState<string>('all');
   const [monthFilter, setMonthFilter] = useState<string>('all');
+  const [loanSearch, setLoanSearch] = useState('');
+  const [loanStatusFilter, setLoanStatusFilter] = useState<'all' | 'active' | 'alert' | 'repaid'>('all');
+  const [ledgerLoanFilter, setLedgerLoanFilter] = useState<'all' | 'active' | 'alert' | 'repaid'>('all');
 
   const [itemToDelete, setItemToDelete] = useState<ConsolidatedExpenseItem | null>(null);
+  const [loanToDelete, setLoanToDelete] = useState<CashLoan | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const safePayments = payments || [];
   const safeExpenses = expenses || [];
   const safeSalaries = salaryPayments || [];
+  const safeCashLoans = cashLoans || [];
 
   const summary = useMemo(
-    () => calculateTreasurySummary(safePayments, safeExpenses, safeSalaries, monthFilter),
-    [safePayments, safeExpenses, safeSalaries, monthFilter]
+    () => calculateTreasurySummary(safePayments, safeExpenses, safeSalaries, monthFilter, safeCashLoans),
+    [safePayments, safeExpenses, safeSalaries, monthFilter, safeCashLoans]
   );
+
+  const sortedLoans = useMemo(() => {
+    const extractTs = (id: string) => {
+      const m = id.match(/(\d{10,})/);
+      return m ? Number(m[1]) : 0;
+    };
+    return [...safeCashLoans].sort((a, b) => extractTs(b.id) - extractTs(a.id));
+  }, [safeCashLoans]);
+
+  const filteredLoans = useMemo(() => {
+    const q = loanSearch.trim().toLowerCase();
+    return sortedLoans.filter((loan) => {
+      const matchesMonth =
+        monthFilter === 'all' ||
+        matchesTreasuryMonth(loan.loanDate, loan.notes, monthFilter) ||
+        (loan.repayments || []).some((r) => matchesTreasuryMonth(r.repaymentDate, r.notes, monthFilter));
+      const matchesSearch =
+        !q ||
+        loan.loanNumber.toLowerCase().includes(q) ||
+        loan.borrowerName.toLowerCase().includes(q) ||
+        loan.reason.toLowerCase().includes(q) ||
+        (loan.borrowerPhone || '').toLowerCase().includes(q);
+      const isRepaid = loan.status === 'Remboursé' || Number(loan.remainingAmount || 0) <= 0;
+      const alert = getLoanDeadlineAlert(loan);
+      const isUrgent = alert.level === 'overdue' || alert.level === 'today' || alert.level === 'soon';
+      const matchesStatus =
+        loanStatusFilter === 'all' ||
+        (loanStatusFilter === 'active'
+          ? !isRepaid
+          : loanStatusFilter === 'alert'
+          ? isUrgent
+          : isRepaid);
+      return matchesMonth && matchesSearch && matchesStatus;
+    });
+  }, [sortedLoans, monthFilter, loanSearch, loanStatusFilter]);
+
+  const ledgerSummaryLoans = useMemo(() => {
+    return sortedLoans.filter((loan) => {
+      const isRepaid = loan.status === 'Remboursé' || Number(loan.remainingAmount || 0) <= 0;
+      if (ledgerLoanFilter === 'active') return !isRepaid;
+      if (ledgerLoanFilter === 'repaid') return isRepaid;
+      if (ledgerLoanFilter === 'alert') {
+        const alert = getLoanDeadlineAlert(loan);
+        return alert.level === 'overdue' || alert.level === 'today' || alert.level === 'soon';
+      }
+      return true;
+    });
+  }, [sortedLoans, ledgerLoanFilter]);
+
+  const loanStats = useMemo(() => {
+    let totalPrincipal = 0;
+    let totalRepaid = 0;
+    let totalRemaining = 0;
+    let activeCount = 0;
+    let overdueCount = 0;
+    let dueSoonCount = 0;
+    for (const loan of safeCashLoans) {
+      const p = Number(loan.principalAmount || 0);
+      const r = Number(loan.repaidAmount || 0);
+      const rem = Math.max(0, Number(loan.remainingAmount ?? p - r));
+      totalPrincipal += p;
+      totalRepaid += r;
+      totalRemaining += rem;
+      if (rem > 0) activeCount += 1;
+      const alert = getLoanDeadlineAlert(loan);
+      if (alert.level === 'overdue') overdueCount += 1;
+      if (alert.level === 'today' || alert.level === 'soon') dueSoonCount += 1;
+    }
+    return {
+      totalPrincipal,
+      totalRepaid,
+      totalRemaining,
+      activeCount,
+      overdueCount,
+      dueSoonCount,
+      urgentCount: overdueCount + dueSoonCount,
+    };
+  }, [safeCashLoans]);
 
   const allConsolidatedExpenses = useMemo(
     () => buildConsolidatedExpenses(safeExpenses, safeSalaries),
@@ -198,10 +361,11 @@ export const DepensesCaisseTab: React.FC = () => {
     <div className="space-y-6">
       {/* Top Sub-Tab Switcher & Primary Actions */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
-        <div className="inline-flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1 text-xs border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div className="inline-flex flex-wrap rounded-xl bg-slate-100 dark:bg-slate-800 p-1 text-xs border border-slate-200 dark:border-slate-700 shadow-sm">
           <button
+            type="button"
             onClick={() => setActiveSubTab('ledger')}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 font-bold transition-all cursor-pointer whitespace-nowrap ${
+            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeSubTab === 'ledger'
                 ? 'bg-rose-600 text-white shadow-sm'
                 : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -212,8 +376,24 @@ export const DepensesCaisseTab: React.FC = () => {
           </button>
 
           <button
+            type="button"
+            onClick={() => setActiveSubTab('loans')}
+            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 font-bold transition-all cursor-pointer whitespace-nowrap ${
+              activeSubTab === 'loans'
+                ? 'bg-amber-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <HandCoins className="h-4 w-4" />
+            <span>
+              Prêts Caisse ({loanStats.activeCount} en cours)
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveSubTab('reconciliation')}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 font-bold transition-all cursor-pointer whitespace-nowrap ${
+            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeSubTab === 'reconciliation'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -226,6 +406,7 @@ export const DepensesCaisseTab: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2">
           <button
+            type="button"
             onClick={handleExportCSV}
             className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-colors cursor-pointer whitespace-nowrap"
             title="Exporter le journal consolidé des dépenses en CSV"
@@ -235,6 +416,7 @@ export const DepensesCaisseTab: React.FC = () => {
           </button>
 
           <button
+            type="button"
             onClick={handleExportPDF}
             className="flex items-center gap-1.5 rounded-xl border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 px-3.5 py-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shadow-sm transition-colors cursor-pointer whitespace-nowrap shrink-0"
             title="Exporter le rapport officiel de la caisse mensuelle en PDF (avec solde net)"
@@ -244,6 +426,19 @@ export const DepensesCaisseTab: React.FC = () => {
           </button>
 
           <button
+            type="button"
+            onClick={() => {
+              setSelectedLoanForRepay(null);
+              setIsCashLoanModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 px-3.5 py-2 text-xs font-semibold text-amber-800 dark:text-amber-300 shadow-sm transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <HandCoins className="h-3.5 w-3.5" />
+            <span>Prendre un Prêt</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => {
               setSelectedTutorForSalary(null);
               setIsPaySalaryModalOpen(true);
@@ -255,6 +450,7 @@ export const DepensesCaisseTab: React.FC = () => {
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setEditingExpense(null);
               setIsNewExpenseModalOpen(true);
@@ -370,7 +566,10 @@ export const DepensesCaisseTab: React.FC = () => {
 
           <div className="mt-1.5 flex items-center justify-between text-[11px]">
             <span className="text-slate-600 dark:text-slate-300 font-mono">
-              Dépenses : -{summary.totalExpenses.toLocaleString()}
+              Dép. : -{summary.totalExpenses.toLocaleString()}
+              {summary.outstandingLoansTotal > 0
+                ? ` · Prêts : -${summary.outstandingLoansTotal.toLocaleString()}`
+                : ''}
             </span>
             <span
               className={`font-bold ${
@@ -468,6 +667,71 @@ export const DepensesCaisseTab: React.FC = () => {
             </>
           )}
 
+          {activeSubTab === 'loans' && (
+            <>
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher réf (PRET), emprunteur, motif..."
+                  value={loanSearch}
+                  onChange={(e) => setLoanSearch(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+
+              <div className="inline-flex rounded-xl bg-slate-100 dark:bg-slate-750 p-1 text-xs border border-slate-200 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setLoanStatusFilter('all')}
+                  className={`rounded-lg px-2.5 py-1 font-semibold transition-colors cursor-pointer ${
+                    loanStatusFilter === 'all'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Tous ({safeCashLoans.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoanStatusFilter('active')}
+                  className={`rounded-lg px-2.5 py-1 font-semibold transition-colors cursor-pointer ${
+                    loanStatusFilter === 'active'
+                      ? 'bg-white dark:bg-slate-700 text-amber-700 dark:text-amber-300 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  À remettre ({loanStats.activeCount})
+                </button>
+                {loanStats.urgentCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setLoanStatusFilter('alert')}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-semibold transition-colors cursor-pointer ${
+                      loanStatusFilter === 'alert'
+                        ? 'bg-rose-600 text-white shadow-sm'
+                        : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+                    }`}
+                  >
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    <span>Échéances ({loanStats.urgentCount})</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setLoanStatusFilter('repaid')}
+                  className={`rounded-lg px-2.5 py-1 font-semibold transition-colors cursor-pointer ${
+                    loanStatusFilter === 'repaid'
+                      ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-300 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Remis ({safeCashLoans.length - loanStats.activeCount})
+                </button>
+              </div>
+            </>
+          )}
+
           {/* Month Filter */}
           <div className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-3 py-1.5">
             <Calendar className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
@@ -504,6 +768,8 @@ export const DepensesCaisseTab: React.FC = () => {
           <span>
             {activeSubTab === 'ledger'
               ? `${filteredExpenses.length} sortie(s) · Total : -${filteredTotalAmount.toLocaleString()} FCFA`
+              : activeSubTab === 'loans'
+              ? `${filteredLoans.length} prêt(s) · Encours dû : ${loanStats.totalRemaining.toLocaleString()} FCFA`
               : `Caisse ${periodLabel} : ${summary.netCashBalance.toLocaleString()} FCFA`}
           </span>
         </div>
@@ -681,6 +947,685 @@ export const DepensesCaisseTab: React.FC = () => {
         </div>
       )}
 
+      {/* Tableau Récapitulatif : Historique Complet des Prêts à la Caisse (visible directement dans Dépenses) */}
+      {activeSubTab === 'ledger' && (
+        <section
+          aria-labelledby="loans-history-heading"
+          className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm"
+        >
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <div>
+              <div className="flex items-center gap-2">
+                <HandCoins className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <h3
+                  id="loans-history-heading"
+                  className="text-sm font-bold text-slate-900 dark:text-white"
+                >
+                  Tableau Récapitulatif — Historique des Prêts Octroyés à la Caisse
+                </h3>
+              </div>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
+                {sortedLoans.length} prêt(s) au total · {loanStats.activeCount} en cours ·{' '}
+                {sortedLoans.length - loanStats.activeCount} remboursé(s) · Encours dû :{' '}
+                {loanStats.totalRemaining.toLocaleString()} FCFA
+              </p>
+              {loanStats.urgentCount > 0 && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs font-semibold">
+                  {loanStats.overdueCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        {loanStats.overdueCount} prêt{loanStats.overdueCount > 1 ? 's' : ''} en retard de remboursement
+                      </span>
+                    </span>
+                  )}
+                  {loanStats.dueSoonCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                      <BellRing className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        {loanStats.dueSoonCount} échéance{loanStats.dueSoonCount > 1 ? 's' : ''} proche{loanStats.dueSoonCount > 1 ? 's' : ''} (≤ 3 j)
+                      </span>
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-xl bg-slate-100 dark:bg-slate-750 p-1 text-xs border border-slate-200 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setLedgerLoanFilter('all')}
+                  className={`rounded-lg px-2.5 py-1 font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    ledgerLoanFilter === 'all'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Tous ({sortedLoans.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLedgerLoanFilter('active')}
+                  className={`rounded-lg px-2.5 py-1 font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    ledgerLoanFilter === 'active'
+                      ? 'bg-white dark:bg-slate-700 text-amber-700 dark:text-amber-300 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  En cours ({loanStats.activeCount})
+                </button>
+                {loanStats.urgentCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setLedgerLoanFilter('alert')}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                      ledgerLoanFilter === 'alert'
+                        ? 'bg-rose-600 text-white shadow-sm'
+                        : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+                    }`}
+                  >
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    <span>Alertes ({loanStats.urgentCount})</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setLedgerLoanFilter('repaid')}
+                  className={`rounded-lg px-2.5 py-1 font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    ledgerLoanFilter === 'repaid'
+                      ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-300 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Remboursés ({sortedLoans.length - loanStats.activeCount})
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedLoanForRepay(null);
+                  setIsCashLoanModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Prendre un Prêt</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+              <thead className="bg-slate-100 dark:bg-slate-750 text-slate-700 dark:text-slate-200 uppercase tracking-wider text-[10px] font-semibold border-b border-slate-200 dark:border-slate-700">
+                <tr>
+                  <th className="py-3 px-4">Réf. Prêt</th>
+                  <th className="py-3 px-4">Bénéficiaire &amp; Motif</th>
+                  <th className="py-3 px-4">Date d&apos;Octroi</th>
+                  <th className="py-3 px-4">Échéance / Date Remise</th>
+                  <th className="py-3 px-4 text-right">Montant Prêté</th>
+                  <th className="py-3 px-4 text-right">Remis / Reste</th>
+                  <th className="py-3 px-4">État &amp; Alerte</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                {sortedLoans.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-10 text-center text-slate-400">
+                      <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-2.5">
+                        <HandCoins className="h-7 w-7 text-amber-500/70" />
+                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                          Aucun prêt octroyé à la caisse pour le moment
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Tout prêt prélevé à la caisse apparaîtra ici avec sa date d&apos;octroi, son état et l&apos;historique des remises.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : ledgerSummaryLoans.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-slate-400">
+                      Aucun prêt ne correspond à ce statut.
+                    </td>
+                  </tr>
+                ) : (
+                  ledgerSummaryLoans.map((loan) => {
+                    const principal = Number(loan.principalAmount || 0);
+                    const repaid = Number(loan.repaidAmount || 0);
+                    const remaining = Math.max(0, Number(loan.remainingAmount ?? principal - repaid));
+                    const isRepaid = remaining === 0 || loan.status === 'Remboursé';
+                    const repaymentsList = loan.repayments || [];
+                    const lastRepayment = repaymentsList[repaymentsList.length - 1];
+                    const deadlineAlert = getLoanDeadlineAlert(loan);
+                    const isOverdue = deadlineAlert.level === 'overdue';
+                    const isDueSoon = deadlineAlert.level === 'today' || deadlineAlert.level === 'soon';
+
+                    return (
+                      <tr
+                        key={`summary-${loan.id}`}
+                        className={`transition-colors ${
+                          isOverdue
+                            ? 'bg-rose-50/45 dark:bg-rose-950/20 hover:bg-rose-50/80 dark:hover:bg-rose-950/35'
+                            : isDueSoon
+                            ? 'bg-amber-50/45 dark:bg-amber-950/15 hover:bg-amber-50/80 dark:hover:bg-amber-950/30'
+                            : 'hover:bg-slate-50 dark:hover:bg-slate-750/50'
+                        }`}
+                      >
+                        <td className="py-3 px-4 align-top">
+                          <div className="flex items-center gap-1.5 font-mono font-bold text-slate-900 dark:text-white">
+                            {isOverdue && (
+                              <AlertTriangle
+                                className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400 shrink-0"
+                                aria-label="Échéance de remboursement dépassée"
+                              />
+                            )}
+                            {isDueSoon && (
+                              <BellRing
+                                className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0"
+                                aria-label="Échéance de remboursement proche"
+                              />
+                            )}
+                            <span>{loan.loanNumber}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            {loan.paymentMethod} · {loan.agentName}
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4 align-top">
+                          <div className="font-semibold text-slate-900 dark:text-slate-100">
+                            {loan.borrowerName}
+                            {loan.borrowerPhone && (
+                              <span className="ml-1.5 font-mono text-[10px] font-normal text-slate-400">
+                                ({loan.borrowerPhone})
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
+                            {loan.reason}
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4 align-top font-mono text-[11px] text-slate-700 dark:text-slate-200 tabular-nums whitespace-nowrap">
+                          {loan.loanDate}
+                        </td>
+
+                        <td className="py-3 px-4 align-top text-[11px]">
+                          {lastRepayment ? (
+                            <div className="font-mono text-emerald-700 dark:text-emerald-400 tabular-nums">
+                              {isRepaid ? 'Remis le' : 'Dern. remise'} : {lastRepayment.repaymentDate}
+                            </div>
+                          ) : (
+                            <div className="text-slate-400 dark:text-slate-500">
+                              Aucune remise
+                            </div>
+                          )}
+                          {loan.dueDate && !isRepaid && (
+                            <div
+                              className={`mt-0.5 flex items-center gap-1 font-mono tabular-nums ${
+                                isOverdue
+                                  ? 'font-bold text-rose-600 dark:text-rose-400'
+                                  : isDueSoon
+                                  ? 'font-bold text-amber-600 dark:text-amber-400'
+                                  : 'text-slate-500 dark:text-slate-400'
+                              }`}
+                            >
+                              {isOverdue && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                              {isDueSoon && <BellRing className="h-3 w-3 shrink-0" />}
+                              <span>Échéance : {deadlineAlert.formattedDueDate || loan.dueDate}</span>
+                            </div>
+                          )}
+                          {repaymentsList.length > 1 && (
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              {repaymentsList.length} versement(s) de remise
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 text-right align-top font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums whitespace-nowrap">
+                          -{principal.toLocaleString()} FCFA
+                        </td>
+
+                        <td className="py-3 px-4 text-right align-top font-mono tabular-nums whitespace-nowrap">
+                          <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+                            +{repaid.toLocaleString()} FCFA
+                          </div>
+                          <div
+                            className={`text-[10px] mt-0.5 ${
+                              isRepaid
+                                ? 'text-slate-400 dark:text-slate-500'
+                                : 'font-semibold text-amber-600 dark:text-amber-400'
+                            }`}
+                          >
+                            Reste : {remaining.toLocaleString()} FCFA
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4 align-top whitespace-nowrap">
+                          <div
+                            className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
+                              isRepaid
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : repaid > 0
+                                ? 'text-indigo-600 dark:text-indigo-400'
+                                : 'text-amber-600 dark:text-amber-400'
+                            }`}
+                          >
+                            {isRepaid ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                            ) : (
+                              <Clock className="h-3.5 w-3.5 shrink-0" />
+                            )}
+                            <span>
+                              {isRepaid
+                                ? 'Remboursé'
+                                : repaid > 0
+                                ? 'Partiellement remboursé'
+                                : 'En cours'}
+                            </span>
+                          </div>
+                          {(isOverdue || isDueSoon) && (
+                            <div
+                              className={`mt-1 flex items-center gap-1 text-[11px] font-bold ${
+                                isOverdue
+                                  ? 'text-rose-600 dark:text-rose-400'
+                                  : 'text-amber-600 dark:text-amber-400'
+                              }`}
+                            >
+                              {isOverdue ? (
+                                <AlertTriangle className="h-3 w-3 shrink-0" />
+                              ) : (
+                                <BellRing className="h-3 w-3 shrink-0" />
+                              )}
+                              <span>{deadlineAlert.label}</span>
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 text-right align-top">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {!isRepaid && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedLoanForRepay(loan);
+                                  setIsCashLoanModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                                title="Enregistrer la remise totale ou partielle de ce prêt"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                                <span>Remettre</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => setLoanToDelete(loan)}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-colors cursor-pointer"
+                              title="Supprimer ce dossier de prêt"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+              {ledgerSummaryLoans.length > 0 && (
+                <tfoot className="bg-slate-50 dark:bg-slate-750/70 border-t border-slate-200 dark:border-slate-700 text-xs font-bold">
+                  <tr>
+                    <td colSpan={4} className="py-3 px-4 text-slate-700 dark:text-slate-200">
+                      Total ({ledgerSummaryLoans.length} prêt{ledgerSummaryLoans.length > 1 ? 's' : ''})
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-rose-600 dark:text-rose-400 tabular-nums whitespace-nowrap">
+                      -
+                      {ledgerSummaryLoans
+                        .reduce((acc, l) => acc + Number(l.principalAmount || 0), 0)
+                        .toLocaleString()}{' '}
+                      FCFA
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono tabular-nums whitespace-nowrap">
+                      <div className="text-emerald-600 dark:text-emerald-400">
+                        +
+                        {ledgerSummaryLoans
+                          .reduce((acc, l) => acc + Number(l.repaidAmount || 0), 0)
+                          .toLocaleString()}{' '}
+                        FCFA
+                      </div>
+                      <div className="text-[10px] text-amber-600 dark:text-amber-400">
+                        Reste :{' '}
+                        {ledgerSummaryLoans
+                          .reduce(
+                            (acc, l) =>
+                              acc +
+                              Math.max(
+                                0,
+                                Number(l.remainingAmount ?? Number(l.principalAmount || 0) - Number(l.repaidAmount || 0))
+                              ),
+                            0
+                          )
+                          .toLocaleString()}{' '}
+                        FCFA
+                      </div>
+                    </td>
+                    <td colSpan={2} className="py-3 px-4 text-right text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                      Déduit / réintégré automatiquement dans la caisse
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* =================================================================== */}
+      {/* SUB-VIEW 1B: PRÊTS & REMISES EN CAISSE                              */}
+      {/* =================================================================== */}
+      {activeSubTab === 'loans' && (
+        <div className="space-y-4">
+          {/* Summary Strip */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                Total Prêts Accordés
+              </span>
+              <div className="mt-1 font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+                {loanStats.totalPrincipal.toLocaleString()} <span className="text-xs font-normal text-slate-400">FCFA</span>
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                Total Remis en Caisse
+              </span>
+              <div className="mt-1 font-mono text-lg font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                +{loanStats.totalRepaid.toLocaleString()} <span className="text-xs font-normal text-slate-400">FCFA</span>
+              </div>
+            </div>
+            <div className="rounded-xl border border-amber-200 dark:border-amber-700/60 bg-amber-50/50 dark:bg-amber-950/20 p-3.5">
+              <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                Reste à Remettre (Encours)
+              </span>
+              <div className="mt-1 font-mono text-lg font-bold text-amber-700 dark:text-amber-400 tabular-nums">
+                {loanStats.totalRemaining.toLocaleString()} <span className="text-xs font-normal text-amber-600/80">FCFA</span>
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5 flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block">
+                  Dossiers en cours
+                </span>
+                <span className="mt-1 font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+                  {loanStats.activeCount} / {safeCashLoans.length}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedLoanForRepay(null);
+                  setIsCashLoanModalOpen(true);
+                }}
+                className="rounded-lg bg-amber-600 hover:bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                + Prendre Prêt
+              </button>
+            </div>
+          </div>
+
+          {/* Loans Table */}
+          <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                <thead className="bg-slate-100 dark:bg-slate-750 text-slate-700 dark:text-slate-200 uppercase tracking-wider text-[10px] font-semibold border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="py-3 px-4">Réf &amp; Date</th>
+                    <th className="py-3 px-4">Emprunteur &amp; Motif</th>
+                    <th className="py-3 px-4">Mode</th>
+                    <th className="py-3 px-4 text-right">Montant Prêté</th>
+                    <th className="py-3 px-4 text-right">Déjà Remis</th>
+                    <th className="py-3 px-4 text-right">Reste à Remettre</th>
+                    <th className="py-3 px-4">Statut &amp; Remises</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                  {safeCashLoans.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-16 text-center text-slate-400">
+                        <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                            <HandCoins className="h-6 w-6" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                              Aucun prêt de caisse enregistré
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              Enregistrez un prêt pris à la caisse puis suivez sa remise totale ou partielle jusqu&apos;à restitution complète.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedLoanForRepay(null);
+                              setIsCashLoanModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-amber-500 transition-colors cursor-pointer"
+                          >
+                            <HandCoins className="h-4 w-4" />
+                            <span>Prendre un Prêt</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredLoans.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                        <HandCoins className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="font-medium text-slate-700 dark:text-slate-300">
+                          Aucun prêt ne correspond à ces critères.
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredLoans.map((loan) => {
+                      const remaining = Math.max(
+                        0,
+                        Number(loan.remainingAmount ?? loan.principalAmount - (loan.repaidAmount || 0))
+                      );
+                      const isRepaid = remaining === 0 || loan.status === 'Remboursé';
+                      const repaymentsList = loan.repayments || [];
+                      const deadlineAlert = getLoanDeadlineAlert(loan);
+                      const isOverdue = deadlineAlert.level === 'overdue';
+                      const isDueSoon = deadlineAlert.level === 'today' || deadlineAlert.level === 'soon';
+
+                      return (
+                        <tr
+                          key={loan.id}
+                          className={`transition-colors ${
+                            isOverdue
+                              ? 'bg-rose-50/45 dark:bg-rose-950/20 hover:bg-rose-50/80 dark:hover:bg-rose-950/35'
+                              : isDueSoon
+                              ? 'bg-amber-50/45 dark:bg-amber-950/15 hover:bg-amber-50/80 dark:hover:bg-amber-950/30'
+                              : 'hover:bg-slate-50 dark:hover:bg-slate-750/50'
+                          }`}
+                        >
+                          <td className="py-3.5 px-4 align-top">
+                            <div className="flex items-center gap-1.5 font-mono font-bold text-slate-900 dark:text-white">
+                              {isOverdue && (
+                                <AlertTriangle
+                                  className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400 shrink-0"
+                                  aria-label="Échéance de remboursement dépassée"
+                                />
+                              )}
+                              {isDueSoon && (
+                                <BellRing
+                                  className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0"
+                                  aria-label="Échéance de remboursement proche"
+                                />
+                              )}
+                              <span>{loan.loanNumber}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              {loan.loanDate}
+                            </div>
+                            {loan.dueDate && (
+                              <div
+                                className={`mt-0.5 flex items-center gap-1 text-[10px] font-mono tabular-nums ${
+                                  isOverdue
+                                    ? 'font-bold text-rose-600 dark:text-rose-400'
+                                    : isDueSoon
+                                    ? 'font-bold text-amber-600 dark:text-amber-400'
+                                    : 'text-slate-500 dark:text-slate-400'
+                                }`}
+                              >
+                                {isOverdue && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                                {isDueSoon && <BellRing className="h-3 w-3 shrink-0" />}
+                                <span>
+                                  Échéance : {deadlineAlert.formattedDueDate || loan.dueDate}
+                                </span>
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4 align-top">
+                            <div className="font-semibold text-slate-900 dark:text-slate-100">
+                              {loan.borrowerName}
+                              {loan.borrowerPhone && (
+                                <span className="ml-1.5 font-mono text-[10px] font-normal text-slate-400">
+                                  ({loan.borrowerPhone})
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
+                              {loan.reason}
+                            </div>
+                            {loan.notes && (
+                              <div className="text-[10px] text-slate-400 italic mt-0.5 truncate max-w-xs">
+                                {loan.notes}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4 align-top">
+                            <span className="font-medium text-slate-700 dark:text-slate-300">
+                              {loan.paymentMethod}
+                            </span>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              Par {loan.agentName}
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right align-top font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums">
+                            -{Number(loan.principalAmount || 0).toLocaleString()} FCFA
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right align-top font-mono font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                            +{Number(loan.repaidAmount || 0).toLocaleString()} FCFA
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right align-top font-mono font-bold tabular-nums">
+                            <span
+                              className={
+                                isRepaid
+                                  ? 'text-slate-400 dark:text-slate-500'
+                                  : 'text-amber-600 dark:text-amber-400'
+                              }
+                            >
+                              {remaining.toLocaleString()} FCFA
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 align-top">
+                            <div
+                              className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
+                                isRepaid
+                                  ? 'text-emerald-600 dark:text-emerald-400'
+                                  : loan.repaidAmount > 0
+                                  ? 'text-indigo-600 dark:text-indigo-400'
+                                  : 'text-amber-600 dark:text-amber-400'
+                              }`}
+                            >
+                              {isRepaid ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                              ) : (
+                                <Clock className="h-3.5 w-3.5 shrink-0" />
+                              )}
+                              <span>{isRepaid ? 'Remboursé' : loan.status}</span>
+                            </div>
+
+                            {(isOverdue || isDueSoon) && (
+                              <div
+                                className={`mt-1 flex items-center gap-1 text-[11px] font-bold ${
+                                  isOverdue
+                                    ? 'text-rose-600 dark:text-rose-400'
+                                    : 'text-amber-600 dark:text-amber-400'
+                                }`}
+                              >
+                                {isOverdue ? (
+                                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                                ) : (
+                                  <BellRing className="h-3 w-3 shrink-0" />
+                                )}
+                                <span>{deadlineAlert.label}</span>
+                              </div>
+                            )}
+
+                            {repaymentsList.length > 0 && (
+                              <div className="mt-1 space-y-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+                                {repaymentsList.map((rep) => (
+                                  <div key={rep.id} className="font-mono tabular-nums">
+                                    {rep.repaymentNumber} : +{rep.amount.toLocaleString()} FCFA ({rep.repaymentDate.split(' ')[0]})
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right align-top">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {!isRepaid && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedLoanForRepay(loan);
+                                    setIsCashLoanModalOpen(true);
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors whitespace-nowrap cursor-pointer"
+                                  title="Enregistrer la remise totale ou partielle de ce prêt"
+                                >
+                                  <RotateCcw className="h-3 w-3" />
+                                  <span>Remettre</span>
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => setLoanToDelete(loan)}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-colors cursor-pointer"
+                                title="Supprimer ce dossier de prêt"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* =================================================================== */}
       {/* SUB-VIEW 2: BILAN RECOUVREMENT & ÉTAT DE CAISSE                     */}
       {/* =================================================================== */}
@@ -699,7 +1644,7 @@ export const DepensesCaisseTab: React.FC = () => {
                       Caisse Physique (Espèces)
                     </h3>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Recouvrement espèces − Dépenses & salaires payés en espèces
+                      Recouvrement espèces − Dépenses &amp; prêts espèces + Remises
                     </p>
                   </div>
                 </div>
@@ -725,12 +1670,23 @@ export const DepensesCaisseTab: React.FC = () => {
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                   <ArrowDownRight className="h-3.5 w-3.5 text-rose-500" />
-                  Dépenses & Salaires en Espèces
+                  Dépenses &amp; Salaires en Espèces
                 </span>
                 <span className="font-mono font-semibold text-rose-600 dark:text-rose-400 tabular-nums">
                   -{summary.expensesCash.toLocaleString()} FCFA
                 </span>
               </div>
+              {(summary.loansCashOut > 0 || summary.loansCashIn > 0) && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                    <HandCoins className="h-3.5 w-3.5 text-amber-500" />
+                    Prêts Espèces (Pris − Remis)
+                  </span>
+                  <span className="font-mono font-semibold text-amber-600 dark:text-amber-400 tabular-nums">
+                    {(summary.loansCashIn - summary.loansCashOut).toLocaleString()} FCFA
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 shadow-sm space-y-3">
@@ -867,7 +1823,16 @@ export const DepensesCaisseTab: React.FC = () => {
                 <span className="text-rose-400 font-mono tabular-nums">
                   {summary.totalExpenses.toLocaleString()} FCFA
                 </span>
-                <span className="text-slate-400">(Dépenses Manuelles + Salaires)</span>
+                <span className="text-slate-400">(Dépenses + Salaires)</span>
+                {(summary.loansGrantedTotal > 0 || summary.loansRepaidTotal > 0) && (
+                  <>
+                    <span className="text-slate-300">−</span>
+                    <span className="text-amber-400 font-mono tabular-nums">
+                      {summary.outstandingLoansTotal.toLocaleString()} FCFA
+                    </span>
+                    <span className="text-slate-400">(Prêts non remis)</span>
+                  </>
+                )}
                 <span className="text-slate-300">=</span>
               </div>
             </div>
@@ -888,7 +1853,7 @@ export const DepensesCaisseTab: React.FC = () => {
         </div>
       )}
 
-      {/* Confirm Delete Modal */}
+      {/* Confirm Delete Modal for Expense / Salary */}
       <ConfirmDeleteModal
         isOpen={Boolean(itemToDelete)}
         title={
@@ -903,6 +1868,29 @@ export const DepensesCaisseTab: React.FC = () => {
         }
         onConfirm={handleConfirmDelete}
         onClose={() => setItemToDelete(null)}
+        isDeleting={isDeleting}
+      />
+
+      {/* Confirm Delete Modal for Cash Loan */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(loanToDelete)}
+        title="Supprimer le prêt de caisse"
+        message={
+          loanToDelete
+            ? `Voulez-vous vraiment supprimer le prêt "${loanToDelete.loanNumber}" accordé à ${loanToDelete.borrowerName} (${loanToDelete.principalAmount.toLocaleString()} FCFA) ainsi que ses remises associées ? Le solde de la caisse sera réajusté.`
+            : ''
+        }
+        onConfirm={async () => {
+          if (!loanToDelete) return;
+          setIsDeleting(true);
+          try {
+            await deleteCashLoan(loanToDelete.id);
+            setLoanToDelete(null);
+          } finally {
+            setIsDeleting(false);
+          }
+        }}
+        onClose={() => setLoanToDelete(null)}
         isDeleting={isDeleting}
       />
     </div>

@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { CAB_APPUIS_LOGO, CAB_APPUIS_INFO } from '../assets/logo';
-import { Student, Tutor, PaymentReceipt, MonthlyInvoice, TutoringGroup, GroupRecord, Expense, SalaryPayment } from '../types';
+import { Student, Tutor, PaymentReceipt, MonthlyInvoice, TutoringGroup, GroupRecord, Expense, SalaryPayment, CashLoan } from '../types';
 import { numberToFrenchWords } from './familyUtils';
 import { formatReceiptPaymentDate, formatSessionHours, parseFlexibleDate } from './dateUtils';
 import { calculateTutorWeeklySessions } from './tutorAssignmentValidation';
@@ -1176,6 +1176,7 @@ export interface DailyDashboardReportParams {
   payments: PaymentReceipt[];
   expenses: Expense[];
   salaryPayments: SalaryPayment[];
+  cashLoans?: CashLoan[];
   campusName?: string;
   agentName?: string;
 }
@@ -1185,6 +1186,7 @@ export const downloadDailyDashboardReportPDF = async ({
   payments,
   expenses,
   salaryPayments,
+  cashLoans,
   campusName,
   agentName,
 }: DailyDashboardReportParams) => {
@@ -1254,7 +1256,7 @@ export const downloadDailyDashboardReportPDF = async ({
     safeSalaries.filter((s) => isToday(s.paymentDate)).reduce((sum, s) => sum + (s.amount || 0), 0);
   const todayNetFlow = todayPaymentsTotal - todayExpensesTotal;
 
-  const globalTreasury = calculateTreasurySummary(safePayments, safeExpenses, safeSalaries, 'all');
+  const globalTreasury = calculateTreasurySummary(safePayments, safeExpenses, safeSalaries, 'all', cashLoans || []);
   const encadrementCollected = safePayments
     .filter((p) => isEncadrementCategory(p.category))
     .reduce((sum, p) => sum + (p.amount || 0), 0);
