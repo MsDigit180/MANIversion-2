@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Users,
   CreditCard,
@@ -10,19 +10,62 @@ import {
   CheckCircle2,
   Receipt,
   Wallet,
+  CalendarDays,
+  Download,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { OperationItem } from '../../types';
 import { getSafeAvatarUrl } from '../../utils/imageOptimizer';
+import { formatOperationDateTime } from '../../utils/dateUtils';
 
 export const OperationsFeed: React.FC = () => {
-  const { operations, payments, setSelectedReceipt, setCurrentTab } = useApp();
+  const {
+    operations,
+    payments,
+    students,
+    expenses,
+    salaryPayments,
+    exams,
+    supplySales,
+    setSelectedReceipt,
+    setCurrentTab,
+    showToast,
+  } = useApp();
   const [filterType, setFilterType] = useState<string>('all');
 
   const safeOperations = operations || [];
   const safePayments = payments || [];
 
-  const filteredOperations = safeOperations.filter((op) => {
+  const enrichedOperations = useMemo(() => {
+    const paymentByRef = new Map((payments || []).map((p) => [p.receiptNumber, p.paymentDate]));
+    const expenseByRef = new Map((expenses || []).map((e) => [e.expenseNumber, e.expenseDate]));
+    const salaryByRef = new Map((salaryPayments || []).map((s) => [s.paymentNumber, s.paymentDate]));
+    const examByRef = new Map((exams || []).map((ex) => [ex.dossierNumber, ex.submissionDate]));
+    const saleByRef = new Map((supplySales || []).map((sa) => [sa.saleNumber, sa.saleDate]));
+    const studentById = new Map((students || []).map((st) => [st.id, st.enrollmentDate]));
+    const studentByMat = new Map((students || []).map((st) => [st.matricule, st.enrollmentDate]));
+
+    return safeOperations
+      .map((op) => {
+        let fallbackDate: string | undefined;
+        if (op.type === 'paiement') fallbackDate = paymentByRef.get(op.referenceId);
+        else if (op.type === 'depense') fallbackDate = expenseByRef.get(op.referenceId);
+        else if (op.type === 'salaire') fallbackDate = salaryByRef.get(op.referenceId);
+        else if (op.type === 'concours') fallbackDate = examByRef.get(op.referenceId);
+        else if (op.type === 'vente') fallbackDate = saleByRef.get(op.referenceId);
+        else if (op.type === 'inscription') {
+          fallbackDate =
+            (op.studentId ? studentById.get(op.studentId) : undefined) ||
+            studentByMat.get(op.referenceId);
+        }
+
+        const resolved = formatOperationDateTime(op.timestamp, op.id, fallbackDate);
+        return { op, resolved };
+      })
+      .sort((a, b) => b.resolved.epochMs - a.resolved.epochMs);
+  }, [safeOperations, payments, students, expenses, salaryPayments, exams, supplySales]);
+
+  const filteredOperations = enrichedOperations.filter(({ op }) => {
     if (filterType === 'all') return true;
     if (filterType === 'depense') return op.type === 'depense' || op.type === 'salaire';
     return op.type === filterType;
@@ -52,6 +95,92 @@ export const OperationsFeed: React.FC = () => {
     }
   };
 
+  const getOperationTypeLabel = (type: OperationItem['type']): string => {
+    switch (type) {
+      case 'inscription':
+        return 'Inscription';
+      case 'paiement':
+        return 'Paiement';
+      case 'vente':
+        return 'Boutique';
+      case 'concours':
+        return 'Concours';
+      case 'salaire':
+        return 'Salaire';
+      case 'depense':
+        return 'Dépense';
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (enrichedOperations.length === 0) {
+      showToast("Aucune opération disponible à exporter", 'warning');
+      return;
+    }
+
+    const escapeCsvCell = (value: string | number | undefined | null): string => {
+      const str = value === undefined || value === null ? '' : String(value);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const headers = [
+      'Date',
+      'Heure',
+      'Type',
+      'Titre',
+      'Détails',
+      'Référence',
+      'Montant (FCFA)',
+      'Badge',
+      'Agent',
+      'Rôle',
+      'Statut Sync',
+    ];
+
+    const rows = enrichedOperations.map(({ op, resolved }) => {
+      const hasAmount = typeof op.amount === 'number' && !isNaN(op.amount);
+      const signedAmount = hasAmount
+        ? op.type === 'depense' || op.type === 'salaire'
+          ? -Math.abs(op.amount!)
+          : op.amount!
+        : '';
+
+      return [
+        resolved.date,
+        resolved.time,
+        getOperationTypeLabel(op.type),
+        op.title,
+        op.subtitle,
+        op.referenceId,
+        signedAmount,
+        op.metaBadge || '',
+        op.agentName,
+        op.agentRole,
+        op.syncStatus === 'synced' ? 'Synchronisé' : 'Cache local',
+      ]
+        .map(escapeCsvCell)
+        .join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.map(escapeCsvCell).join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `historique_operations_${todayIso}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showToast(
+      `Historique exporté (${enrichedOperations.length} opération${enrichedOperations.length > 1 ? 's' : ''})`,
+      'success'
+    );
+  };
+
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 shadow-sm">
       {/* Header with Title and Segmented Filter */}
@@ -61,71 +190,84 @@ export const OperationsFeed: React.FC = () => {
             Activités Récentes & Flux d'Opérations
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Flux unifié multi-pôles avec photo et signature de l'agent synchronisé dans Firestore.
+            Flux unifié multi-pôles horodaté (date et heure d'exécution) avec signature de l'agent.
           </p>
         </div>
 
-        {/* Filter buttons */}
-        <div className="inline-flex rounded-xl bg-slate-100 dark:bg-slate-700 p-0.5 text-xs">
+        {/* Filter buttons & CSV Export */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex flex-wrap rounded-xl bg-slate-100 dark:bg-slate-700 p-0.5 text-xs">
+            <button
+              onClick={() => setFilterType('all')}
+              className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+                filterType === 'all'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Tous
+            </button>
+            <button
+              onClick={() => setFilterType('inscription')}
+              className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+                filterType === 'inscription'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Élèves
+            </button>
+            <button
+              onClick={() => setFilterType('paiement')}
+              className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+                filterType === 'paiement'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Caisse
+            </button>
+            <button
+              onClick={() => setFilterType('concours')}
+              className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+                filterType === 'concours'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Concours
+            </button>
+            <button
+              onClick={() => setFilterType('vente')}
+              className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+                filterType === 'vente'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Boutique
+            </button>
+            <button
+              onClick={() => setFilterType('depense')}
+              className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+                filterType === 'depense'
+                  ? 'bg-rose-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Dépenses
+            </button>
+          </div>
+
           <button
-            onClick={() => setFilterType('all')}
-            className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
-              filterType === 'all'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-            }`}
+            type="button"
+            onClick={handleExportCSV}
+            disabled={enrichedOperations.length === 0}
+            title="Télécharger l'historique complet du flux d'opérations au format CSV"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            Tous
-          </button>
-          <button
-            onClick={() => setFilterType('inscription')}
-            className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
-              filterType === 'inscription'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Élèves
-          </button>
-          <button
-            onClick={() => setFilterType('paiement')}
-            className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
-              filterType === 'paiement'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Caisse
-          </button>
-          <button
-            onClick={() => setFilterType('concours')}
-            className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
-              filterType === 'concours'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Concours
-          </button>
-          <button
-            onClick={() => setFilterType('vente')}
-            className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
-              filterType === 'vente'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Boutique
-          </button>
-          <button
-            onClick={() => setFilterType('depense')}
-            className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
-              filterType === 'depense'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Dépenses
+            <Download className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>Exporter en CSV</span>
           </button>
         </div>
       </div>
@@ -137,7 +279,7 @@ export const OperationsFeed: React.FC = () => {
             Aucune opération enregistrée pour ce filtre.
           </div>
         ) : (
-          filteredOperations.map((op) => (
+          filteredOperations.map(({ op, resolved }) => (
             <div
               key={op.id}
               className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-750/50 rounded-xl px-2.5 transition-colors"
@@ -161,11 +303,20 @@ export const OperationsFeed: React.FC = () => {
                 </div>
 
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
                       {op.title}
                     </span>
-                    <span className="text-[11px] text-slate-400">· {op.timestamp}</span>
+                    <span
+                      title={`Exécuté le ${resolved.date} à ${resolved.time}`}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600/70 px-2 py-0.5 text-[11px] font-mono text-slate-700 dark:text-slate-200 tabular-nums"
+                    >
+                      <CalendarDays className="h-3 w-3 text-indigo-500 dark:text-indigo-400 shrink-0" />
+                      <span>{resolved.date}</span>
+                      <span className="text-slate-400 dark:text-slate-500">·</span>
+                      <Clock className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span className="font-semibold">{resolved.time}</span>
+                    </span>
                   </div>
 
                   <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">

@@ -65,6 +65,10 @@ service cloud.firestore {
       allow read, write: if isValidId(settingId);
     }
 
+    match /adminMemos/{memoId} {
+      allow read, write: if isValidId(memoId);
+    }
+
     match /test/{testId} {
       allow read, write: if true;
     }

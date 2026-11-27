@@ -572,3 +572,22 @@ export interface PriorityAlert {
   actionLabel: string;
   actionKey: string;
 }
+
+export type MemoCategory = 'Rappel' | 'Note' | 'Urgent';
+
+export interface AdminMemo {
+  id: string;
+  title: string;
+  content: string;
+  category: MemoCategory;
+  pinned: boolean;
+  completed: boolean;
+  dueDate?: string;
+  createdAt: string;
+  updatedAt: string;
+  authorId: string;
+  authorName: string;
+  authorRole: AgentRole;
+  authorAvatar?: string;
+}
+

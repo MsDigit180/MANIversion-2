@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Wifi,
   WifiOff,
   RefreshCw,
   Search,
@@ -10,7 +9,6 @@ import {
   CreditCard,
   GraduationCap,
   ShoppingBag,
-  CheckCircle2,
   Clock,
   ChevronDown,
   PackagePlus,
@@ -18,15 +16,13 @@ import {
   Moon,
   LogOut,
   Settings,
-  Shield,
   BadgeCheck,
-  Maximize2,
-  Minimize2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { LiveClock } from '../common/LiveClock';
 import { CAB_APPUIS_LOGO } from '../../assets/logo';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
+import { TimePeriod } from '../../types';
 
 export const TopBar: React.FC = () => {
   const {
@@ -46,9 +42,6 @@ export const TopBar: React.FC = () => {
     setIsSearchOpen,
     theme,
     toggleTheme,
-    isSidebarCollapsed,
-    toggleSidebar,
-    showToast,
     currentUser,
     logout,
     setCurrentTab,
@@ -56,67 +49,9 @@ export const TopBar: React.FC = () => {
 
   const [isOperationsDropdownOpen, setIsOperationsDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(() => Boolean(document.fullscreenElement));
-  const [isMaximizedFallback, setIsMaximizedFallback] = useState<boolean>(false);
 
   const opsDropdownRef = useRef<HTMLDivElement>(null);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
-  const collapsedByFullscreenRef = useRef<boolean>(false);
-
-  // Sync fullscreen state when user exits via Esc key or browser controls
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      const active = Boolean(document.fullscreenElement);
-      setIsFullscreen(active);
-      if (!active && collapsedByFullscreenRef.current) {
-        collapsedByFullscreenRef.current = false;
-        if (isSidebarCollapsed) {
-          toggleSidebar();
-        }
-      }
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, [isSidebarCollapsed, toggleSidebar]);
-
-  const isMaximized = isFullscreen || isMaximizedFallback;
-
-  const handleToggleFullscreen = async () => {
-    if (!isMaximized) {
-      if (!isSidebarCollapsed) {
-        collapsedByFullscreenRef.current = true;
-        toggleSidebar();
-      }
-      try {
-        if (document.documentElement.requestFullscreen) {
-          await document.documentElement.requestFullscreen();
-          setIsFullscreen(true);
-          setIsMaximizedFallback(false);
-          return;
-        }
-      } catch {
-        // Fullscreen API can be restricted inside embedded iframes; fall back cleanly
-      }
-      setIsMaximizedFallback(true);
-      showToast('Espace de travail maximisé pour la concentration.', 'info');
-    } else {
-      if (document.fullscreenElement && document.exitFullscreen) {
-        try {
-          await document.exitFullscreen();
-        } catch {
-          // Ignore exit errors
-        }
-      }
-      setIsFullscreen(false);
-      setIsMaximizedFallback(false);
-      if (collapsedByFullscreenRef.current) {
-        collapsedByFullscreenRef.current = false;
-        if (isSidebarCollapsed) {
-          toggleSidebar();
-        }
-      }
-    }
-  };
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -135,56 +70,53 @@ export const TopBar: React.FC = () => {
   const pendingCount = (syncQueue || []).length;
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 px-4 backdrop-blur md:px-6 transition-colors duration-200">
-      {/* Zone 1: Brand title & logo only */}
-      <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-30 flex min-h-16 w-full flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 px-4 py-2 backdrop-blur md:px-5 transition-colors duration-200">
+      {/* Zone 1: Brand & Period Selector */}
+      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 min-w-0">
         <button
           type="button"
           onClick={() => setCurrentTab('dashboard')}
-          className="flex items-center gap-2.5 focus:outline-none cursor-pointer"
+          className="flex items-center gap-2 focus:outline-none whitespace-nowrap shrink-0 cursor-pointer"
         >
           <img
             src={CAB_APPUIS_LOGO}
             alt="Logo Cabinet MANI"
-            className="h-9 w-9 shrink-0 rounded-xl object-contain border border-indigo-200 dark:border-slate-700 bg-white p-0.5 shadow-sm"
+            className="h-8 w-8 shrink-0 rounded-xl object-contain border border-indigo-200 dark:border-slate-700 bg-white p-0.5 shadow-sm"
           />
-          <div className="flex flex-col text-left">
-            <span className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-slate-100 leading-none">
-              Cabinet MANI
-            </span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-              Niamey 2000
-            </span>
-          </div>
+          <span className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-slate-100 leading-none">
+            Cabinet MANI
+          </span>
         </button>
 
-        {/* Dynamic Period Selector */}
-        <div className="hidden lg:flex items-center gap-1 border-l border-slate-200 dark:border-slate-700 pl-4">
-          <span className="text-xs text-slate-500 dark:text-slate-400 mr-1">Période :</span>
+        {/* Period Selector: Segmented buttons on md+, compact select on smaller screens */}
+        <div className="hidden md:flex items-center gap-1 border-l border-slate-200 dark:border-slate-700 pl-2.5 shrink-0">
           <div className="inline-flex rounded-xl bg-slate-100 dark:bg-slate-700/80 p-0.5 text-xs">
             <button
+              type="button"
               onClick={() => setTimePeriod('today')}
-              className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+              className={`rounded-lg px-2 py-1 font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 timePeriod === 'today'
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              Aujourd'hui
+              Aujourd&apos;hui
             </button>
             <button
+              type="button"
               onClick={() => setTimePeriod('week')}
-              className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+              className={`rounded-lg px-2 py-1 font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 timePeriod === 'week'
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              Cette semaine
+              Semaine
             </button>
             <button
+              type="button"
               onClick={() => setTimePeriod('month')}
-              className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+              className={`rounded-lg px-2 py-1 font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 timePeriod === 'month'
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -193,8 +125,9 @@ export const TopBar: React.FC = () => {
               Ce mois
             </button>
             <button
+              type="button"
               onClick={() => setTimePeriod('term')}
-              className={`rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+              className={`rounded-lg px-2 py-1 font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 timePeriod === 'term'
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -205,115 +138,98 @@ export const TopBar: React.FC = () => {
           </div>
         </div>
 
-        {/* Live Clock Component */}
+        {/* Compact Period Selector for < md */}
+        <select
+          aria-label="Sélectionner la période"
+          value={timePeriod}
+          onChange={(e) => setTimePeriod(e.target.value as TimePeriod)}
+          className="md:hidden h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-2 text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+        >
+          <option value="today">Aujourd&apos;hui</option>
+          <option value="week">Semaine</option>
+          <option value="month">Ce mois</option>
+          <option value="term">Trimestre</option>
+        </select>
+
+        {/* Compact Live Clock */}
         <LiveClock />
       </div>
 
-      {/* Zone 2: Global Search & Network State Indicator */}
-      <div className="flex items-center gap-3">
+      {/* Zone 2 & 3: Search, Network Sync & All Action Buttons (always visible) */}
+      <div className="flex flex-wrap items-center gap-2 ml-auto">
         {/* Global Search trigger */}
         <button
+          type="button"
           onClick={() => setIsSearchOpen(true)}
-          className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-3 text-xs text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-200 transition-colors w-36 sm:w-60 cursor-pointer"
+          className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-2.5 text-xs text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-200 transition-colors w-36 sm:w-44 lg:w-48 whitespace-nowrap shrink-0 cursor-pointer"
           title="Rechercher élève, reçu, dossier (Touche /)"
         >
           <Search className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-          <span className="truncate text-left">Élève, reçu, dossier...</span>
+          <span className="truncate text-left">Rechercher...</span>
           <kbd className="hidden sm:inline-block ml-auto rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] font-mono text-slate-600 dark:text-slate-400">
             /
           </kbd>
         </button>
 
         {/* Offline / Syncing Status Indicator (when applicable) */}
-        {(networkStatus === 'offline' || (networkStatus === 'online' && pendingCount > 0) || isSyncing) && (
-          <div className="flex items-center">
-            {networkStatus === 'offline' && (
-              <button
-                onClick={toggleNetworkSimulation}
-                title="Mode hors-ligne actif. Cliquez pour rétablir la connexion"
-                className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/15 px-2.5 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-500/25 transition-all cursor-pointer"
-              >
-                <WifiOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                <span className="font-semibold">Hors-ligne</span>
-                {pendingCount > 0 && (
-                  <span className="rounded bg-amber-400/20 px-1 text-[11px] font-mono text-amber-800 dark:text-amber-200">
-                    {pendingCount} en attente
-                  </span>
-                )}
-              </button>
+        {networkStatus === 'offline' && (
+          <button
+            type="button"
+            onClick={toggleNetworkSimulation}
+            title="Mode hors-ligne actif. Cliquez pour rétablir la connexion"
+            className="flex h-9 items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/15 px-2.5 text-xs font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-500/25 transition-all whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <WifiOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="font-semibold">Hors-ligne</span>
+            {pendingCount > 0 && (
+              <span className="rounded bg-amber-400/20 px-1 text-[11px] font-mono text-amber-800 dark:text-amber-200">
+                {pendingCount}
+              </span>
             )}
+          </button>
+        )}
 
-            {networkStatus === 'online' && pendingCount > 0 && (
-              <button
-                onClick={() => setIsSyncDrawerOpen(true)}
-                className="flex items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition-all cursor-pointer"
-              >
-                <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                <span className="hidden md:inline">Sync en attente</span>
-                <span className="rounded bg-amber-500/30 px-1.5 py-0.2 text-[11px] font-mono font-bold text-amber-800 dark:text-amber-200">
-                  {pendingCount}
-                </span>
-              </button>
-            )}
+        {networkStatus === 'online' && pendingCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setIsSyncDrawerOpen(true)}
+            className="flex h-9 items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 px-2.5 text-xs font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition-all whitespace-nowrap shrink-0 cursor-pointer"
+            title="Sync en attente"
+          >
+            <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="rounded bg-amber-500/30 px-1.5 py-0.5 text-[11px] font-mono font-bold text-amber-800 dark:text-amber-200">
+              {pendingCount}
+            </span>
+          </button>
+        )}
 
-            {isSyncing && (
-              <div className="flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-300">
-                <RefreshCw className="h-3.5 w-3.5 animate-spin text-indigo-500" />
-                <span>Synchronisation...</span>
-              </div>
-            )}
+        {isSyncing && (
+          <div className="flex h-9 items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/15 px-2.5 text-xs font-medium text-indigo-700 dark:text-indigo-300 whitespace-nowrap shrink-0">
+            <RefreshCw className="h-3.5 w-3.5 animate-spin text-indigo-500 shrink-0" />
+            <span>Sync...</span>
           </div>
         )}
-      </div>
 
-      {/* Zone 3: Actions, Theme Switcher & User Profile */}
-      <div className="flex items-center gap-2 sm:gap-2.5">
         {/* PWA In-App Install Trigger */}
         <PWAInstallButton />
 
-        {/* Mode Plein-Écran Button */}
-        <button
-          type="button"
-          onClick={handleToggleFullscreen}
-          aria-pressed={isMaximized}
-          aria-label={isMaximized ? 'Quitter le Mode Plein-Écran' : 'Activer le Mode Plein-Écran'}
-          title={isMaximized ? 'Quitter le Mode Plein-Écran (Échap)' : 'Mode Plein-Écran — Maximiser l’espace de travail'}
-          className={`flex h-9 items-center gap-1.5 rounded-xl border px-2.5 sm:px-3 text-xs font-semibold shadow-sm transition-all cursor-pointer ${
-            isMaximized
-              ? 'border-indigo-500/40 bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-500/25'
-              : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 text-slate-700 dark:text-slate-200 hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400'
-          }`}
-        >
-          {isMaximized ? (
-            <>
-              <Minimize2 className="h-4 w-4 shrink-0" />
-              <span className="hidden xl:inline font-medium">Quitter Plein-Écran</span>
-            </>
-          ) : (
-            <>
-              <Maximize2 className="h-4 w-4 shrink-0" />
-              <span className="hidden xl:inline font-medium">Mode Plein-Écran</span>
-            </>
-          )}
-        </button>
-
-        {/* DYNAMIC THEME TOGGLE BUTTON (MANDATORY FIX) */}
+        {/* Dynamic Theme Toggle Button */}
         <button
           type="button"
           onClick={toggleTheme}
           aria-label={theme === 'dark' ? 'Basculer en Mode Clair' : 'Basculer en Mode Sombre'}
-          className="flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-2.5 sm:px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-sm transition-all cursor-pointer"
+          className="flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 px-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-sm transition-all whitespace-nowrap shrink-0 cursor-pointer"
           title={theme === 'dark' ? 'Passer en Mode Clair (Lumière)' : 'Passer en Mode Sombre (Nuit)'}
         >
           {theme === 'dark' ? (
             <>
               <Sun className="h-4 w-4 text-amber-400 shrink-0" />
-              <span className="hidden sm:inline font-medium text-amber-400">Mode Clair</span>
+              <span className="font-medium text-amber-400">Clair</span>
             </>
           ) : (
             <>
               <Moon className="h-4 w-4 text-indigo-600 shrink-0" />
-              <span className="hidden sm:inline font-medium text-indigo-600">Mode Sombre</span>
+              <span className="font-medium text-indigo-600">Sombre</span>
             </>
           )}
         </button>
@@ -321,25 +237,27 @@ export const TopBar: React.FC = () => {
         {/* Quick Sync Button if pending */}
         {pendingCount > 0 && (
           <button
+            type="button"
             onClick={triggerSync}
             disabled={isSyncing || networkStatus === 'offline'}
-            className="hidden sm:flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-500 disabled:opacity-40 transition-colors"
+            className="flex h-9 items-center gap-1.5 rounded-xl bg-emerald-600 px-2.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-500 disabled:opacity-40 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             title="Pousser immédiatement les écritures locales"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
             <span>Sync ({pendingCount})</span>
           </button>
         )}
 
         {/* Primary Action: + Nouvelle Opération Dropdown */}
-        <div className="relative" ref={opsDropdownRef}>
+        <div className="relative shrink-0" ref={opsDropdownRef}>
           <button
+            type="button"
             onClick={() => setIsOperationsDropdownOpen(!isOperationsDropdownOpen)}
-            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 sm:px-3.5 py-2 text-xs font-semibold text-white shadow hover:bg-indigo-500 transition-colors cursor-pointer"
+            className="flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-3 text-xs font-semibold text-white shadow hover:bg-indigo-500 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
-            <Plus className="h-4 w-4" />
-            <span className="hidden md:inline">Nouvelle Opération</span>
-            <ChevronDown className="h-3 w-3 opacity-80" />
+            <Plus className="h-4 w-4 shrink-0" />
+            <span>Nouvelle Opération</span>
+            <ChevronDown className="h-3 w-3 opacity-80 shrink-0" />
           </button>
 
           {isOperationsDropdownOpen && (
@@ -348,6 +266,7 @@ export const TopBar: React.FC = () => {
                 Opérations Rapides
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setIsOperationsDropdownOpen(false);
                   setIsNewStudentModalOpen(true);
@@ -357,10 +276,11 @@ export const TopBar: React.FC = () => {
                 <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
                   <UserCheck className="h-3.5 w-3.5" />
                 </div>
-                <span>Inscription d'un Élève</span>
+                <span>Inscription d&apos;un Élève</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setIsOperationsDropdownOpen(false);
                   setIsNewPaymentModalOpen(true);
@@ -374,6 +294,7 @@ export const TopBar: React.FC = () => {
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setIsOperationsDropdownOpen(false);
                   setIsNewSupplySaleModalOpen(true);
@@ -387,6 +308,7 @@ export const TopBar: React.FC = () => {
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setIsOperationsDropdownOpen(false);
                   setIsNewProductModalOpen(true);
@@ -400,6 +322,7 @@ export const TopBar: React.FC = () => {
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setIsOperationsDropdownOpen(false);
                   setIsNewExamModalOpen(true);
@@ -417,8 +340,10 @@ export const TopBar: React.FC = () => {
 
         {/* Sync Drawer trigger / Notification Bell */}
         <button
+          type="button"
           onClick={() => setIsSyncDrawerOpen(true)}
-          className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+          aria-label="Notifications et file d'attente de synchronisation"
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
           title="File des écritures locales et notifications"
         >
           <Bell className="h-4 w-4" />
@@ -430,25 +355,27 @@ export const TopBar: React.FC = () => {
         </button>
 
         {/* User profile dropdown */}
-        <div className="relative" ref={profileDropdownRef}>
+        <div className="relative shrink-0" ref={profileDropdownRef}>
           <button
+            type="button"
             onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-            className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+            aria-label="Menu du profil utilisateur"
+            className="flex h-9 items-center gap-1.5 px-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <img
               src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
               alt={currentUser?.fullName || 'Utilisateur'}
-              className="h-8 w-8 rounded-full object-cover ring-2 ring-indigo-500/40"
+              className="h-7 w-7 rounded-full object-cover ring-2 ring-indigo-500/40 shrink-0"
             />
-            <div className="hidden xl:flex flex-col text-left">
-              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+            <div className="hidden 2xl:flex flex-col text-left">
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight max-w-[110px] truncate">
                 {currentUser?.fullName || 'Admin'}
               </span>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 max-w-[110px] truncate">
                 {currentUser?.role || 'Admin Principal'}
               </span>
             </div>
-            <ChevronDown className="h-3 w-3 text-slate-400 hidden sm:block" />
+            <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />
           </button>
 
           {isProfileDropdownOpen && (
@@ -468,6 +395,7 @@ export const TopBar: React.FC = () => {
 
               <div className="py-1">
                 <button
+                  type="button"
                   onClick={() => {
                     setIsProfileDropdownOpen(false);
                     setCurrentTab('settings');
@@ -475,12 +403,13 @@ export const TopBar: React.FC = () => {
                   className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                 >
                   <Settings className="h-4 w-4 text-slate-400" />
-                  <span>Paramètres & Mot de Passe</span>
+                  <span>Paramètres &amp; Mot de Passe</span>
                 </button>
               </div>
 
               <div className="pt-1 border-t border-slate-100 dark:border-slate-700">
                 <button
+                  type="button"
                   onClick={() => {
                     setIsProfileDropdownOpen(false);
                     logout();

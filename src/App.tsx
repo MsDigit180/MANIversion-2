@@ -11,6 +11,8 @@ import { Sidebar } from './components/layout/Sidebar';
 import { KPIHighlights } from './components/dashboard/KPIHighlights';
 import { OperationsFeed } from './components/dashboard/OperationsFeed';
 import { PriorityAlerts } from './components/dashboard/PriorityAlerts';
+import { AdminMemoBoard } from './components/dashboard/AdminMemoBoard';
+import { DailyDashboardPrintPortal } from './components/dashboard/DailyDashboardPrintPortal';
 import { InscriptionsTab } from './components/tabs/InscriptionsTab';
 import { PaiementsTab } from './components/tabs/PaiementsTab';
 import { DepensesCaisseTab } from './components/tabs/DepensesCaisseTab';
@@ -46,6 +48,7 @@ import {
   Settings,
   Wallet,
   FileText,
+  Printer,
 } from 'lucide-react';
 import { TabKey } from './types';
 import { downloadDailyDashboardReportPDF } from './utils/pdfExportUtils';
@@ -130,6 +133,7 @@ const DashboardContent: React.FC = () => {
   } = useApp();
   const [embeddedTab, setEmbeddedTab] = useState<'inscriptions' | 'paiements' | 'depenses' | 'concours' | 'boutique'>('inscriptions');
   const [isGeneratingDailyPdf, setIsGeneratingDailyPdf] = useState(false);
+  const [isPrintingDailyReport, setIsPrintingDailyReport] = useState(false);
 
   const handleDownloadDailyPdf = async () => {
     if (isGeneratingDailyPdf) return;
@@ -150,6 +154,22 @@ const DashboardContent: React.FC = () => {
     } finally {
       setIsGeneratingDailyPdf(false);
     }
+  };
+
+  const handlePrintDailyReport = () => {
+    setIsPrintingDailyReport(true);
+    document.body.classList.add('is-printing-invoice');
+
+    const cleanup = () => {
+      document.body.classList.remove('is-printing-invoice');
+      setIsPrintingDailyReport(false);
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+
+    setTimeout(() => {
+      window.print();
+    }, 80);
   };
 
   // If not authenticated, render Login view
@@ -204,7 +224,7 @@ const DashboardContent: React.FC = () => {
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
         {/* TopBar with 3-Zone Contract & Theme Switcher */}
         <TopBar />
 
@@ -245,16 +265,28 @@ const DashboardContent: React.FC = () => {
               {/* Status indicator tag & Daily PDF Report */}
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                 {currentTab === 'dashboard' && (
-                  <button
-                    type="button"
-                    onClick={handleDownloadDailyPdf}
-                    disabled={isGeneratingDailyPdf}
-                    title="Télécharger le rapport récapitulatif PDF de la journée (inscriptions & paiements)"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    <span>{isGeneratingDailyPdf ? 'Génération...' : 'Rapport Journalier PDF'}</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleDownloadDailyPdf}
+                      disabled={isGeneratingDailyPdf}
+                      title="Télécharger le rapport récapitulatif PDF de la journée (inscriptions & paiements)"
+                      className="whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      <span>{isGeneratingDailyPdf ? 'Génération...' : 'Rapport Journalier PDF'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handlePrintDailyReport}
+                      title="Imprimer directement la vue récapitulative du jour via l'impression native du navigateur"
+                      className="whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm transition-colors cursor-pointer"
+                    >
+                      <Printer className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>Imprimer le Rapport</span>
+                    </button>
+                  </>
                 )}
                 <span className="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1 font-mono text-[11px] text-slate-700 dark:text-slate-300 shadow-sm">
                   {getPeriodLabel()}
@@ -280,9 +312,10 @@ const DashboardContent: React.FC = () => {
                     <OperationsFeed />
                   </div>
 
-                  {/* Right 1 Col: Priority Alerts */}
-                  <div className="lg:col-span-1">
+                  {/* Right 1 Col: Priority Alerts & Aide-mémoire */}
+                  <div className="lg:col-span-1 space-y-6">
                     <PriorityAlerts />
+                    <AdminMemoBoard />
                   </div>
                 </div>
 
@@ -418,6 +451,15 @@ const DashboardContent: React.FC = () => {
       <GlobalSearchPalette />
       <Toast />
       <OfflineIndicator />
+      <DailyDashboardPrintPortal
+        isOpen={isPrintingDailyReport}
+        students={students || []}
+        payments={payments || []}
+        expenses={expenses || []}
+        salaryPayments={salaryPayments || []}
+        campusName={campus}
+        agentName={currentUser?.fullName}
+      />
     </div>
   );
 };

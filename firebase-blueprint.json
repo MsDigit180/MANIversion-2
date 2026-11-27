@@ -223,6 +223,27 @@
         "agentAvatar": { "type": "string", "maxLength": 1000000 }
       },
       "required": ["id", "expenseNumber", "title", "category", "amount", "paymentMethod", "expenseDate", "agentId", "agentName", "agentRole"]
+    },
+    "AdminMemo": {
+      "title": "AdminMemo",
+      "description": "Quick administrative notes and daily reminders pinned on the dashboard",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "content": { "type": "string", "maxLength": 1000 },
+        "category": { "type": "string", "enum": ["Rappel", "Note", "Urgent"] },
+        "pinned": { "type": "boolean" },
+        "completed": { "type": "boolean" },
+        "dueDate": { "type": "string", "maxLength": 20 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 },
+        "authorId": { "type": "string", "maxLength": 128 },
+        "authorName": { "type": "string", "maxLength": 150 },
+        "authorRole": { "type": "string", "maxLength": 100 },
+        "authorAvatar": { "type": "string", "maxLength": 1000000 }
+      },
+      "required": ["id", "title", "content", "category", "pinned", "completed", "createdAt", "updatedAt", "authorId", "authorName", "authorRole"]
     }
   },
   "firestore": {
@@ -265,6 +286,10 @@
     "/expenses/{expenseId}": {
       "schema": "Expense",
       "description": "Manual expenses deducted from cash register"
+    },
+    "/adminMemos/{memoId}": {
+      "schema": "AdminMemo",
+      "description": "Administrative quick notes and daily reminders"
     }
   }
 }

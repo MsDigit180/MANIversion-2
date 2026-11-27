@@ -172,6 +172,7 @@ export const COLLECTIONS = {
   GROUPS: 'groups',
   SALARY_PAYMENTS: 'salaryPayments',
   EXPENSES: 'expenses',
+  ADMIN_MEMOS: 'adminMemos',
 } as const;
 
 export { doc, setDoc, getDocs, onSnapshot, deleteDoc, collection };

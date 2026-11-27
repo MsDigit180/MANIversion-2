@@ -21,6 +21,8 @@ import {
   TutoringGroup,
   GroupRecord,
   MultiStudentReceiptItem,
+  AdminMemo,
+  MemoCategory,
 } from '../types';
 import { calculateMonthlyHours } from '../utils/dateUtils';
 import { validateTutorAssignment, isPrimaryStudent, calculateTutorWeeklySessions } from '../utils/tutorAssignmentValidation';
@@ -246,6 +248,21 @@ interface AppContextType {
   operations: OperationItem[];
   alerts: PriorityAlert[];
   dismissAlert: (id: string) => Promise<void>;
+  adminMemos: AdminMemo[];
+  addAdminMemo: (data: {
+    title: string;
+    content: string;
+    category: MemoCategory;
+    pinned?: boolean;
+    dueDate?: string;
+  }) => Promise<AdminMemo>;
+  updateAdminMemo: (
+    id: string,
+    data: Partial<Pick<AdminMemo, 'title' | 'content' | 'category' | 'pinned' | 'completed' | 'dueDate'>>
+  ) => Promise<void>;
+  togglePinAdminMemo: (id: string) => Promise<void>;
+  toggleCompleteAdminMemo: (id: string) => Promise<void>;
+  deleteAdminMemo: (id: string) => Promise<void>;
 
   // Relational Query Helpers
   getStudentPayments: (studentId: string) => PaymentReceipt[];
@@ -372,6 +389,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [customGroups, setCustomGroups] = useState<GroupRecord[]>([]);
   const [salaryPayments, setSalaryPayments] = useState<SalaryPayment[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [adminMemos, setAdminMemos] = useState<AdminMemo[]>([]);
 
   // Navigation & Filters
   const [currentTab, setCurrentTab] = useState<TabKey>('dashboard');
@@ -630,6 +648,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.EXPENSES)
         );
         unsubscribes.push(unsubExpenses);
+
+        // 12. Admin Memos Listener (Aide-mémoire & Rappels)
+        const unsubAdminMemos = onSnapshot(
+          collection(db, COLLECTIONS.ADMIN_MEMOS),
+          (snapshot) => {
+            const list: AdminMemo[] = [];
+            snapshot.forEach((docSnap) => {
+              list.push(docSnap.data() as AdminMemo);
+            });
+            setAdminMemos(list);
+          },
+          (err) => handleFirestoreError(err, OperationType.GET, COLLECTIONS.ADMIN_MEMOS)
+        );
+        unsubscribes.push(unsubAdminMemos);
         setIsLoading(false);
       } catch (e) {
         console.warn('Firestore realtime notice:', e);
@@ -927,7 +959,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       subtitle: `Mois : ${newSalaryPayment.month} · Réf ${paymentNumber}`,
       referenceId: paymentNumber,
       amount: salaryData.amount,
-      timestamp: "À l'instant",
+      timestamp: getCurrentFrenchDateTime(),
       syncStatus: 'synced',
       metaBadge: newSalaryPayment.paymentMethod,
       agentId,
@@ -1026,7 +1058,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       subtitle: `${newExpense.title} · Réf ${expenseNumber}`,
       referenceId: expenseNumber,
       amount: newExpense.amount,
-      timestamp: "À l'instant",
+      timestamp: getCurrentFrenchDateTime(),
       syncStatus: 'synced',
       metaBadge: newExpense.paymentMethod,
       agentId,
@@ -1406,7 +1438,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       title: `Création du groupe d'étude ${newRecord.name} (${cleanId})`,
       subtitle: `${newRecord.level} · ${newRecord.stream} · ${initialStudentIds.length} élève(s) inscrit(s)`,
       referenceId: cleanId,
-      timestamp: 'À l\'instant',
+      timestamp: getCurrentFrenchDateTime(),
       syncStatus: 'synced',
       metaBadge: 'Groupe',
       agentId: currentUser.id,
@@ -2059,7 +2091,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       referenceId: matricule,
       studentId: newStudent.id,
       amount: studentData.paidAmount,
-      timestamp: 'À l\'instant',
+      timestamp: getCurrentFrenchDateTime(),
       syncStatus: 'synced',
       metaBadge: studentData.stream,
       agentId,
@@ -2110,7 +2142,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       subtitle: `${targetStudent.fullName} · Motif : ${reason.slice(0, 45)}...`,
       referenceId: targetStudent.matricule,
       studentId: targetStudent.id,
-      timestamp: 'À l\'instant',
+      timestamp: getCurrentFrenchDateTime(),
       syncStatus: 'synced',
       metaBadge: isPaymentDefault ? 'Impayé' : 'Demande',
       agentId: currentUser.id,
@@ -2162,7 +2194,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       subtitle: `${targetStudent.fullName} · Rétabli en cours actifs`,
       referenceId: targetStudent.matricule,
       studentId: targetStudent.id,
-      timestamp: 'À l\'instant',
+      timestamp: getCurrentFrenchDateTime(),
       syncStatus: 'synced',
       metaBadge: 'Réactivé',
       agentId: currentUser.id,
@@ -2241,7 +2273,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       referenceId: receiptNumber,
       studentId: paymentData.studentId,
       amount: paymentData.amount,
-      timestamp: 'À l\'instant',
+      timestamp: getCurrentFrenchDateTime(),
       syncStatus: 'synced',
       metaBadge: paymentData.paymentMethod,
       agentId,
@@ -2421,7 +2453,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       subtitle: `${data.guardianName} · ${data.studentBreakdown.length} élèves · Reçu ${receiptNumber}`,
       referenceId: receiptNumber,
       amount: totalAmount,
-      timestamp: 'À l\'instant',
+      timestamp: getCurrentFrenchDateTime(),
       syncStatus: 'synced',
       metaBadge: data.paymentMethod,
       agentId,
@@ -2823,7 +2855,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       subtitle: `${examData.candidateName} · Réf ${dossierNumber}`,
       referenceId: dossierNumber,
       studentId: examData.studentId,
-      timestamp: 'À l\'instant',
+      timestamp: getCurrentFrenchDateTime(),
       syncStatus: 'synced',
       metaBadge: examData.status,
       agentId,
@@ -3039,7 +3071,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       referenceId: saleNumber,
       studentId,
       amount: totalAmount,
-      timestamp: 'À l\'instant',
+      timestamp: nowDateTime,
       syncStatus: 'synced',
       metaBadge: paymentMethod,
       agentId: currentUser.id,
@@ -3089,6 +3121,101 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAlerts((prev) => prev.filter((a) => a.id !== id));
     await safeFirestoreWrite(deleteDoc(doc(db, COLLECTIONS.ALERTS, id)), 1000);
     showToast('Alerte masquée et supprimée de Firestore.', 'info');
+  };
+
+  const addAdminMemo = async (data: {
+    title: string;
+    content: string;
+    category: MemoCategory;
+    pinned?: boolean;
+    dueDate?: string;
+  }): Promise<AdminMemo> => {
+    const nowIso = new Date().toISOString();
+    const rawTitle = (data.title || '').trim();
+    const rawContent = (data.content || '').trim();
+    const safeTitle = (rawTitle || rawContent.split('\n')[0] || 'Note rapide').slice(0, 200);
+    const safeContent = rawContent.slice(0, 1000);
+    const safeDueDate = data.dueDate ? data.dueDate.trim().slice(0, 20) : undefined;
+
+    const newMemo: AdminMemo = {
+      id: `memo-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      title: safeTitle,
+      content: safeContent,
+      category: data.category || 'Note',
+      pinned: Boolean(data.pinned),
+      completed: false,
+      ...(safeDueDate ? { dueDate: safeDueDate } : {}),
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      authorId: currentUser.id,
+      authorName: currentUser.fullName,
+      authorRole: currentUser.role,
+      authorAvatar: currentUser.avatar,
+    };
+
+    setAdminMemos((prev) => [newMemo, ...prev]);
+    await safeFirestoreWrite(
+      setDoc(doc(db, COLLECTIONS.ADMIN_MEMOS, newMemo.id), sanitizeForFirestore(newMemo), { merge: true }),
+      1200
+    );
+    showToast(
+      newMemo.pinned ? 'Note ajoutée et épinglée au tableau de bord.' : 'Note ajoutée à l\'aide-mémoire.',
+      'success'
+    );
+    return newMemo;
+  };
+
+  const updateAdminMemo = async (
+    id: string,
+    data: Partial<Pick<AdminMemo, 'title' | 'content' | 'category' | 'pinned' | 'completed' | 'dueDate'>>
+  ): Promise<void> => {
+    const nowIso = new Date().toISOString();
+    const cleanPatch: Record<string, any> = { updatedAt: nowIso };
+    if (data.title !== undefined) cleanPatch.title = data.title.trim().slice(0, 200);
+    if (data.content !== undefined) cleanPatch.content = data.content.trim().slice(0, 1000);
+    if (data.category !== undefined) cleanPatch.category = data.category;
+    if (data.pinned !== undefined) cleanPatch.pinned = Boolean(data.pinned);
+    if (data.completed !== undefined) cleanPatch.completed = Boolean(data.completed);
+    if (data.dueDate !== undefined) {
+      cleanPatch.dueDate = data.dueDate.trim() ? data.dueDate.trim().slice(0, 20) : null;
+    }
+
+    setAdminMemos((prev) =>
+      prev.map((m) =>
+        m.id === id
+          ? {
+              ...m,
+              ...cleanPatch,
+              dueDate: cleanPatch.dueDate === null ? undefined : (cleanPatch.dueDate ?? m.dueDate),
+            }
+          : m
+      )
+    );
+
+    await safeFirestoreWrite(
+      setDoc(doc(db, COLLECTIONS.ADMIN_MEMOS, id), sanitizeForFirestore(cleanPatch), { merge: true }),
+      1200
+    );
+  };
+
+  const togglePinAdminMemo = async (id: string): Promise<void> => {
+    const target = adminMemos.find((m) => m.id === id);
+    if (!target) return;
+    const nextPinned = !target.pinned;
+    await updateAdminMemo(id, { pinned: nextPinned });
+    showToast(nextPinned ? 'Note épinglée en haut de l\'aide-mémoire.' : 'Note désépinglée.', 'info');
+  };
+
+  const toggleCompleteAdminMemo = async (id: string): Promise<void> => {
+    const target = adminMemos.find((m) => m.id === id);
+    if (!target) return;
+    await updateAdminMemo(id, { completed: !target.completed });
+  };
+
+  const deleteAdminMemo = async (id: string): Promise<void> => {
+    setAdminMemos((prev) => prev.filter((m) => m.id !== id));
+    await safeFirestoreWrite(deleteDoc(doc(db, COLLECTIONS.ADMIN_MEMOS, id)), 1200);
+    showToast('Note supprimée de l\'aide-mémoire.', 'info');
   };
 
   return (
@@ -3187,6 +3314,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         operations,
         alerts,
         dismissAlert,
+        adminMemos,
+        addAdminMemo,
+        updateAdminMemo,
+        togglePinAdminMemo,
+        toggleCompleteAdminMemo,
+        deleteAdminMemo,
         getStudentPayments,
         getStudentExams,
         getStudentSupplies,

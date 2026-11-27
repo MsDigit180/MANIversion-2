@@ -341,3 +341,119 @@ export function calculateTotalVolume(students: Student[]): AdjustedSessionVolume
 /** Alias requis pour conformité */
 export const getAdjustedTotalSessions = calculateTotalVolume;
 
+export interface ResolvedOperationDateTime {
+  date: string;
+  time: string;
+  label: string;
+  epochMs: number;
+}
+
+/**
+ * Résout la date et l'heure exacte d'exécution d'une opération pour le flux d'activités.
+ * Priorité :
+ * 1. Horodatage complet déjà présent dans `timestamp` (DD/MM/YYYY à HH:mm ou ISO).
+ * 2. Timestamp Unix en millisecondes intégré dans `opId` (ex: op-1790672474696).
+ * 3. Date de l'enregistrement lié (`fallbackDate`) complétée par l'heure extraite.
+ */
+export function formatOperationDateTime(
+  timestamp?: string | null,
+  opId?: string | null,
+  fallbackDate?: string | null
+): ResolvedOperationDateTime {
+  const formatFromDateObj = (d: Date): ResolvedOperationDateTime => {
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const date = `${day}/${month}/${year}`;
+    const time = `${hours}:${minutes}`;
+    return {
+      date,
+      time,
+      label: `${date} à ${time}`,
+      epochMs: d.getTime(),
+    };
+  };
+
+  const extractEpochFromId = (id?: string | null): Date | null => {
+    if (!id) return null;
+    const match = id.match(/(\d{13})(?!\d)/);
+    if (!match) return null;
+    const ms = Number(match[1]);
+    if (!Number.isFinite(ms) || ms <= 0) return null;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const rawTs = (timestamp || '').trim();
+  const lowerTs = rawTs.toLowerCase();
+
+  // 1. Format "DD/MM/YYYY à HH:mm" (ou "DD/MM/YYYY HH:mm")
+  const frDateTimeMatch = rawTs.match(/^(\d{2})\/(\d{2})\/(\d{4})\s*(?:à|a|-)?\s*(\d{1,2})[:h](\d{2})/i);
+  if (frDateTimeMatch) {
+    const day = Number(frDateTimeMatch[1]);
+    const month = Number(frDateTimeMatch[2]) - 1;
+    const year = Number(frDateTimeMatch[3]);
+    const hours = Number(frDateTimeMatch[4]);
+    const minutes = Number(frDateTimeMatch[5]);
+    const d = new Date(year, month, day, hours, minutes);
+    if (!isNaN(d.getTime())) {
+      return formatFromDateObj(d);
+    }
+  }
+
+  // 2. Format ISO avec heure "YYYY-MM-DDTHH:mm"
+  const isoDateTimeMatch = rawTs.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (isoDateTimeMatch) {
+    const d = new Date(rawTs);
+    if (!isNaN(d.getTime())) {
+      return formatFromDateObj(d);
+    }
+  }
+
+  // 3. Si timestamp est relatif ("À l'instant", "Aujourd'hui", etc.) ou sans heure -> extraire l'epoch exact de l'ID
+  const idDate = extractEpochFromId(opId);
+  if (idDate) {
+    return formatFromDateObj(idDate);
+  }
+
+  // 4. Fallback sur le document lié (paiement, dépense, élève, etc.)
+  if (fallbackDate) {
+    const fbMatch = fallbackDate.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})\s*(?:à|a|-)?\s*(\d{1,2})[:h](\d{2})/i);
+    if (fbMatch) {
+      const d = new Date(
+        Number(fbMatch[3]),
+        Number(fbMatch[2]) - 1,
+        Number(fbMatch[1]),
+        Number(fbMatch[4]),
+        Number(fbMatch[5])
+      );
+      if (!isNaN(d.getTime())) {
+        return formatFromDateObj(d);
+      }
+    }
+    const parsedFb = parseFlexibleDate(fallbackDate);
+    if (parsedFb) {
+      const timeMatch = rawTs.match(/(\d{1,2})[:h](\d{2})/i);
+      if (timeMatch) {
+        parsedFb.setHours(Number(timeMatch[1]), Number(timeMatch[2]), 0, 0);
+      }
+      return formatFromDateObj(parsedFb);
+    }
+  }
+
+  // 5. Dernier recours sur `timestamp` seul (DD/MM/YYYY ou autre)
+  if (rawTs && !lowerTs.includes('instant')) {
+    const parsedTs = parseFlexibleDate(rawTs);
+    if (parsedTs) {
+      const timeMatch = rawTs.match(/(\d{1,2})[:h](\d{2})/i);
+      if (timeMatch) {
+        parsedTs.setHours(Number(timeMatch[1]), Number(timeMatch[2]), 0, 0);
+      }
+      return formatFromDateObj(parsedTs);
+    }
+  }
+
+  return formatFromDateObj(new Date());
+}
