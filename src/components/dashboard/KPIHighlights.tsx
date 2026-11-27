@@ -17,6 +17,7 @@ import {
   ScatterChart as ScatterChartIcon,
   TrendingDown,
   Target,
+  BarChart3,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -37,6 +38,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  BarChart,
 } from 'recharts';
 import { useApp } from '../../context/AppContext';
 import { parseFlexibleDate, formatYYYYMMToFrench } from '../../utils/dateUtils';
@@ -436,6 +438,36 @@ const EnrollmentTargetTooltip: React.FC<EnrollmentTargetTooltipProps> = ({ activ
   );
 };
 
+interface SeasonalityPoint {
+  monthKey: string;
+  shortLabel: string;
+  fullLabel: string;
+  inscriptions: number;
+}
+
+interface SeasonalityTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value?: number; payload?: SeasonalityPoint }>;
+}
+
+const SeasonalityTooltip: React.FC<SeasonalityTooltipProps> = ({ active, payload }) => {
+  if (!active || !payload || payload.length === 0) return null;
+  const pt = payload[0]?.payload;
+  const count = payload[0]?.value ?? 0;
+
+  return (
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2.5 shadow-lg text-xs min-w-[180px]">
+      <p className="font-bold text-slate-900 dark:text-white capitalize">{pt?.fullLabel}</p>
+      <div className="mt-1.5 flex items-center gap-2 font-mono tabular-nums">
+        <span className="h-2 w-2 rounded-full bg-indigo-500 shrink-0" />
+        <span className="font-bold text-indigo-600 dark:text-indigo-400">
+          {count} {count <= 1 ? 'inscription' : 'inscriptions'}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 type DateRangePreset = '7d' | '14d' | '30d' | 'month' | 'custom';
 
 function toInputDateKey(d: Date): string {
@@ -506,6 +538,13 @@ export const KPIHighlights: React.FC = () => {
   const [recoveryMonth, setRecoveryMonth] = useState<string>(() => getCurrentYearMonth());
   const [paymentAreaMode, setPaymentAreaMode] = useState<PaymentAreaMode>('daily');
   const [composedHorizon, setComposedHorizon] = useState<ComposedHorizon>(6);
+  const [seasonalityAcademicYear, setSeasonalityAcademicYear] = useState<string>(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+    const startY = m >= 9 ? y : y - 1;
+    return `${startY}-${startY + 1}`;
+  });
   const [monthlyTarget, setMonthlyTarget] = useState<number>(() => {
     try {
       const saved = localStorage.getItem(MONTHLY_TARGET_STORAGE_KEY);
@@ -1139,6 +1178,85 @@ export const KPIHighlights: React.FC = () => {
       monthsMet,
     };
   }, [safeStudents, composedHorizon, monthlyTarget]);
+
+  const availableAcademicYears = useMemo(() => {
+    const yearsSet = new Set<string>();
+    const now = new Date();
+    const currentY = now.getFullYear();
+    const currentM = now.getMonth() + 1;
+    const defaultStartY = currentM >= 9 ? currentY : currentY - 1;
+    yearsSet.add(`${defaultStartY}-${defaultStartY + 1}`);
+    yearsSet.add(`${defaultStartY - 1}-${defaultStartY}`);
+
+    for (const student of safeStudents) {
+      const parsed = parseFlexibleDate(student.enrollmentDate);
+      if (!parsed) continue;
+      const y = parsed.getFullYear();
+      const m = parsed.getMonth() + 1;
+      const startY = m >= 9 ? y : y - 1;
+      yearsSet.add(`${startY}-${startY + 1}`);
+    }
+
+    return Array.from(yearsSet).sort().reverse();
+  }, [safeStudents]);
+
+  const seasonalityData = useMemo(() => {
+    const [startYStr, endYStr] = seasonalityAcademicYear.split('-');
+    const startY = parseInt(startYStr, 10) || new Date().getFullYear();
+    const endY = parseInt(endYStr, 10) || startY + 1;
+
+    const monthsDef = [
+      { monthNum: 9, year: startY, short: 'Sept', full: `Septembre ${startY}` },
+      { monthNum: 10, year: startY, short: 'Oct', full: `Octobre ${startY}` },
+      { monthNum: 11, year: startY, short: 'Nov', full: `Novembre ${startY}` },
+      { monthNum: 12, year: startY, short: 'Déc', full: `Décembre ${startY}` },
+      { monthNum: 1, year: endY, short: 'Jan', full: `Janvier ${endY}` },
+      { monthNum: 2, year: endY, short: 'Fév', full: `Février ${endY}` },
+      { monthNum: 3, year: endY, short: 'Mars', full: `Mars ${endY}` },
+      { monthNum: 4, year: endY, short: 'Avr', full: `Avril ${endY}` },
+      { monthNum: 5, year: endY, short: 'Mai', full: `Mai ${endY}` },
+      { monthNum: 6, year: endY, short: 'Juin', full: `Juin ${endY}` },
+      { monthNum: 7, year: endY, short: 'Juil', full: `Juillet ${endY}` },
+      { monthNum: 8, year: endY, short: 'Août', full: `Août ${endY}` },
+    ];
+
+    const countsMap = new Map<string, number>();
+    for (const student of safeStudents) {
+      const parsed = parseFlexibleDate(student.enrollmentDate);
+      if (!parsed) continue;
+      const mKey = `${parsed.getFullYear()}-${parsed.getMonth() + 1}`;
+      countsMap.set(mKey, (countsMap.get(mKey) || 0) + 1);
+    }
+
+    let totalYearInscriptions = 0;
+    const series = monthsDef.map((m) => {
+      const mKey = `${m.year}-${m.monthNum}`;
+      const count = countsMap.get(mKey) || 0;
+      totalYearInscriptions += count;
+      return {
+        monthKey: mKey,
+        shortLabel: m.short,
+        fullLabel: m.full,
+        inscriptions: count,
+      };
+    });
+
+    const peakMonth = series.reduce(
+      (max, curr) => (curr.inscriptions > max.inscriptions ? curr : max),
+      series[0]
+    );
+
+    const activeMonthsCount = series.filter((s) => s.inscriptions > 0).length;
+    const averagePerActiveMonth =
+      activeMonthsCount > 0 ? (totalYearInscriptions / activeMonthsCount).toFixed(1).replace('.', ',') : '0';
+
+    return {
+      series,
+      totalYearInscriptions,
+      peakMonth,
+      averagePerActiveMonth,
+    };
+  }, [safeStudents, seasonalityAcademicYear]);
 
   return (
     <div className="space-y-4">
@@ -2472,6 +2590,147 @@ export const KPIHighlights: React.FC = () => {
               </ResponsiveContainer>
             </div>
           </>
+        )}
+      </section>
+
+      {/* Graphique BarChart : Saisonnalité des inscriptions sur l'année académique */}
+      <section
+        aria-label="Saisonnalité des inscriptions par mois sur l'année académique"
+        className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm"
+      >
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              <BarChart3 className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                Saisonnalité des Inscriptions — Année Académique {seasonalityAcademicYear}
+              </h2>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                <span>
+                  Total année :{' '}
+                  <strong className="font-mono font-bold text-slate-900 dark:text-white tabular-nums">
+                    {seasonalityData.totalYearInscriptions}
+                  </strong>{' '}
+                  élève{seasonalityData.totalYearInscriptions > 1 ? 's' : ''}
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>
+                  Mois pic :{' '}
+                  <strong className="font-semibold text-indigo-600 dark:text-indigo-400">
+                    {seasonalityData.peakMonth.fullLabel}
+                  </strong>{' '}
+                  <span className="font-mono tabular-nums">({seasonalityData.peakMonth.inscriptions})</span>
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>
+                  Moyenne mensuelle :{' '}
+                  <strong className="font-mono font-bold text-slate-800 dark:text-slate-200 tabular-nums">
+                    {seasonalityData.averagePerActiveMonth} / mois actif
+                  </strong>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+            <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+              <CalendarDays className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+              <span>Année académique :</span>
+              <select
+                value={seasonalityAcademicYear}
+                onChange={(e) => setSeasonalityAcademicYear(e.target.value)}
+                aria-label="Sélectionner l'année académique"
+                className="bg-transparent font-mono font-bold text-slate-900 dark:text-white focus:outline-none cursor-pointer"
+              >
+                {availableAcademicYears.map((yr) => (
+                  <option key={yr} value={yr} className="bg-white dark:bg-slate-900">
+                    {yr}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setCurrentTab('inscriptions')}
+              className="whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+            >
+              <span>Registre des élèves</span>
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {seasonalityData.totalYearInscriptions === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <Users className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+            <p className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+              Aucune inscription enregistrée pour l'année académique {seasonalityAcademicYear}.
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Enregistrez des inscriptions pour visualiser la courbe de saisonnalité mensuelle.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsNewStudentModalOpen(true)}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-3.5 py-2 text-xs font-semibold text-white transition-colors cursor-pointer"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              <span>Nouvelle inscription</span>
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 h-64 w-full min-w-0">
+            <ResponsiveContainer width="100%" height={256}>
+              <BarChart
+                data={seasonalityData.series}
+                margin={{ top: 12, right: 16, left: -12, bottom: 4 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke={isDark ? '#1e293b' : '#e2e8f0'}
+                />
+                <XAxis
+                  dataKey="shortLabel"
+                  tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#64748b' }}
+                  axisLine={false}
+                  tickLine={false}
+                  dy={6}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#64748b' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={36}
+                />
+                <Tooltip
+                  content={<SeasonalityTooltip />}
+                  cursor={{
+                    fill: isDark ? 'rgba(51, 65, 85, 0.28)' : 'rgba(226, 232, 240, 0.48)',
+                  }}
+                />
+                <Bar
+                  dataKey="inscriptions"
+                  name="Inscriptions mensuelles"
+                  fill="#4f46e5"
+                  barSize={32}
+                  radius={[6, 6, 0, 0]}
+                >
+                  {seasonalityData.series.map((entry) => (
+                    <Cell
+                      key={entry.monthKey}
+                      fill={entry.inscriptions === seasonalityData.peakMonth.inscriptions && entry.inscriptions > 0 ? '#6366f1' : '#4f46e5'}
+                      fillOpacity={entry.inscriptions > 0 ? 0.9 : 0.3}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </section>
 

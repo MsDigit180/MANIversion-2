@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { CAB_APPUIS_LOGO, CAB_APPUIS_INFO } from '../assets/logo';
-import { Student, Tutor, PaymentReceipt, MonthlyInvoice, TutoringGroup, GroupRecord, Expense, SalaryPayment, CashLoan } from '../types';
+import { Student, Tutor, PaymentReceipt, MonthlyInvoice, TutoringGroup, GroupRecord, Expense, SalaryPayment, CashLoan, OperationItem } from '../types';
 import { numberToFrenchWords } from './familyUtils';
 import { formatReceiptPaymentDate, formatSessionHours, parseFlexibleDate } from './dateUtils';
 import { calculateTutorWeeklySessions } from './tutorAssignmentValidation';
@@ -1546,6 +1546,118 @@ export const downloadDailyDashboardReportPDF = async ({
   applyPageFooters(doc);
 
   const filename = generateUniqueDocumentFileName('rapport_journalier', todayIso);
+  doc.save(filename);
+};
+
+// ============================================================================
+// 9. TÉLÉCHARGEMENT PDF : ACTIVITÉS RÉCENTES & FLUX D'OPÉRATIONS
+// ============================================================================
+export const downloadOperationsFeedPDF = async (
+  enrichedOperations: Array<{
+    op: OperationItem;
+    resolved: { date: string; time: string; epochMs: number };
+  }>,
+  title = "ACTIVITÉS RÉCENTES & FLUX D'OPÉRATIONS",
+  campusName?: string
+) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const logoDataUrl = await getLogoDataUrl();
+  const dateStr = new Date().toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  const metaLine = `Date d'édition : ${dateStr} · Nombre total d'opérations : ${enrichedOperations.length}${
+    campusName ? ` · Centre : ${campusName}` : ''
+  }`;
+
+  drawOfficialHeader(doc, logoDataUrl, title, metaLine);
+
+  const getOperationTypeLabel = (type: OperationItem['type']): string => {
+    switch (type) {
+      case 'inscription':
+        return 'Inscription';
+      case 'paiement':
+        return 'Paiement';
+      case 'vente':
+        return 'Boutique';
+      case 'concours':
+        return 'Concours';
+      case 'salaire':
+        return 'Salaire';
+      case 'depense':
+        return 'Dépense';
+      case 'pret':
+        return 'Prêt Caisse';
+      case 'remboursement':
+        return 'Remise Prêt';
+      default:
+        return 'Opération';
+    }
+  };
+
+  const tableData = enrichedOperations.map(({ op, resolved }, index) => {
+    const hasAmount = typeof op.amount === 'number' && !isNaN(op.amount);
+    const isOutflow = op.type === 'depense' || op.type === 'salaire' || op.type === 'pret';
+    const signedAmount = hasAmount
+      ? `${isOutflow ? '-' : '+'}${formatPdfFCFA(Math.abs(op.amount ?? 0))}`
+      : '-';
+
+    return [
+      (index + 1).toString(),
+      `${resolved.date} à ${resolved.time}`,
+      getOperationTypeLabel(op.type),
+      `${op.title}\n${op.subtitle || ''}`,
+      op.referenceId || '-',
+      signedAmount,
+      `${op.agentName} (${op.agentRole})`,
+    ];
+  });
+
+  autoTable(doc, {
+    startY: 38,
+    head: [['N°', 'Date & Heure', 'Type', 'Libellé & Détails', 'Référence', 'Montant', 'Agent']],
+    body: tableData,
+    theme: 'grid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.5,
+      cellPadding: 2.2,
+      textColor: [30, 41, 59],
+      lineColor: [203, 213, 225],
+      lineWidth: 0.1,
+      overflow: 'linebreak',
+    },
+    headStyles: {
+      fillColor: [30, 27, 75],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8,
+    },
+    columnStyles: {
+      0: { cellWidth: 9, halign: 'center' },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 24, fontStyle: 'bold' },
+      3: { cellWidth: 62 },
+      4: { cellWidth: 26 },
+      5: { cellWidth: 28, halign: 'right', fontStyle: 'bold' },
+      6: { cellWidth: 35 },
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    margin: { left: 14, right: 14, bottom: 14 },
+  });
+
+  applyPageFooters(doc);
+
+  const filename = generateUniqueDocumentFileName('flux_operations', title);
   doc.save(filename);
 };
 
