@@ -246,10 +246,14 @@ export const PaiementsTab: React.FC = () => {
     .filter((p) => p.paymentMethod === 'Virement Bancaire')
     .reduce((a, b) => a + (b.amount || 0), 0);
 
-  // Generated Monthly Invoices
+  // Generated Monthly Invoices (élèves actifs uniquement, règlements du mois sélectionné)
   const allMonthlyInvoices = useMemo(() => {
-    return generateMonthlyInvoices(safeStudents, invoiceMonth, { groupByFamily, dueDateDay: 10 });
-  }, [safeStudents, invoiceMonth, groupByFamily]);
+    return generateMonthlyInvoices(safeStudents, invoiceMonth, {
+      groupByFamily,
+      dueDateDay: 10,
+      payments: safePayments,
+    });
+  }, [safeStudents, safePayments, invoiceMonth, groupByFamily]);
 
   const filteredInvoices = useMemo(() => {
     return allMonthlyInvoices.filter((inv) => {
@@ -280,6 +284,8 @@ export const PaiementsTab: React.FC = () => {
 
   // Invoice Statistics for Current Selected Month
   const invoiceStats = useMemo(() => {
+    const activeStudentsCount = safeStudents.filter((s) => s.tutoringStatus === 'Actif').length;
+    const excludedStoppedCount = safeStudents.filter((s) => s.tutoringStatus !== 'Actif').length;
     const totalBilled = allMonthlyInvoices.reduce((sum, inv) => sum + inv.totalMonthlyFee, 0);
     const totalPaid = allMonthlyInvoices.reduce((sum, inv) => sum + inv.totalPaid, 0);
     const totalDue = allMonthlyInvoices.reduce((sum, inv) => sum + inv.netDue, 0);
@@ -297,8 +303,10 @@ export const PaiementsTab: React.FC = () => {
       pendingCount,
       collectionRate,
       count: allMonthlyInvoices.length,
+      activeStudentsCount,
+      excludedStoppedCount,
     };
-  }, [allMonthlyInvoices]);
+  }, [allMonthlyInvoices, safeStudents]);
 
   const handleCopySMS = (inv: MonthlyInvoice) => {
     const text = generateSMSInvoiceMessage(inv);
@@ -907,7 +915,11 @@ export const PaiementsTab: React.FC = () => {
                 <span className="text-xs font-normal text-slate-500">FCFA</span>
               </div>
               <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                {invoiceStats?.count ?? 0} factures éditées ({students.length} élèves)
+                {invoiceStats?.count ?? 0} factures ({invoiceStats?.activeStudentsCount ?? 0} actifs
+                {(invoiceStats?.excludedStoppedCount ?? 0) > 0
+                  ? ` · ${invoiceStats.excludedStoppedCount} arrêt(s) exclus`
+                  : ''}
+                )
               </span>
             </div>
 
@@ -915,7 +927,7 @@ export const PaiementsTab: React.FC = () => {
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                  Total Déjà Recouvré
+                  Recouvré · {formatYYYYMMToFrench(invoiceMonth)}
                 </span>
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
               </div>

@@ -127,8 +127,9 @@ export const DepensesCaisseTab: React.FC = () => {
     campus,
   } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState<'ledger' | 'loans' | 'reconciliation'>('ledger');
+  const [activeSubTab, setActiveSubTab] = useState<'ledger' | 'salaries' | 'loans' | 'reconciliation'>('ledger');
   const [search, setSearch] = useState('');
+  const [salarySearch, setSalarySearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'manual' | 'salaire'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [methodFilter, setMethodFilter] = useState<string>('all');
@@ -268,6 +269,27 @@ export const DepensesCaisseTab: React.FC = () => {
     [filteredExpenses]
   );
 
+  const filteredSalaries = useMemo(() => {
+    const q = salarySearch.trim().toLowerCase();
+    return safeSalaries.filter((sal) => {
+      const matchesMonth =
+        monthFilter === 'all' ||
+        matchesTreasuryMonth(sal.paymentDate, sal.month, monthFilter);
+      const matchesSearch =
+        !q ||
+        sal.paymentNumber.toLowerCase().includes(q) ||
+        sal.tutorName.toLowerCase().includes(q) ||
+        sal.tutorMatricule.toLowerCase().includes(q) ||
+        sal.month.toLowerCase().includes(q);
+      return matchesMonth && matchesSearch;
+    });
+  }, [safeSalaries, monthFilter, salarySearch]);
+
+  const totalFilteredSalariesAmount = useMemo(
+    () => filteredSalaries.reduce((sum, s) => sum + Number(s.amount || 0), 0),
+    [filteredSalaries]
+  );
+
   const manualBreakdownByCategory = useMemo(() => {
     const map = new Map<string, number>();
     for (const exp of safeExpenses) {
@@ -373,6 +395,19 @@ export const DepensesCaisseTab: React.FC = () => {
           >
             <Receipt className="h-4 w-4" />
             <span>Journal des Dépenses ({allConsolidatedExpenses.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('salaries')}
+            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 font-bold transition-all cursor-pointer whitespace-nowrap ${
+              activeSubTab === 'salaries'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            <span>Salaires Encadreurs ({safeSalaries.length})</span>
           </button>
 
           <button
@@ -667,6 +702,19 @@ export const DepensesCaisseTab: React.FC = () => {
             </>
           )}
 
+          {activeSubTab === 'salaries' && (
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Rechercher encadreur, matricule ou période..."
+                value={salarySearch}
+                onChange={(e) => setSalarySearch(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
+            </div>
+          )}
+
           {activeSubTab === 'loans' && (
             <>
               <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -768,12 +816,121 @@ export const DepensesCaisseTab: React.FC = () => {
           <span>
             {activeSubTab === 'ledger'
               ? `${filteredExpenses.length} sortie(s) · Total : -${filteredTotalAmount.toLocaleString()} FCFA`
+              : activeSubTab === 'salaries'
+              ? `${filteredSalaries.length} versement(s) · Total : ${totalFilteredSalariesAmount.toLocaleString()} FCFA`
               : activeSubTab === 'loans'
               ? `${filteredLoans.length} prêt(s) · Encours dû : ${loanStats.totalRemaining.toLocaleString()} FCFA`
               : `Caisse ${periodLabel} : ${summary.netCashBalance.toLocaleString()} FCFA`}
           </span>
         </div>
       </div>
+
+      {/* =================================================================== */}
+      {/* SUB-VIEW: SALAIRES ENCADREURS (TABLEAU RÉCAPITULATIF DES VERSSEMENTS) */}
+      {/* =================================================================== */}
+      {activeSubTab === 'salaries' && (
+        <div className="space-y-4">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Salaires Versés</span>
+              <div className="mt-2 font-mono text-2xl font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
+                {totalFilteredSalariesAmount.toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Nombre de Versements</span>
+              <div className="mt-2 font-mono text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
+                {filteredSalaries.length} <span className="text-xs font-normal text-slate-500"> / {safeSalaries.length} total</span>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Encadreurs Distincts Payés</span>
+              <div className="mt-2 font-mono text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                {new Set(filteredSalaries.map((s) => s.tutorId)).size}
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                <thead className="bg-slate-100 dark:bg-slate-750 text-slate-700 dark:text-slate-200 uppercase tracking-wider text-[10px] font-semibold border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="py-3 px-4">N° Référence</th>
+                    <th className="py-3 px-4">Encadreur & Matricule</th>
+                    <th className="py-3 px-4">Période Concernée</th>
+                    <th className="py-3 px-4">Date de Paiement</th>
+                    <th className="py-3 px-4">Mode de Règlement</th>
+                    <th className="py-3 px-4 text-right">Montant Versé</th>
+                    <th className="py-3 px-4">Agent Enregistreur</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                  {filteredSalaries.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                        <Users className="h-8 w-8 mx-auto mb-2 opacity-50 text-indigo-400" />
+                        <p className="font-semibold text-slate-700 dark:text-slate-300">
+                          Aucun versement de salaire ne correspond à ces critères.
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSalaries.map((sal) => (
+                      <tr key={sal.id} className="hover:bg-slate-50 dark:hover:bg-slate-750/50 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-white">
+                          {sal.paymentNumber}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-900 dark:text-white">
+                            {sal.tutorName}
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-mono">
+                            {sal.tutorMatricule}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-indigo-600 dark:text-indigo-400">
+                          {sal.month}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-700 dark:text-slate-300">
+                          {sal.paymentDate}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300 font-medium">
+                          {sal.paymentMethod}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
+                          {sal.amount.toLocaleString()} FCFA
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-semibold text-slate-800 dark:text-slate-200">
+                            {sal.agentName}
+                          </div>
+                          <div className="text-[10px] text-slate-400">{sal.agentRole}</div>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Confirmez-vous la suppression du versement de salaire n° ${sal.paymentNumber} (${sal.amount.toLocaleString()} FCFA) pour ${sal.tutorName} ?`)) {
+                                deleteSalaryPayment(sal.id);
+                              }
+                            }}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 transition-colors cursor-pointer ml-auto"
+                            title="Supprimer ce versement de salaire"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* =================================================================== */}
       {/* SUB-VIEW 1: JOURNAL CONSOLIDÉ DES DÉPENSES (MANUELLES + SALAIRES) */}

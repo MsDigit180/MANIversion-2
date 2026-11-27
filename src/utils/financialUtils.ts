@@ -26,21 +26,37 @@ export interface StudentPaymentSchedule {
   isOverdue: boolean;
   remainingAmount: number;
   statusDetailLabel: string;
+  isStoppedExcluded?: boolean;
+}
+
+export function getCurrentYearMonth(referenceDate: Date = new Date()): string {
+  const y = referenceDate.getFullYear();
+  const m = String(referenceDate.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+export function isStudentStopped(student?: Partial<Student> | null): boolean {
+  return Boolean(student && student.tutoringStatus && student.tutoringStatus !== 'Actif');
 }
 
 /**
  * RÈGLE DE RETARD DE PAIEMENT :
- * Un élève est considéré "En retard" SI ET SEULEMENT SI :
- * - Un solde d'encadrement reste dû (due - paid > 0), ET
- * - 30 jours se sont écoulés depuis sa date de début de prestation (`serviceStartDate`), ET
- * - Le délai de grâce de 2 semaines (14 jours) pour payer est dépassé (> 44 jours au total).
+ * - Un élève déjà en arrêt (`tutoringStatus !== 'Actif'`) n'est PAS concerné par le recouvrement.
+ * - Un élève actif est considéré "En retard" SI ET SEULEMENT SI :
+ *   - Un solde d'encadrement reste dû (due - paid > 0), ET
+ *   - 30 jours se sont écoulés depuis sa date de début de prestation (`serviceStartDate`), ET
+ *   - Le délai de grâce de 2 semaines (14 jours) pour payer est dépassé (> 44 jours au total).
  */
 export function getStudentPaymentSchedule(
   student?: Partial<Student> | null,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  paidOverride?: number
 ): StudentPaymentSchedule {
   const due = Number(student?.encadrement?.due ?? student?.monthlyFee ?? 0);
-  const paid = Number(student?.encadrement?.paid ?? student?.paidAmount ?? 0);
+  const paid =
+    paidOverride !== undefined
+      ? Number(paidOverride)
+      : Number(student?.encadrement?.paid ?? student?.paidAmount ?? 0);
   const remainingAmount = Math.max(0, due - paid);
 
   const todayMidnight = new Date(
@@ -69,6 +85,24 @@ export function getStudentPaymentSchedule(
 
   const msPerDay = 24 * 60 * 60 * 1000;
   const daysElapsed = Math.floor((todayMidnight.getTime() - startMidnight.getTime()) / msPerDay);
+
+  if (isStudentStopped(student)) {
+    return {
+      serviceStartDate,
+      dueDate,
+      overdueDate,
+      daysElapsed,
+      daysUntilDue: 0,
+      daysRemainingInGrace: 0,
+      daysOverdue: 0,
+      phase: 'paid',
+      paymentStatus: 'A jour',
+      isOverdue: false,
+      remainingAmount: 0,
+      statusDetailLabel: 'Arrêté · Non concerné par le recouvrement',
+      isStoppedExcluded: true,
+    };
+  }
 
   if (remainingAmount <= 0 && (due > 0 || paid > 0 || due === 0)) {
     return {
@@ -239,14 +273,22 @@ export function getEncadrementBalance(student?: Partial<Student> | null): number
 export function getFinancialStatusBadge(
   status?: string,
   student?: Partial<Student> | null,
-  accountType?: 'inscription' | 'encadrement'
+  accountType?: 'inscription' | 'encadrement',
+  paidOverride?: number
 ): {
   label: string;
   badgeClass: string;
   dotClass: string;
 } {
   if (accountType === 'encadrement' && student) {
-    const schedule = getStudentPaymentSchedule(student);
+    if (isStudentStopped(student)) {
+      return {
+        label: 'Hors recouvrement (Arrêt)',
+        badgeClass: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-300 dark:border-slate-700',
+        dotClass: 'bg-slate-400',
+      };
+    }
+    const schedule = getStudentPaymentSchedule(student, new Date(), paidOverride);
     if (schedule.paymentStatus === 'A jour') {
       return {
         label: 'Soldé (Payé)',
@@ -314,14 +356,22 @@ export function getFinancialStatusBadge(
 export function getAccountStatusBadgeInfo(
   status?: string,
   accountType?: 'inscription' | 'encadrement',
-  student?: Partial<Student> | null
+  student?: Partial<Student> | null,
+  paidOverride?: number
 ): {
   label: string;
   badgeClass: string;
   dotClass: string;
 } {
   if (accountType === 'encadrement' && student) {
-    const schedule = getStudentPaymentSchedule(student);
+    if (isStudentStopped(student)) {
+      return {
+        label: 'Hors recouvr.',
+        badgeClass: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-300 dark:border-slate-700',
+        dotClass: 'bg-slate-400',
+      };
+    }
+    const schedule = getStudentPaymentSchedule(student, new Date(), paidOverride);
     if (schedule.paymentStatus === 'A jour') {
       return {
         label: 'À jour',
@@ -898,4 +948,134 @@ export function formatPaymentCoveredMonthLabel(
   return 'Ponctuel';
 }
 
+/**
+ * Calcule les paiements d'encadrement (scolarité mensuelle) encaissés par élève
+ * pour un mois donné (YYYY-MM), en tenant compte des reçus individuels et des reçus groupés famille.
+ */
+export function getStudentMonthlyPaymentMap(
+  students: Partial<Student>[],
+  payments: PaymentReceipt[],
+  monthYYYYMM: string
+): Map<string, number> {
+  const paidByStudentId = new Map<string, number>();
+  if (!monthYYYYMM) return paidByStudentId;
 
+  const studentById = new Set<string>();
+  const studentIdByName = new Map<string, string>();
+  for (const st of students || []) {
+    if (!st?.id) continue;
+    studentById.add(st.id);
+    if (st.fullName) {
+      studentIdByName.set(st.fullName.trim().toLowerCase(), st.id);
+    }
+  }
+
+  const addAmount = (studentId: string | undefined, amount: number) => {
+    if (!studentId || amount <= 0) return;
+    paidByStudentId.set(studentId, (paidByStudentId.get(studentId) || 0) + amount);
+  };
+
+  for (const p of payments || []) {
+    if (!p || p.status === 'Annulé') continue;
+    const parentCovered = getPaymentCoveredMonthKey(p);
+
+    if (Array.isArray(p.studentBreakdown) && p.studentBreakdown.length > 0) {
+      for (const item of p.studentBreakdown) {
+        if (!item) continue;
+        const itemCat = item.category || p.category;
+        if (!isEncadrementCategory(itemCat)) continue;
+        const itemMonth =
+          normalizeYearMonthString(item.coveredMonth) ||
+          normalizeYearMonthString(item.notes) ||
+          parentCovered;
+        if (itemMonth !== monthYYYYMM) continue;
+        const targetId =
+          (item.studentId && studentById.has(item.studentId) ? item.studentId : undefined) ||
+          (item.studentName ? studentIdByName.get(item.studentName.trim().toLowerCase()) : undefined) ||
+          item.studentId;
+        addAmount(targetId, Number(item.amount || 0));
+      }
+    } else if (isEncadrementCategory(p.category)) {
+      if (parentCovered !== monthYYYYMM) continue;
+      const targetId =
+        (p.studentId && studentById.has(p.studentId) ? p.studentId : undefined) ||
+        (p.studentName ? studentIdByName.get(p.studentName.trim().toLowerCase()) : undefined) ||
+        p.studentId;
+      addAmount(targetId, Number(p.amount || 0));
+    }
+  }
+
+  return paidByStudentId;
+}
+
+export interface MonthlyRecoverySummary {
+  monthYYYYMM: string;
+  monthLabel: string;
+  totalDue: number;
+  totalCollected: number;
+  totalRemaining: number;
+  collectionRate: number;
+  activeCount: number;
+  excludedStoppedCount: number;
+  paidCount: number;
+  partialCount: number;
+  unpaidCount: number;
+}
+
+/**
+ * Résumé officiel du recouvrement mensuel (frais d'encadrement) pour un mois donné (YYYY-MM).
+ * RÈGLE MÉTIER :
+ * - Calculé strictement par mois à partir des règlements couvrant ce mois.
+ * - Exclut systématiquement tout élève déjà en arrêt (`tutoringStatus !== 'Actif'`).
+ */
+export function calculateMonthlyRecoverySummary(
+  students: Student[],
+  payments: PaymentReceipt[],
+  monthYYYYMM: string = getCurrentYearMonth()
+): MonthlyRecoverySummary {
+  const safeStudents = students || [];
+  const activeStudents = safeStudents.filter((s) => s && s.tutoringStatus === 'Actif');
+  const excludedStoppedCount = safeStudents.filter((s) => s && s.tutoringStatus !== 'Actif').length;
+  const monthlyPaidMap = getStudentMonthlyPaymentMap(safeStudents, payments || [], monthYYYYMM);
+
+  let totalDue = 0;
+  let totalCollected = 0;
+  let totalRemaining = 0;
+  let paidCount = 0;
+  let partialCount = 0;
+  let unpaidCount = 0;
+
+  for (const st of activeStudents) {
+    const due = Number(st?.encadrement?.due ?? st?.monthlyFee ?? 0);
+    const paid = Number(monthlyPaidMap.get(st.id) || 0);
+    const remaining = Math.max(0, due - paid);
+
+    totalDue += due;
+    totalCollected += paid;
+    totalRemaining += remaining;
+
+    if (due > 0 && paid >= due) {
+      paidCount += 1;
+    } else if (paid > 0) {
+      partialCount += 1;
+    } else if (due > 0) {
+      unpaidCount += 1;
+    }
+  }
+
+  const collectionRate = totalDue > 0 ? Math.round((totalCollected / totalDue) * 100) : 100;
+
+  return {
+    monthYYYYMM,
+    monthLabel: formatYYYYMMToFrench(monthYYYYMM),
+    totalDue,
+    totalCollected,
+    totalRemaining,
+    collectionRate,
+    activeCount: activeStudents.length,
+    excludedStoppedCount,
+    paidCount,
+    partialCount,
+    unpaidCount,
+  };
+}

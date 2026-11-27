@@ -30,9 +30,8 @@ import {
   getEncadrementAccount,
   getInscriptionBalance,
   getEncadrementBalance,
-  isInscriptionCategory,
-  isEncadrementCategory,
-  getFinancialStatusBadge,
+  getCurrentYearMonth,
+  getStudentMonthlyPaymentMap,
 } from '../../utils/financialUtils';
 
 export const NewPaymentModal: React.FC = () => {
@@ -40,6 +39,7 @@ export const NewPaymentModal: React.FC = () => {
     isNewPaymentModalOpen,
     setIsNewPaymentModalOpen,
     students,
+    payments,
     addPayment,
     addFamilyPayment,
     setSelectedReceipt,
@@ -87,13 +87,14 @@ export const NewPaymentModal: React.FC = () => {
   >([]);
 
   const safeStudents = students || [];
+  const safePayments = payments || [];
   const families = getAllFamilies(safeStudents);
 
   const resetForm = () => {
     setSelectedStudentId('');
     setCustomName('');
     setCategory('Scolarité Mensuelle');
-    setTargetMonth(new Date().toISOString().slice(0, 7));
+    setTargetMonth(getCurrentYearMonth());
     setAmount(35000);
     setPaymentMethod('Airtel Money');
     setCashierName('');
@@ -132,6 +133,41 @@ export const NewPaymentModal: React.FC = () => {
   const selectedStudent = students.find((s) => s.id === selectedStudentId);
   const isStoppedTutoring = selectedStudent && selectedStudent.tutoringStatus !== 'Actif';
   const detectedSiblings = selectedStudent ? getStudentSiblings(selectedStudent, students) : [];
+  const monthlyPaidMapForTarget = getStudentMonthlyPaymentMap(safeStudents, safePayments, targetMonth);
+
+  const handleTargetMonthChange = (newMonth: string) => {
+    if (!newMonth) return;
+    setTargetMonth(newMonth);
+    const nextMonthPaidMap = getStudentMonthlyPaymentMap(safeStudents, safePayments, newMonth);
+
+    if (paymentMode === 'single' && selectedStudent && category === 'Scolarité Mensuelle') {
+      const due = getEncadrementAccount(selectedStudent).due || selectedStudent.monthlyFee;
+      const paidForMonth = nextMonthPaidMap.get(selectedStudent.id) || 0;
+      const remaining = Math.max(0, due - paidForMonth);
+      setAmount(remaining > 0 ? remaining : due);
+    }
+
+    if (paymentMode === 'family' && familyItems.length > 0) {
+      setFamilyItems((prev) =>
+        prev.map((item) => {
+          const st = safeStudents.find((s) => s.id === item.studentId);
+          const feeDue = st ? (getEncadrementAccount(st).due || st.monthlyFee) : item.monthlyFee;
+          const paidForMonth = nextMonthPaidMap.get(item.studentId) || 0;
+          const isStopped = item.tutoringStatus !== 'Actif';
+          const remaining = isStopped ? 0 : Math.max(0, feeDue - paidForMonth);
+          return {
+            ...item,
+            paidAmount: paidForMonth,
+            balanceRemaining: remaining,
+            amountToPay:
+              item.itemCategory === 'Scolarité Mensuelle'
+                ? (isStopped ? 0 : (remaining > 0 ? remaining : feeDue))
+                : item.amountToPay,
+          };
+        })
+      );
+    }
+  };
 
   const handleStudentSelect = (id: string) => {
     setSelectedStudentId(id);
@@ -143,9 +179,11 @@ export const NewPaymentModal: React.FC = () => {
         setAmount(remaining > 0 ? remaining : (getInscriptionAccount(stu).due || 10000));
         setNotes(`Frais d'inscription (Compte Inscription Cloisonné) pour ${stu.fullName} (${stu.level})`);
       } else if (category === 'Scolarité Mensuelle') {
-        const remaining = getEncadrementBalance(stu);
-        setAmount(remaining > 0 ? remaining : (getEncadrementAccount(stu).due || stu.monthlyFee));
-        setNotes(`Règlement scolarité (Compte Encadrement Cloisonné) pour ${stu.fullName} (${stu.level})`);
+        const due = getEncadrementAccount(stu).due || stu.monthlyFee;
+        const paidForMonth = monthlyPaidMapForTarget.get(stu.id) || 0;
+        const remaining = Math.max(0, due - paidForMonth);
+        setAmount(remaining > 0 ? remaining : due);
+        setNotes(`Règlement scolarité (${formatYYYYMMToFrench(targetMonth)}) pour ${stu.fullName} (${stu.level})`);
       } else {
         setNotes(`Paiement ${category} pour ${stu.fullName}`);
       }
@@ -170,10 +208,12 @@ export const NewPaymentModal: React.FC = () => {
       setNotes('Achat fournitures scolaires');
       setAmount(15000);
     } else {
-      setNotes('Règlement scolarité du mois (Compte Encadrement Cloisonné)');
+      setNotes(`Règlement scolarité (${formatYYYYMMToFrench(targetMonth)})`);
       if (selectedStudent) {
-        const remaining = getEncadrementBalance(selectedStudent);
-        setAmount(remaining > 0 ? remaining : (getEncadrementAccount(selectedStudent).due || selectedStudent.monthlyFee));
+        const due = getEncadrementAccount(selectedStudent).due || selectedStudent.monthlyFee;
+        const paidForMonth = monthlyPaidMapForTarget.get(selectedStudent.id) || 0;
+        const remaining = Math.max(0, due - paidForMonth);
+        setAmount(remaining > 0 ? remaining : due);
       } else {
         setAmount(35000);
       }
@@ -189,23 +229,27 @@ export const NewPaymentModal: React.FC = () => {
     loadFamilyItems(allFamStudents);
   };
 
-  const loadFamilyItems = (stuList: Student[]) => {
+  const loadFamilyItems = (stuList: Student[], monthKey: string = targetMonth) => {
+    const monthPaidMap = getStudentMonthlyPaymentMap(safeStudents, safePayments, monthKey);
     const items = stuList.map((st) => {
-      const remaining = Math.max(0, st.monthlyFee - st.paidAmount);
-      const defaultPay = remaining > 0 ? remaining : st.monthlyFee;
+      const isStopped = st.tutoringStatus !== 'Actif';
+      const feeDue = getEncadrementAccount(st).due || st.monthlyFee;
+      const paidForMonth = monthPaidMap.get(st.id) || 0;
+      const remaining = isStopped ? 0 : Math.max(0, feeDue - paidForMonth);
+      const defaultPay = isStopped ? 0 : (remaining > 0 ? remaining : feeDue);
       return {
         studentId: st.id,
         studentMatricule: st.matricule,
         studentName: st.fullName,
         level: st.level,
-        monthlyFee: st.monthlyFee,
-        paidAmount: st.paidAmount,
+        monthlyFee: feeDue,
+        paidAmount: paidForMonth,
         balanceRemaining: remaining,
         tutoringStatus: st.tutoringStatus,
         amountToPay: defaultPay,
         itemCategory: 'Scolarité Mensuelle',
         itemNotes: `Scolarité ${st.fullName} (${st.level})`,
-        included: true,
+        included: !isStopped,
       };
     });
     setFamilyItems(items);
@@ -228,7 +272,10 @@ export const NewPaymentModal: React.FC = () => {
 
     if (familyItems.some((item) => item.studentId === stu.id)) return;
 
-    const remaining = Math.max(0, stu.monthlyFee - stu.paidAmount);
+    const isStopped = stu.tutoringStatus !== 'Actif';
+    const feeDue = getEncadrementAccount(stu).due || stu.monthlyFee;
+    const paidForMonth = monthlyPaidMapForTarget.get(stu.id) || 0;
+    const remaining = isStopped ? 0 : Math.max(0, feeDue - paidForMonth);
     setFamilyItems((prev) => [
       ...prev,
       {
@@ -236,14 +283,14 @@ export const NewPaymentModal: React.FC = () => {
         studentMatricule: stu.matricule,
         studentName: stu.fullName,
         level: stu.level,
-        monthlyFee: stu.monthlyFee,
-        paidAmount: stu.paidAmount,
+        monthlyFee: feeDue,
+        paidAmount: paidForMonth,
         balanceRemaining: remaining,
         tutoringStatus: stu.tutoringStatus,
-        amountToPay: remaining > 0 ? remaining : stu.monthlyFee,
+        amountToPay: isStopped ? 0 : (remaining > 0 ? remaining : feeDue),
         itemCategory: 'Scolarité Mensuelle',
         itemNotes: `Scolarité ${stu.fullName} (${stu.level})`,
-        included: true,
+        included: !isStopped,
       },
     ]);
   };
@@ -598,7 +645,7 @@ export const NewPaymentModal: React.FC = () => {
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold text-emerald-300 uppercase">
-                          Compte Frais d'Encadrement
+                          Encadrement · {formatYYYYMMToFrench(targetMonth)}
                         </span>
                         {category === 'Scolarité Mensuelle' && (
                           <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-bold border border-emerald-500/40">
@@ -606,15 +653,29 @@ export const NewPaymentModal: React.FC = () => {
                           </span>
                         )}
                       </div>
-                      <div className="font-mono text-xs font-bold text-white mt-1">
-                        {getEncadrementAccount(selectedStudent).paid.toLocaleString()} / {getEncadrementAccount(selectedStudent).due.toLocaleString()} FCFA
-                      </div>
-                      <div className="text-[10px] mt-0.5 flex justify-between">
-                        <span className="text-slate-400">Reste dû :</span>
-                        <strong className="text-emerald-400 font-mono">
-                          {getEncadrementBalance(selectedStudent).toLocaleString()} FCFA
-                        </strong>
-                      </div>
+                      {selectedStudent.tutoringStatus !== 'Actif' ? (
+                        <div className="text-[11px] font-semibold text-slate-400 mt-1">
+                          Élève en arrêt · Non concerné par le recouvrement mensuel
+                        </div>
+                      ) : (
+                        <>
+                          <div className="font-mono text-xs font-bold text-white mt-1">
+                            {(monthlyPaidMapForTarget.get(selectedStudent.id) || 0).toLocaleString()} /{' '}
+                            {(getEncadrementAccount(selectedStudent).due || selectedStudent.monthlyFee).toLocaleString()} FCFA
+                          </div>
+                          <div className="text-[10px] mt-0.5 flex justify-between">
+                            <span className="text-slate-400">Reste dû ({formatYYYYMMToFrench(targetMonth)}) :</span>
+                            <strong className="text-emerald-400 font-mono">
+                              {Math.max(
+                                0,
+                                (getEncadrementAccount(selectedStudent).due || selectedStudent.monthlyFee) -
+                                  (monthlyPaidMapForTarget.get(selectedStudent.id) || 0)
+                              ).toLocaleString()}{' '}
+                              FCFA
+                            </strong>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -673,7 +734,7 @@ export const NewPaymentModal: React.FC = () => {
                       type="month"
                       required
                       value={targetMonth}
-                      onChange={(e) => setTargetMonth(e.target.value)}
+                      onChange={(e) => handleTargetMonthChange(e.target.value)}
                       className="w-full rounded-lg border border-emerald-500/50 bg-slate-800 px-3 py-2 text-xs text-emerald-300 font-bold focus:border-emerald-500 focus:outline-none cursor-pointer"
                     />
                   </div>
@@ -796,7 +857,7 @@ export const NewPaymentModal: React.FC = () => {
                 <input
                   type="month"
                   value={targetMonth}
-                  onChange={(e) => setTargetMonth(e.target.value)}
+                  onChange={(e) => handleTargetMonthChange(e.target.value)}
                   className="rounded-lg border border-emerald-500/40 bg-slate-800 px-3 py-1.5 text-xs text-emerald-300 font-bold focus:border-emerald-500 focus:outline-none cursor-pointer"
                 />
               </div>

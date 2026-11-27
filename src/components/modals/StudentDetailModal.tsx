@@ -42,14 +42,16 @@ import {
   getInscriptionAccount,
   getEncadrementAccount,
   getInscriptionBalance,
-  getEncadrementBalance,
   isInscriptionCategory,
   isEncadrementCategory,
   getFinancialStatusBadge,
   getStudentPaymentSchedule,
   getPaymentCoveredMonthKey,
   formatPaymentCoveredMonthLabel,
+  getCurrentYearMonth,
+  getStudentMonthlyPaymentMap,
 } from '../../utils/financialUtils';
+import { formatYYYYMMToFrench } from '../../utils/dateUtils';
 
 interface StudentDetailModalProps {
   isOpen: boolean;
@@ -99,11 +101,23 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
   const inscriptionAccount = getInscriptionAccount(student);
   const encadrementAccount = getEncadrementAccount(student);
-  const encadrementSchedule = getStudentPaymentSchedule(student);
+  const isStopped = student.tutoringStatus !== 'Actif';
+  const currentMonthYYYYMM = getCurrentYearMonth();
+  const currentMonthLabel = formatYYYYMMToFrench(currentMonthYYYYMM);
+  const monthlyEncadrementPaid =
+    getStudentMonthlyPaymentMap([student], studentPayments, currentMonthYYYYMM).get(student.id) || 0;
+  const encadrementSchedule = getStudentPaymentSchedule(student, new Date(), monthlyEncadrementPaid);
   const inscriptionRemaining = getInscriptionBalance(student);
-  const encadrementRemaining = getEncadrementBalance(student);
+  const encadrementRemaining = isStopped
+    ? 0
+    : Math.max(0, (encadrementAccount?.due ?? student.monthlyFee) - monthlyEncadrementPaid);
   const inscriptionBadge = getFinancialStatusBadge(inscriptionAccount?.status);
-  const encadrementBadge = getFinancialStatusBadge(encadrementAccount?.status, student, 'encadrement');
+  const encadrementBadge = getFinancialStatusBadge(
+    encadrementAccount?.status,
+    student,
+    'encadrement',
+    monthlyEncadrementPaid
+  );
 
   // Séparation stricte des paiements par compte
   const inscriptionPayments = studentPayments.filter((p) => isInscriptionCategory(p.category));
@@ -111,7 +125,6 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   const totalInscriptionPaid = inscriptionPayments.reduce((s, p) => s + (p.amount || 0), 0);
   const totalEncadrementPaid = encadrementPayments.reduce((s, p) => s + (p.amount || 0), 0);
 
-  const isStopped = student.tutoringStatus !== 'Actif';
   const isPrimary = isPrimaryStudent(student);
 
   // Couverture matière par matière
@@ -272,39 +285,52 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               </div>
             </div>
 
-            {/* COMPTE ISOLÉ 2 : FRAIS D'ENCADREMENT */}
+            {/* COMPTE ISOLÉ 2 : FRAIS D'ENCADREMENT (RECOUVREMENT MENSUEL) */}
             <div className="rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50/60 dark:bg-emerald-950/20 p-3.5 relative overflow-hidden">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] text-emerald-800 dark:text-emerald-300 uppercase tracking-wider font-bold">
-                  Compte Encadrement
+              <div className="flex items-center justify-between mb-1 gap-1">
+                <span className="text-[11px] text-emerald-800 dark:text-emerald-300 uppercase tracking-wider font-bold truncate">
+                  Encadrement · {currentMonthLabel}
                 </span>
-                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${encadrementBadge.badgeClass}`}>
+                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border shrink-0 ${encadrementBadge.badgeClass}`}>
                   {encadrementBadge.label}
                 </span>
               </div>
-              <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">
-                {(encadrementAccount?.paid ?? 0).toLocaleString()} / {(encadrementAccount?.due ?? student.monthlyFee).toLocaleString()} FCFA
-              </div>
-              <div className="text-[10px] mt-1">
-                {encadrementRemaining > 0 ? (
-                  <span
-                    className={`font-semibold font-mono ${
-                      encadrementSchedule.isOverdue
-                        ? 'text-rose-600 dark:text-rose-400'
-                        : 'text-amber-700 dark:text-amber-300'
-                    }`}
-                  >
-                    Reste dû : {encadrementRemaining.toLocaleString()} FCFA
-                  </span>
-                ) : (
-                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                    ✓ Totalement à jour
-                  </span>
-                )}
-              </div>
-              <div className="text-[9px] text-emerald-700/90 dark:text-emerald-400/80 mt-0.5">
-                Début prest. : <strong className="font-mono">{encadrementSchedule.serviceStartDate}</strong> · Limite : <strong className="font-mono">{encadrementSchedule.overdueDate}</strong>
-              </div>
+              {isStopped ? (
+                <>
+                  <div className="font-semibold text-xs text-slate-600 dark:text-slate-300 mt-1">
+                    Non concerné par le recouvrement
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                    Élève en arrêt ({student.tutoringStatus})
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">
+                    {monthlyEncadrementPaid.toLocaleString()} / {(encadrementAccount?.due ?? student.monthlyFee).toLocaleString()} FCFA
+                  </div>
+                  <div className="text-[10px] mt-1">
+                    {encadrementRemaining > 0 ? (
+                      <span
+                        className={`font-semibold font-mono ${
+                          encadrementSchedule.isOverdue
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : 'text-amber-700 dark:text-amber-300'
+                        }`}
+                      >
+                        Reste dû ({currentMonthLabel}) : {encadrementRemaining.toLocaleString()} FCFA
+                      </span>
+                    ) : (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                        ✓ Mois réglé à jour
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[9px] text-emerald-700/90 dark:text-emerald-400/80 mt-0.5">
+                    Début prest. : <strong className="font-mono">{encadrementSchedule.serviceStartDate}</strong> · Limite : <strong className="font-mono">{encadrementSchedule.overdueDate}</strong>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Traceability Agent */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Users,
   Plus,
@@ -53,11 +53,14 @@ import {
   getEncadrementAccount,
   getAccountStatusBadgeInfo,
   getStudentPaymentSchedule,
+  getCurrentYearMonth,
+  getStudentMonthlyPaymentMap,
 } from '../../utils/financialUtils';
 
 export const InscriptionsTab: React.FC = () => {
   const {
     students,
+    payments,
     tutors,
     setIsNewStudentModalOpen,
     setEditingStudent,
@@ -95,6 +98,11 @@ export const InscriptionsTab: React.FC = () => {
   const safeStudents = students || [];
   const safeTutors = tutors || [];
   const availablePromotions = getAllAvailablePromotions(safeStudents);
+  const currentMonthYYYYMM = getCurrentYearMonth();
+  const monthlyPaidMap = useMemo(
+    () => getStudentMonthlyPaymentMap(safeStudents, payments || [], currentMonthYYYYMM),
+    [safeStudents, payments, currentMonthYYYYMM]
+  );
 
   // Delete state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -147,8 +155,11 @@ export const InscriptionsTab: React.FC = () => {
       promotionFilter === 'all' ||
       studentPromo === promotionFilter;
 
-    const paymentSchedule = getStudentPaymentSchedule(stu);
-    const matchesPaymentStatus = statusFilter === 'all' || paymentSchedule.paymentStatus === statusFilter;
+    const monthlyPaid = monthlyPaidMap.get(stu.id) || 0;
+    const paymentSchedule = getStudentPaymentSchedule(stu, new Date(), monthlyPaid);
+    const matchesPaymentStatus =
+      statusFilter === 'all' ||
+      (stu.tutoringStatus === 'Actif' && paymentSchedule.paymentStatus === statusFilter);
 
     let matchesTutoring = true;
     if (tutoringFilter === 'active') {
@@ -756,9 +767,10 @@ export const InscriptionsTab: React.FC = () => {
                   const weeklySessions = stu.sessionsPerWeek || 3;
                   const inscAcc = getInscriptionAccount(stu);
                   const encadAcc = getEncadrementAccount(stu);
-                  const paymentSchedule = getStudentPaymentSchedule(stu);
+                  const monthlyPaid = monthlyPaidMap.get(stu.id) || 0;
+                  const paymentSchedule = getStudentPaymentSchedule(stu, new Date(), monthlyPaid);
                   const inscBadge = getAccountStatusBadgeInfo(inscAcc.status, 'inscription');
-                  const encadBadge = getAccountStatusBadgeInfo(encadAcc.status, 'encadrement', stu);
+                  const encadBadge = getAccountStatusBadgeInfo(encadAcc.status, 'encadrement', stu, monthlyPaid);
                   const inscRemaining = Math.max(0, (inscAcc?.due ?? 10000) - (inscAcc?.paid ?? 0));
                   const encadRemaining = Math.max(0, (encadAcc?.due ?? stu.monthlyFee) - (encadAcc?.paid ?? 0));
 
@@ -885,8 +897,10 @@ export const InscriptionsTab: React.FC = () => {
                           Début prest. : {paymentSchedule.serviceStartDate}
                         </div>
                         <div className="text-[9.5px] text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
-                          {paymentSchedule.paymentStatus === 'A jour'
-                            ? 'Échéance soldée'
+                          {stu.tutoringStatus !== 'Actif'
+                            ? 'Hors recouvrement (Arrêt)'
+                            : paymentSchedule.paymentStatus === 'A jour'
+                            ? 'Échéance du mois soldée'
                             : paymentSchedule.isOverdue
                             ? `Limite ${paymentSchedule.overdueDate} dépassée`
                             : `Limite : ${paymentSchedule.overdueDate}`}
@@ -955,14 +969,16 @@ export const InscriptionsTab: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* Ligne 2 : Frais d'Encadrement (Scolarité Périodique) */}
+                        {/* Ligne 2 : Frais d'Encadrement (Recouvrement Mensuel) */}
                         <div className="flex items-center justify-between text-[11px] pt-1">
                           <div className="flex items-center gap-1.5">
                             <span className="font-bold text-[9px] uppercase px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
                               Encadr.
                             </span>
                             <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-[10.5px]">
-                              {(encadAcc?.paid ?? 0).toLocaleString()} / {(encadAcc?.due ?? stu.monthlyFee).toLocaleString()}
+                              {stu.tutoringStatus !== 'Actif'
+                                ? 'Exclu (Arrêt)'
+                                : `${monthlyPaid.toLocaleString()} / ${(encadAcc?.due ?? stu.monthlyFee).toLocaleString()}`}
                             </span>
                           </div>
                           <span

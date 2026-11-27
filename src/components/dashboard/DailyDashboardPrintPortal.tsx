@@ -7,6 +7,8 @@ import {
   isEncadrementCategory,
   isInscriptionCategory,
   calculateTreasurySummary,
+  calculateMonthlyRecoverySummary,
+  getCurrentYearMonth,
   formatPaymentCoveredMonthLabel,
 } from '../../utils/financialUtils';
 
@@ -104,15 +106,14 @@ export const DailyDashboardPrintPortal: React.FC<DailyDashboardPrintPortalProps>
     'all',
     cashLoans || []
   );
-  const encadrementCollected = safePayments
-    .filter((p) => isEncadrementCategory(p.category))
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
-  const encadrementDue = safeStudents.reduce(
-    (sum, s) => sum + (s?.encadrement?.due ?? s?.monthlyFee ?? 0),
-    0
+  const currentMonthYYYYMM = getCurrentYearMonth(now);
+  const monthlyRecovery = calculateMonthlyRecoverySummary(
+    safeStudents,
+    safePayments,
+    currentMonthYYYYMM
   );
-  const encadrementRate =
-    encadrementDue > 0 ? Math.round((encadrementCollected / encadrementDue) * 100) : 100;
+  const encadrementCollected = monthlyRecovery.totalCollected;
+  const encadrementRate = monthlyRecovery.collectionRate;
 
   const inscriptionCollected = safePayments
     .filter((p) => isInscriptionCategory(p.category))
@@ -257,13 +258,13 @@ export const DailyDashboardPrintPortal: React.FC<DailyDashboardPrintPortalProps>
               </tr>
               <tr className="bg-white">
                 <td className="px-2.5 py-1.5 font-semibold border border-slate-300">
-                  Frais d&apos;Encadrement (Scolarité)
+                  Recouvrement Mensuel ({monthlyRecovery.monthLabel})
                 </td>
                 <td className="px-2.5 py-1.5 font-mono border border-slate-300">
-                  {formatFCFA(todayEncadrementTotal)}
+                  {formatFCFA(todayEncadrementTotal)} (du jour)
                 </td>
                 <td className="px-2.5 py-1.5 font-mono border border-slate-300">
-                  {formatFCFA(encadrementCollected)} recouvrés ({encadrementRate}%)
+                  {formatFCFA(encadrementCollected)} recouvrés ({encadrementRate}% · {monthlyRecovery.activeCount} actifs)
                 </td>
               </tr>
               <tr className="bg-slate-50">

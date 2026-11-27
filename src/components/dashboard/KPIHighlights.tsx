@@ -39,11 +39,14 @@ import {
   Tooltip,
 } from 'recharts';
 import { useApp } from '../../context/AppContext';
-import { parseFlexibleDate } from '../../utils/dateUtils';
+import { parseFlexibleDate, formatYYYYMMToFrench } from '../../utils/dateUtils';
 import {
   isInscriptionCategory,
   isEncadrementCategory,
   calculateTreasurySummary,
+  getCurrentYearMonth,
+  getStudentMonthlyPaymentMap,
+  calculateMonthlyRecoverySummary,
 } from '../../utils/financialUtils';
 
 interface EnrollmentDayPoint {
@@ -500,6 +503,7 @@ export const KPIHighlights: React.FC = () => {
   const [hoveredSliceName, setHoveredSliceName] = useState<string | null>(null);
   const [scatterGranularity, setScatterGranularity] = useState<ScatterGranularity>('cycle');
   const [scatterFlow, setScatterFlow] = useState<ScatterFlowFilter>('all');
+  const [recoveryMonth, setRecoveryMonth] = useState<string>(() => getCurrentYearMonth());
   const [paymentAreaMode, setPaymentAreaMode] = useState<PaymentAreaMode>('daily');
   const [composedHorizon, setComposedHorizon] = useState<ComposedHorizon>(6);
   const [monthlyTarget, setMonthlyTarget] = useState<number>(() => {
@@ -661,16 +665,15 @@ export const KPIHighlights: React.FC = () => {
   }, [rangePreset, startDate, endDate]);
 
   // 2. RÈGLE MÉTIER : SÉPARATION STRICTE DES FLUX FINANCIERS
-  // Flux A : Frais d'encadrement (scolarité périodique)
-  const encadrementCollected = safePayments
-    .filter((p) => isEncadrementCategory(p.category))
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
-  const encadrementDue = safeStudents.reduce(
-    (sum, s) => sum + (s?.encadrement?.due ?? s?.monthlyFee ?? 0),
-    0
+  // Flux A : Frais d'encadrement (recouvrement MENSUEL, élèves actifs uniquement)
+  const monthlyRecovery = useMemo(
+    () => calculateMonthlyRecoverySummary(safeStudents, safePayments, recoveryMonth),
+    [safeStudents, safePayments, recoveryMonth]
   );
-  const encadrementRemaining = Math.max(0, encadrementDue - encadrementCollected);
-  const encadrementRate = encadrementDue > 0 ? Math.round((encadrementCollected / encadrementDue) * 100) : 100;
+  const encadrementCollected = monthlyRecovery.totalCollected;
+  const encadrementDue = monthlyRecovery.totalDue;
+  const encadrementRemaining = monthlyRecovery.totalRemaining;
+  const encadrementRate = monthlyRecovery.collectionRate;
 
   // Flux B : Frais d'inscription (admission unique)
   const inscriptionCollected = safePayments
@@ -811,9 +814,15 @@ export const KPIHighlights: React.FC = () => {
       }
     }
 
+    const monthlyEncadrementMap = getStudentMonthlyPaymentMap(safeStudents, safePayments, recoveryMonth);
+    const scatterStudents =
+      scatterFlow === 'encadrement'
+        ? safeStudents.filter((st) => st.tutoringStatus === 'Actif')
+        : safeStudents;
+
     // Construire la liste ordonnée académiquement des niveaux présents
     const categoryMetaMap = new Map<string, { label: string; rank: number }>();
-    for (const st of safeStudents) {
+    for (const st of scatterStudents) {
       const stream = (st.stream || '').trim() || 'Non classé';
       const level = (st.level || '').trim() || 'Niveau non défini';
       const categoryLabel = scatterGranularity === 'cycle' ? stream : level;
@@ -848,29 +857,30 @@ export const KPIHighlights: React.FC = () => {
       { label: string; index: number; count: number; totalPaid: number }
     >();
 
-    safeStudents.forEach((st, idx) => {
+    scatterStudents.forEach((st, idx) => {
       const stream = (st.stream || '').trim() || 'Non classé';
       const level = (st.level || '').trim() || 'Niveau non défini';
       const categoryLabel = scatterGranularity === 'cycle' ? stream : level;
       const levelIndex = categoryIndexMap.get(categoryLabel) || 1;
 
       const receiptAgg = receiptTotalsByStudent.get(st.id);
-      const encPaidFallback = Number(st.encadrement?.paid ?? st.paidAmount ?? 0);
+      const isStopped = st.tutoringStatus !== 'Actif';
+      const encPaidMonth = monthlyEncadrementMap.get(st.id) || 0;
       const insPaidFallback = Number(st.inscription?.paid ?? 0);
-      const encDue = Number(st.encadrement?.due ?? st.monthlyFee ?? 0);
+      const encDue = isStopped ? 0 : Number(st.encadrement?.due ?? st.monthlyFee ?? 0);
       const insDue = Number(st.inscription?.due ?? 10000);
 
       let paidAmount = 0;
       let dueAmount = 0;
 
       if (scatterFlow === 'encadrement') {
-        paidAmount = Math.max(receiptAgg?.encadrement ?? 0, encPaidFallback);
+        paidAmount = encPaidMonth;
         dueAmount = encDue;
       } else if (scatterFlow === 'inscription') {
         paidAmount = Math.max(receiptAgg?.inscription ?? 0, insPaidFallback);
         dueAmount = insDue;
       } else {
-        paidAmount = Math.max(receiptAgg?.all ?? 0, encPaidFallback + insPaidFallback);
+        paidAmount = Math.max(receiptAgg?.all ?? 0, encPaidMonth + insPaidFallback);
         dueAmount = encDue + insDue;
       }
 
@@ -884,13 +894,13 @@ export const KPIHighlights: React.FC = () => {
       let statusBucket: PaymentScatterStatus = 'partial';
       if (
         (dueAmount > 0 && paidAmount >= dueAmount) ||
-        (scatterFlow === 'all' && st.paymentStatus === 'A jour' && paidAmount > 0)
+        (dueAmount === 0 && isStopped) ||
+        (scatterFlow === 'all' && !isStopped && st.paymentStatus === 'A jour' && paidAmount > 0)
       ) {
         statusBucket = 'paid';
       } else if (
-        st.paymentStatus === 'En retard' ||
-        st.tutoringStatus === 'Arrêté (Défaut de paiement)' ||
-        (dueAmount > 0 && paidAmount === 0)
+        !isStopped &&
+        (st.paymentStatus === 'En retard' || (dueAmount > 0 && paidAmount === 0))
       ) {
         statusBucket = 'overdue';
       }
@@ -981,7 +991,7 @@ export const KPIHighlights: React.FC = () => {
       levelSummaries,
       topAverageLevel,
     };
-  }, [safeStudents, safePayments, scatterGranularity, scatterFlow]);
+  }, [safeStudents, safePayments, scatterGranularity, scatterFlow, recoveryMonth]);
 
   // 7. Comparaison AreaChart : Volume des paiements des 30 derniers jours vs 30 jours précédents
   const paymentComparison = useMemo(() => {
@@ -1199,13 +1209,27 @@ export const KPIHighlights: React.FC = () => {
             </div>
           </div>
 
-          {/* Ligne 1 : Frais d'Encadrement */}
+          {/* Ligne 1 : Recouvrement Mensuel des Frais d'Encadrement (élèves actifs uniquement) */}
           <div className="mt-3 pb-2.5 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
-                Frais d'Encadrement :
-              </span>
-              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide truncate">
+                  Recouvrement :
+                </span>
+                <input
+                  type="month"
+                  value={recoveryMonth}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    if (e.target.value) setRecoveryMonth(e.target.value);
+                  }}
+                  aria-label="Mois de recouvrement"
+                  title={`Mois du recouvrement (${formatYYYYMMToFrench(recoveryMonth)})`}
+                  className="rounded border border-emerald-200 dark:border-emerald-700/60 bg-emerald-50/70 dark:bg-emerald-950/40 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 focus:outline-none cursor-pointer"
+                />
+              </div>
+              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0 tabular-nums">
                 {encadrementRate}% recouvré
               </span>
             </div>
@@ -1213,10 +1237,16 @@ export const KPIHighlights: React.FC = () => {
               <span className="font-mono text-lg font-bold text-slate-900 dark:text-white tabular-nums">
                 {(encadrementCollected ?? 0).toLocaleString()} <span className="text-[11px] font-normal text-slate-500">FCFA</span>
               </span>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono tabular-nums">
                 Reste: {(encadrementRemaining ?? 0).toLocaleString()} FCFA
               </span>
             </div>
+            <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+              {monthlyRecovery.activeCount} actif(s) facturé(s)
+              {monthlyRecovery.excludedStoppedCount > 0
+                ? ` · ${monthlyRecovery.excludedStoppedCount} en arrêt exclu(s)`
+                : ''}
+            </p>
           </div>
 
           {/* Ligne 2 : Frais d'Inscription */}

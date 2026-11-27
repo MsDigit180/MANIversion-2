@@ -1,11 +1,17 @@
-import { Student, MonthlyInvoice, InvoiceStudentItem } from '../types';
+import { Student, MonthlyInvoice, InvoiceStudentItem, PaymentReceipt } from '../types';
 import { formatYYYYMMToFrench } from './dateUtils';
-import { getAllFamilies, normalizePhoneForMatching, normalizeGuardianName } from './familyUtils';
-import { getStudentPaymentSchedule } from './financialUtils';
+import { getAllFamilies } from './familyUtils';
+import {
+  getCurrentYearMonth,
+  getStudentMonthlyPaymentMap,
+  getStudentPaymentSchedule,
+} from './financialUtils';
 
 /**
- * Génère l'ensemble des factures / avis d'échéance mensuels pour un mois donné (ex: "2026-10").
- * Regroupe automatiquement par famille pour les tuteurs ayant plusieurs enfants inscrits.
+ * Génère l'ensemble des factures / avis d'échéance mensuels pour un mois donné (ex: "2026-11").
+ * - RÈGLE MÉTIER 1 : Le recouvrement est mensuel (calculé uniquement sur les paiements couvrant ce mois).
+ * - RÈGLE MÉTIER 2 : Les élèves déjà en arrêt (`tutoringStatus !== 'Actif'`) ne sont pas concernés par le recouvrement.
+ * - Regroupe automatiquement par famille pour les tuteurs ayant plusieurs enfants actifs inscrits.
  */
 export function generateMonthlyInvoices(
   students: Student[],
@@ -13,31 +19,49 @@ export function generateMonthlyInvoices(
   options?: {
     dueDateDay?: number;
     groupByFamily?: boolean;
+    payments?: PaymentReceipt[];
   }
 ): MonthlyInvoice[] {
-  const { dueDateDay = 10, groupByFamily = true } = options || {};
-  const [yearStr, monthStr] = (monthYYYYMM || '2026-10').split('-');
-  const monthLabel = formatYYYYMMToFrench(monthYYYYMM || '2026-10');
+  const { dueDateDay = 10, groupByFamily = true, payments } = options || {};
+  const today = new Date();
+  const targetMonth = monthYYYYMM || getCurrentYearMonth(today);
+  const [yearStr, monthStr] = targetMonth.split('-');
+  const monthLabel = formatYYYYMMToFrench(targetMonth);
 
   const issueDate = `01/${monthStr}/${yearStr}`;
   const dueDate = `${String(dueDateDay).padStart(2, '0')}/${monthStr}/${yearStr}`;
 
-  // Date actuelle pour détecter les retards
-  const today = new Date();
+  // Date actuelle pour détecter les retards sur le mois facturé
   const dueDateTime = new Date(`${yearStr}-${monthStr}-${String(dueDateDay).padStart(2, '0')}T23:59:59`);
   const isPastDue = today > dueDateTime;
+  const isEarlierMonth = targetMonth < getCurrentYearMonth(today);
+
+  // Exclure systématiquement les élèves déjà en arrêt du recouvrement mensuel
+  const eligibleStudents = (students || []).filter((st) => st && st.tutoringStatus === 'Actif');
+
+  // Carte des paiements encaissés uniquement pour le mois sélectionné
+  const monthlyPaidMap = payments
+    ? getStudentMonthlyPaymentMap(eligibleStudents, payments, targetMonth)
+    : null;
+
+  const getFeePaidForMonth = (st: Student): number => {
+    if (monthlyPaidMap) {
+      return monthlyPaidMap.get(st.id) || 0;
+    }
+    return st?.encadrement?.paid ?? st?.paidAmount ?? 0;
+  };
 
   const invoices: MonthlyInvoice[] = [];
 
   if (groupByFamily) {
-    const families = getAllFamilies(students);
+    const families = getAllFamilies(eligibleStudents);
     let invoiceCounter = 1;
 
     for (const fam of families) {
-      // Élèves de cette famille
+      // Élèves actifs de cette famille
       const studentItems: InvoiceStudentItem[] = fam.students.map((st) => {
         const feeDue = st?.encadrement?.due ?? st?.monthlyFee ?? 0;
-        const feePaid = st?.encadrement?.paid ?? st?.paidAmount ?? 0;
+        const feePaid = getFeePaidForMonth(st);
         const remaining = Math.max(0, feeDue - feePaid);
         return {
           studentId: st.id,
@@ -58,12 +82,14 @@ export function generateMonthlyInvoices(
       const totalPaid = studentItems.reduce((acc, it) => acc + it.paidAmount, 0);
       const netDue = Math.max(0, totalMonthlyFee - totalPaid);
 
-      const hasOverdueStudent = fam.students.some((st) => getStudentPaymentSchedule(st).isOverdue);
+      const hasOverdueStudent = fam.students.some((st) =>
+        getStudentPaymentSchedule(st, today, getFeePaidForMonth(st)).isOverdue
+      );
 
       let status: MonthlyInvoice['status'] = 'En attente';
       if (totalPaid >= totalMonthlyFee && totalMonthlyFee > 0) {
         status = 'Payée';
-      } else if (isPastDue && hasOverdueStudent && netDue > 0) {
+      } else if (isPastDue && netDue > 0 && (isEarlierMonth || hasOverdueStudent)) {
         status = 'En retard';
       } else if (totalPaid > 0) {
         status = 'Partielle';
@@ -73,9 +99,9 @@ export function generateMonthlyInvoices(
       invoiceCounter++;
 
       invoices.push({
-        id: `inv-${monthYYYYMM}-${fam.familyKey.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+        id: `inv-${targetMonth}-${fam.familyKey.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
         invoiceNumber: invoiceNum,
-        month: monthYYYYMM,
+        month: targetMonth,
         monthLabel,
         issueDate,
         dueDate,
@@ -89,16 +115,16 @@ export function generateMonthlyInvoices(
         status,
         notes:
           fam.students.length > 1
-            ? `Avis d'échéance Frais d'Encadrement (Compte Cloisonné) pour ${fam.students.length} enfants inscrits.`
-            : `Frais d'encadrement périodiques (Compte Cloisonné) pour ${fam.students[0]?.fullName || 'élève'}.`,
+            ? `Avis d'échéance Frais d'Encadrement (${monthLabel}) pour ${fam.students.length} enfants actifs.`
+            : `Frais d'encadrement mensuels (${monthLabel}) pour ${fam.students[0]?.fullName || 'élève'}.`,
         createdAt: issueDate,
       });
     }
   } else {
-    // Mode individuel strict (1 facture par élève)
-    students.forEach((st, idx) => {
+    // Mode individuel strict (1 facture par élève actif)
+    eligibleStudents.forEach((st, idx) => {
       const feeDue = st?.encadrement?.due ?? st?.monthlyFee ?? 0;
-      const feePaid = st?.encadrement?.paid ?? st?.paidAmount ?? 0;
+      const feePaid = getFeePaidForMonth(st);
       const remaining = Math.max(0, feeDue - feePaid);
       const studentItems: InvoiceStudentItem[] = [
         {
@@ -120,12 +146,12 @@ export function generateMonthlyInvoices(
       const totalPaid = feePaid;
       const netDue = remaining;
 
-      const studentSchedule = getStudentPaymentSchedule(st);
+      const studentSchedule = getStudentPaymentSchedule(st, today, feePaid);
 
       let status: MonthlyInvoice['status'] = 'En attente';
       if (totalPaid >= totalMonthlyFee && totalMonthlyFee > 0) {
         status = 'Payée';
-      } else if (isPastDue && studentSchedule.isOverdue && netDue > 0) {
+      } else if (isPastDue && netDue > 0 && (isEarlierMonth || studentSchedule.isOverdue)) {
         status = 'En retard';
       } else if (totalPaid > 0) {
         status = 'Partielle';
@@ -134,9 +160,9 @@ export function generateMonthlyInvoices(
       const invoiceNum = `FAC-${yearStr}-${monthStr}-${String(idx + 1).padStart(4, '0')}`;
 
       invoices.push({
-        id: `inv-${monthYYYYMM}-${st.id}`,
+        id: `inv-${targetMonth}-${st.id}`,
         invoiceNumber: invoiceNum,
-        month: monthYYYYMM,
+        month: targetMonth,
         monthLabel,
         issueDate,
         dueDate,
@@ -148,7 +174,7 @@ export function generateMonthlyInvoices(
         totalPaid,
         netDue,
         status,
-        notes: `Scolarité mensuelle pour ${st.fullName} (${st.level}).`,
+        notes: `Scolarité mensuelle (${monthLabel}) pour ${st.fullName} (${st.level}).`,
         createdAt: issueDate,
       });
     });
@@ -164,15 +190,25 @@ export function generateMonthlyInvoices(
 export function generateSingleStudentInvoice(
   student: Student,
   monthYYYYMM: string,
-  options?: { dueDateDay?: number }
+  options?: { dueDateDay?: number; payments?: PaymentReceipt[] }
 ): MonthlyInvoice {
-  const { dueDateDay = 10 } = options || {};
-  const [yearStr, monthStr] = (monthYYYYMM || '2026-10').split('-');
-  const monthLabel = formatYYYYMMToFrench(monthYYYYMM || '2026-10');
+  const { dueDateDay = 10, payments } = options || {};
+  const today = new Date();
+  const targetMonth = monthYYYYMM || getCurrentYearMonth(today);
+  const [yearStr, monthStr] = targetMonth.split('-');
+  const monthLabel = formatYYYYMMToFrench(targetMonth);
   const issueDate = `01/${monthStr}/${yearStr}`;
   const dueDate = `${String(dueDateDay).padStart(2, '0')}/${monthStr}/${yearStr}`;
 
-  const remaining = Math.max(0, student.monthlyFee - student.paidAmount);
+  const monthlyPaidMap = payments
+    ? getStudentMonthlyPaymentMap([student], payments, targetMonth)
+    : null;
+  const feeDue = student?.encadrement?.due ?? student?.monthlyFee ?? 0;
+  const feePaid = monthlyPaidMap
+    ? (monthlyPaidMap.get(student.id) || 0)
+    : (student?.encadrement?.paid ?? student?.paidAmount ?? 0);
+  const remaining = Math.max(0, feeDue - feePaid);
+
   const studentItems: InvoiceStudentItem[] = [
     {
       studentId: student.id,
@@ -182,24 +218,24 @@ export function generateSingleStudentInvoice(
       stream: student.stream,
       subjects: student.subjects || [],
       sessionsPerWeek: student.sessionsPerWeek || 3,
-      monthlyFee: student.monthlyFee,
-      paidAmount: student.paidAmount,
+      monthlyFee: feeDue,
+      paidAmount: feePaid,
       balanceRemaining: remaining,
       tutoringStatus: student.tutoringStatus,
     },
   ];
 
   let status: MonthlyInvoice['status'] = 'En attente';
-  if (student.paidAmount >= student.monthlyFee) {
+  if (feePaid >= feeDue && feeDue > 0) {
     status = 'Payée';
-  } else if (student.paidAmount > 0) {
+  } else if (feePaid > 0) {
     status = 'Partielle';
   }
 
   return {
-    id: `inv-${monthYYYYMM}-${student.id}`,
+    id: `inv-${targetMonth}-${student.id}`,
     invoiceNumber: `FAC-${yearStr}-${monthStr}-${student.matricule.replace(/[^a-zA-Z0-9]/g, '')}`,
-    month: monthYYYYMM,
+    month: targetMonth,
     monthLabel,
     issueDate,
     dueDate,
@@ -207,11 +243,11 @@ export function generateSingleStudentInvoice(
     guardianPhone: student.guardianPhone,
     isFamilyInvoice: false,
     studentItems,
-    totalMonthlyFee: student.monthlyFee,
-    totalPaid: student.paidAmount,
+    totalMonthlyFee: feeDue,
+    totalPaid: feePaid,
     netDue: remaining,
     status,
-    notes: `Facture de scolarité pour ${student.fullName} (${student.level}).`,
+    notes: `Facture de scolarité (${monthLabel}) pour ${student.fullName} (${student.level}).`,
     createdAt: issueDate,
   };
 }

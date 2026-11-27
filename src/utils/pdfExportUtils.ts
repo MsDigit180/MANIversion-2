@@ -13,6 +13,8 @@ import {
   isInscriptionCategory,
   isEncadrementCategory,
   calculateTreasurySummary,
+  calculateMonthlyRecoverySummary,
+  getCurrentYearMonth,
 } from './financialUtils';
 
 /**
@@ -1257,14 +1259,10 @@ export const downloadDailyDashboardReportPDF = async ({
   const todayNetFlow = todayPaymentsTotal - todayExpensesTotal;
 
   const globalTreasury = calculateTreasurySummary(safePayments, safeExpenses, safeSalaries, 'all', cashLoans || []);
-  const encadrementCollected = safePayments
-    .filter((p) => isEncadrementCategory(p.category))
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
-  const encadrementDue = safeStudents.reduce(
-    (sum, s) => sum + (s?.encadrement?.due ?? s?.monthlyFee ?? 0),
-    0
-  );
-  const encadrementRate = encadrementDue > 0 ? Math.round((encadrementCollected / encadrementDue) * 100) : 100;
+  const currentMonthYYYYMM = getCurrentYearMonth(now);
+  const monthlyRecovery = calculateMonthlyRecoverySummary(safeStudents, safePayments, currentMonthYYYYMM);
+  const encadrementCollected = monthlyRecovery.totalCollected;
+  const encadrementRate = monthlyRecovery.collectionRate;
 
   const inscriptionCollected = safePayments
     .filter((p) => isInscriptionCategory(p.category))
@@ -1350,9 +1348,9 @@ export const downloadDailyDashboardReportPDF = async ({
         `${stoppedDemandCount} arrêt(s) demande · ${stoppedUnpaidCount} arrêt(s) impayés`,
       ],
       [
-        "Frais d'Encadrement (Scolarité)",
-        `${formatPdfFCFA(todayEncadrementTotal)}`,
-        `${formatPdfFCFA(encadrementCollected)} recouvrés (${encadrementRate}%)`,
+        `Recouvrement Mensuel (${monthlyRecovery.monthLabel})`,
+        `${formatPdfFCFA(todayEncadrementTotal)} (du jour)`,
+        `${formatPdfFCFA(encadrementCollected)} recouvrés (${encadrementRate}% · ${monthlyRecovery.activeCount} actifs)`,
       ],
       [
         "Frais d'Inscription (Admission)",

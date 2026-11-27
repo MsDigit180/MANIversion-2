@@ -12,16 +12,29 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PriorityAlert } from '../../types';
+import { getCurrentYearMonth } from '../../utils/financialUtils';
+import { generateMonthlyInvoices } from '../../utils/invoiceUtils';
 
 export const PriorityAlerts: React.FC = () => {
-  const { alerts, dismissAlert, showToast, setCurrentTab } = useApp();
+  const { alerts, dismissAlert, showToast, setCurrentTab, students, payments } = useApp();
   const safeAlerts = alerts || [];
 
   const handleAction = (alert: PriorityAlert) => {
     switch (alert.actionKey) {
-      case 'relances':
-        showToast('Campagne de relances SMS & WhatsApp envoyée avec succès aux 14 tuteurs légaux !', 'success');
+      case 'relances': {
+        const currentMonthInvoices = generateMonthlyInvoices(
+          students || [],
+          getCurrentYearMonth(),
+          { groupByFamily: true, payments: payments || [] }
+        );
+        const unpaidFamiliesCount = currentMonthInvoices.filter((inv) => inv.netDue > 0).length;
+        showToast(
+          `Campagne de relances SMS & WhatsApp prête pour ${unpaidFamiliesCount} famille(s) active(s) du mois en cours (élèves en arrêt exclus).`,
+          'success'
+        );
+        setCurrentTab('paiements');
         break;
+      }
       case 'pieces':
         setCurrentTab('concours');
         showToast('Redirection vers les candidatures en attente de pièces.', 'info');

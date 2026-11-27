@@ -25,6 +25,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { MonthlyInvoice, Student } from '../../types';
 import { formatYYYYMMToFrench } from '../../utils/dateUtils';
+import { getCurrentYearMonth } from '../../utils/financialUtils';
 import {
   generateMonthlyInvoices,
   generateWhatsAppInvoiceMessage,
@@ -38,13 +39,14 @@ import { PrintBatchInvoicesModal } from '../modals/PrintBatchInvoicesModal';
 export const MonthlyInvoicesView: React.FC = () => {
   const {
     students,
+    payments,
     setIsNewPaymentModalOpen,
     setFamilyPaymentTargetParent,
     showToast,
   } = useApp();
 
-  // Current selected billing month (Default: Current month e.g. "2026-10")
-  const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
+  // Current selected billing month (Default: Current month)
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentYearMonth());
   const [groupByFamily, setGroupByFamily] = useState<boolean>(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
@@ -55,15 +57,15 @@ export const MonthlyInvoicesView: React.FC = () => {
   const [isBatchPrintOpen, setIsBatchPrintOpen] = useState<boolean>(false);
   const [copiedInvoiceId, setCopiedInvoiceId] = useState<string | null>(null);
 
-  // Active students to bill
-  const activeAndEnrolledStudents = students.filter(
-    (s) => s.tutoringStatus === 'Actif' || s.tutoringStatus === 'Arrêté (Défaut de paiement)'
-  );
+  // Active students to bill (élèves en arrêt exclus du recouvrement)
+  const activeStudents = (students || []).filter((s) => s.tutoringStatus === 'Actif');
+  const excludedStoppedCount = (students || []).filter((s) => s.tutoringStatus !== 'Actif').length;
 
   // Generated invoices for this month
-  const allInvoices = generateMonthlyInvoices(activeAndEnrolledStudents, selectedMonth, {
+  const allInvoices = generateMonthlyInvoices(activeStudents, selectedMonth, {
     dueDateDay: 10,
     groupByFamily,
+    payments: payments || [],
   });
 
   // Filter invoices
@@ -151,7 +153,8 @@ export const MonthlyInvoicesView: React.FC = () => {
             {(totalBilled ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">FCFA</span>
           </div>
           <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
-            {allInvoices.length} factures émises
+            {allInvoices.length} factures ({activeStudents.length} actifs
+            {excludedStoppedCount > 0 ? ` · ${excludedStoppedCount} arrêt(s) exclus` : ''})
           </span>
         </div>
 
